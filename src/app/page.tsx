@@ -28,6 +28,10 @@ import {
   Download,
   Activity,
   Server,
+  Cpu,
+  Sun,
+  Users,
+  Layers,
 } from "lucide-react";
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 import { NewOrderModal } from "@/components/NewOrderModal";
@@ -35,33 +39,62 @@ import { GoogleDriveXlsImportModal } from "@/components/GoogleDriveXlsImportModa
 import { PshBatchModal } from "@/components/PshBatchModal";
 import { WarehouseReconciliationModal } from "@/components/WarehouseReconciliationModal";
 import { AdminDashboard } from "@/components/AdminDashboard";
-import { INITIAL_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
+import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
+import {
+  INITIAL_ORDERS,
+  INITIAL_STORES,
+  INITIAL_BATCHES,
+  INITIAL_PRODUCT_MASTERS,
+  INITIAL_RESEARCHERS,
+} from "@/lib/mockData";
 
 export default function CerberusApp() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  // Core Data States
   const [orders, setOrders] = useState<any[]>(INITIAL_ORDERS);
   const [stores, setStores] = useState<any[]>(INITIAL_STORES);
   const [batches, setBatches] = useState<any[]>(INITIAL_BATCHES);
-  const [loading, setLoading] = useState(true);
+  const [productMasters, setProductMasters] = useState<any[]>(INITIAL_PRODUCT_MASTERS);
+  const [researchers, setResearchers] = useState<any[]>(INITIAL_RESEARCHERS);
+  const [morningBriefing, setMorningBriefing] = useState<any>({
+    businessHealthScore: 89,
+    whatChanged: [
+      "26 Mağaza Konsolide Ciro: $5,562.88 (+%14.2 artış)",
+      "Ortalama Landed-Cost Ayarlı ROI: %41.4 (Hedef >%30.0)",
+      "FBA Sevk Oranı: %94.2 (Amazon NJ Prep Merkezi entegre)",
+    ],
+    whatMatters: [
+      "2 kritik depo sayım uyarısı (P2 Eksik Teslimat takipte)",
+      "10 ABD Sourcing Uzmanı aktif (4 onaylı Master Ürün Kasası)",
+      "Dyson V15 Detect (B09ZVDL7D4) ROI <%25 Policy Engine tarafından otomatik DURDURULDU",
+    ],
+    whatShouldIDo: [
+      "1. DeWalt 20V MAX XR (B0183RLW8A) için 65 adet FBA sevk emrini onayla (%53.2 ROI)",
+      "2. Ninja CREAMi (B08QX6L29W) %96 Duplicate Alarmını Selin'in kaydıyla birleştir",
+      "3. WO310759607 numaralı siparişin Narvar kargo tazminat dosyasını kontrol et",
+    ],
+  });
 
   // Active Store Isolation State
   const [selectedStore, setSelectedStore] = useState<string>("HRN");
 
   // Operational Workflow Tab
   const [activeTab, setActiveTab] = useState<
-    "XLS_MASTER" | "PSH_BATCHES" | "WAREHOUSE" | "INVENTORY_LAB" | "PROBLEMS" | "ADMIN"
-  >("XLS_MASTER");
+    "BRIEFING_DECISION" | "RESEARCHERS" | "XLS_MASTER" | "PSH_BATCHES" | "WAREHOUSE" | "INVENTORY_LAB" | "PROBLEMS" | "ADMIN"
+  >("BRIEFING_DECISION");
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
   const [cargoFilter, setCargoFilter] = useState("ALL");
   const [batchFilter, setBatchFilter] = useState("ALL");
+  const [decisionFilter, setDecisionFilter] = useState("ALL");
 
   // Modals & Drawers
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [selectedMaster, setSelectedMaster] = useState<any | null>(null);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isXlsImportOpen, setIsXlsImportOpen] = useState(false);
   const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
@@ -91,7 +124,7 @@ export default function CerberusApp() {
           });
         }
       } catch {
-        // demo fallback
+        // fallback demo
       } finally {
         setCheckingAuth(false);
       }
@@ -99,25 +132,32 @@ export default function CerberusApp() {
     verifyUser();
   }, []);
 
-  // 2. Fetch Orders for Selected Store
-  const fetchOrders = async () => {
+  // 2. Fetch Orders and Intelligence for Selected Store
+  const fetchAllData = async () => {
     try {
-      const res = await fetch(`/api/orders?storeCode=${selectedStore}`, { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
+      const [ordersRes, intelRes] = await Promise.all([
+        fetch(`/api/orders?storeCode=${selectedStore}`, { cache: "no-store" }),
+        fetch(`/api/intelligence`, { cache: "no-store" }),
+      ]);
+      if (ordersRes.ok) {
+        const json = await ordersRes.json();
         if (json.orders) setOrders(json.orders);
         if (json.stores) setStores(json.stores);
         if (json.batches) setBatches(json.batches);
       }
+      if (intelRes.ok) {
+        const json = await intelRes.json();
+        if (json.productMasters) setProductMasters(json.productMasters);
+        if (json.researchers) setResearchers(json.researchers);
+        if (json.morningBriefing) setMorningBriefing(json.morningBriefing);
+      }
     } catch {
       // offline memory
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
+    fetchAllData();
   }, [selectedStore]);
 
   const handleLogout = async () => {
@@ -146,6 +186,37 @@ export default function CerberusApp() {
       });
     } catch (err) {
       console.error("Order update failed:", err);
+    }
+  };
+
+  const handleUpdateMasterDecision = async (
+    id: number,
+    decisionAction: string,
+    sellingPrice?: number
+  ) => {
+    setProductMasters((prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              decisionAction,
+              sellingPrice: sellingPrice ? String(sellingPrice) : m.sellingPrice,
+            }
+          : m
+      )
+    );
+    if (selectedMaster?.id === id) {
+      setSelectedMaster((prev: any) => ({ ...prev, decisionAction }));
+    }
+
+    try {
+      await fetch(`/api/intelligence/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decisionAction, sellingPrice }),
+      });
+    } catch (err) {
+      console.error("Master update failed:", err);
     }
   };
 
@@ -244,7 +315,10 @@ export default function CerberusApp() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `CERBERUS_${selectedStore}_40KOLON_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      "download",
+      `CERBERUS_${selectedStore}_40KOLON_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -329,11 +403,11 @@ export default function CerberusApp() {
               </span>
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono-tech uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                AMAZON SP-API &amp; PREP SYNC
+                DECISION-CENTRIC OS
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono-tech hidden sm:block">
-              US Sourcing • PSH Envanter • Depo Sayım • Inventory Lab Muhasebe
+              Sabah Brifingi • Karar Motoru • 40-Kolon XLS • PSH Envanter • Depo Sayım
             </p>
           </div>
         </div>
@@ -508,17 +582,17 @@ export default function CerberusApp() {
           <div className="bg-[#0F1626] border border-rose-500/35 rounded-2xl p-3.5 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono-tech uppercase text-rose-400 block">
-                REFUND İADE GERİ KAZANIM
+                İŞ SAĞLIĞI SKORU
               </span>
               <span className="text-[10px] font-mono-tech text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                %100 KORUNDU
+                YÜKSEK
               </span>
             </div>
-            <div className="text-xl font-display font-bold text-rose-400 mt-1">
-              ${Number(kpis.totalRefunds).toLocaleString()}
+            <div className="text-xl font-display font-bold text-emerald-400 mt-1">
+              {morningBriefing.businessHealthScore}/100
             </div>
             <span className="text-[10px] font-mono-tech text-slate-400">
-              R-kodlu kart iadeleri
+              Morning Briefing SKORU
             </span>
           </div>
         </div>
@@ -529,34 +603,40 @@ export default function CerberusApp() {
         <nav className="flex items-center gap-5 sm:gap-6">
           {[
             {
+              id: "BRIEFING_DECISION",
+              label: "🌅 Sabah Brifingi & Karar Kasası (BUY/TEST/WAIT/REJECT)",
+              badge: `${productMasters.length} Ürün`,
+              icon: Sun,
+            },
+            {
+              id: "RESEARCHERS",
+              label: "🧠 10 Kişilik ABD Sourcing Ekibi",
+              badge: "10 Uzman",
+              icon: Users,
+            },
+            {
               id: "XLS_MASTER",
-              label: "1. Google Drive XLS Siparişleri",
+              label: "📋 40-Kolon Google Drive XLS Siparişleri",
               badge: `${filteredOrders.length} Satır`,
               icon: FileSpreadsheet,
             },
             {
               id: "PSH_BATCHES",
-              label: "2. PSH Envanter & Batch",
+              label: "📦 PSH Envanter & Batch Partileri",
               badge: `${batches.length} Parti`,
               icon: Building2,
             },
             {
               id: "WAREHOUSE",
-              label: "3. Depo Karşılama & Sayım",
+              label: "🏭 Depo Karşılama & Sayım",
               badge: "Order No Eşleştir",
               icon: PackageCheck,
             },
             {
               id: "INVENTORY_LAB",
-              label: "4. Inventory Lab & Muhasebe",
+              label: "📈 Inventory Lab & Muhasebe",
               badge: "Maliyet vs Satış",
               icon: TrendingUp,
-            },
-            {
-              id: "PROBLEMS",
-              label: "5. P1–P4 Problem & Refund",
-              badge: `${kpis.problemCount} Sorun`,
-              icon: AlertTriangle,
             },
             ...(isAdmin
               ? [
@@ -599,7 +679,304 @@ export default function CerberusApp() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-5 sm:p-6 max-w-[1700px] w-full mx-auto space-y-4">
+      <main className="flex-1 p-5 sm:p-6 max-w-[1700px] w-full mx-auto space-y-5">
+        {/* ========================================================================= */}
+        {/* TAB 0: MORNING BRIEFING & DECISION ENGINE VAULT (FAZ 5 & 12 & 34)         */}
+        {/* ========================================================================= */}
+        {activeTab === "BRIEFING_DECISION" && (
+          <div className="space-y-6">
+            {/* Executive Morning Briefing Banner (WHAT CHANGED? • WHAT MATTERS? • WHAT SHOULD I DO?) */}
+            <div className="bg-gradient-to-r from-[#121A2C] via-[#0F1626] to-[#121A2C] border border-indigo-500/40 rounded-2xl p-6 shadow-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                    <Sun className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono-tech uppercase tracking-wider text-indigo-400 font-bold block">
+                      CERBERUS MORNING BRIEFING — EXECUTIVE INTELLIGENCE (GAP FAZ 34 &amp; 36)
+                    </span>
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      Günlük Karar Destek Brifingi &amp; İş Sağlığı Skoru
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right font-mono-tech">
+                    <span className="text-[10px] text-slate-400 block">BUSINESS HEALTH SCORE</span>
+                    <span className="text-2xl font-display font-bold text-emerald-400">
+                      {morningBriefing.businessHealthScore} / 100
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4 text-xs font-mono-tech">
+                <div className="bg-[#080C14] p-4 rounded-xl border border-slate-800 space-y-2">
+                  <span className="text-indigo-400 font-bold block uppercase flex items-center gap-1.5">
+                    <TrendingUp className="w-4 h-4" /> WHAT CHANGED? (NE DEĞİŞTİ?)
+                  </span>
+                  <ul className="space-y-1.5 text-slate-300">
+                    {morningBriefing.whatChanged.map((item: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-emerald-400 mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-[#080C14] p-4 rounded-xl border border-amber-500/30 space-y-2">
+                  <span className="text-amber-400 font-bold block uppercase flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4" /> WHAT MATTERS? (KRİTİK RİSKLER)
+                  </span>
+                  <ul className="space-y-1.5 text-slate-300">
+                    {morningBriefing.whatMatters.map((item: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400 mt-0.5">⚠️</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="bg-[#080C14] p-4 rounded-xl border border-emerald-500/40 space-y-2">
+                  <span className="text-emerald-400 font-bold block uppercase flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" /> WHAT SHOULD I DO? (TAVSİYE EDİLEN AKSİYONLAR)
+                  </span>
+                  <ul className="space-y-1.5 text-slate-200">
+                    {morningBriefing.whatShouldIDo.map((item: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-indigo-400 font-bold mt-0.5">→</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Decision Engine Filter Bar */}
+            <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+                  Product Master Karar Kasası (Product ≠ Listing Ayrımı)
+                </h3>
+                <p className="text-xs text-slate-400 font-mono-tech">
+                  Karar Matrisi (`BUY | TEST | WAIT | REJECT`), Veri Tazeliği ve AI Kanıt Zinciri
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={decisionFilter}
+                  onChange={(e) => setDecisionFilter(e.target.value)}
+                  className="bg-[#080C14] border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono-tech text-indigo-300 font-bold"
+                >
+                  <option value="ALL">TÜM DECISION KARARLARI (4)</option>
+                  <option value="BUY">BUY (Satın Al - Yüksek Güven)</option>
+                  <option value="TEST">TEST (Test Partisi - Orta Risk)</option>
+                  <option value="WAIT">WAIT (Beklet - Çift Kayıt İncele)</option>
+                  <option value="REJECT">REJECT (Reddet - Policy İhlali)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Product Masters Decision Vault Table */}
+            <div className="bg-[#0F1626] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <table className="w-full text-left text-xs font-mono-tech">
+                <thead className="bg-[#080C14] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+                  <tr>
+                    <th className="p-3.5">Product Code / Barcodes</th>
+                    <th className="p-3.5">Ürün Master &amp; US Kaynak</th>
+                    <th className="p-3.5">Veri Tazeliği &amp; Kalite</th>
+                    <th className="p-3.5 text-right">Landed Cost</th>
+                    <th className="p-3.5 text-right">Amazon Satış</th>
+                    <th className="p-3.5 text-right">Tahmini vs Gerçek ROI</th>
+                    <th className="p-3.5 text-center">AI Opportunity</th>
+                    <th className="p-3.5">Decision Engine</th>
+                    <th className="p-3.5 text-right">360° Müfettiş</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {productMasters
+                    .filter(
+                      (m) => decisionFilter === "ALL" || m.decisionAction === decisionFilter
+                    )
+                    .map((m) => (
+                      <tr key={m.id} className="hover:bg-[#162035]/80 transition">
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span className="text-indigo-400 font-bold block">{m.productCode}</span>
+                          <span className="text-[10px] text-slate-400 block">ASIN: {m.asin}</span>
+                          <span className="text-[10px] text-slate-500 block">UPC: {m.upc}</span>
+                        </td>
+                        <td className="p-3.5 max-w-sm font-sans">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-mono-tech text-[10px] font-bold">
+                              {m.brand}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono-tech">
+                              {m.researcherName}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setSelectedMaster(m)}
+                            className="font-medium text-white hover:text-indigo-400 text-left line-clamp-2 transition"
+                          >
+                            {m.title}
+                          </button>
+                        </td>
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold block w-fit ${
+                              m.dataFreshnessStatus === "FRESH"
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                                : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            }`}
+                          >
+                            {m.dataFreshnessStatus}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-1">
+                            Kalite: {m.dataQualityStatus}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right font-bold text-amber-300">
+                          ${m.landedCost}
+                        </td>
+                        <td className="p-3.5 text-right font-bold text-white">
+                          ${m.sellingPrice}
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <span className="text-emerald-400 font-bold block">
+                            %{m.roiPercent} Tahmini
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Gerçek: %{m.actualRoiPercent || m.roiPercent}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="text-base font-display font-bold text-indigo-300">
+                            {m.opportunityScore}/100
+                          </span>
+                        </td>
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-1 rounded-xl text-xs font-bold border block text-center ${
+                              m.decisionAction === "BUY"
+                                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                : m.decisionAction === "TEST"
+                                ? "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                                : m.decisionAction === "WAIT"
+                                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                            }`}
+                          >
+                            {m.decisionAction} (Güven: %{m.confidenceScore})
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <button
+                            onClick={() => setSelectedMaster(m)}
+                            className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 font-bold transition"
+                          >
+                            Kanıt &amp; Radar 360°
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 1.5: 10-PERSON US SOURCING SPECIALISTS LEADERBOARD (FAZ 33)           */}
+        {/* ========================================================================= */}
+        {activeTab === "RESEARCHERS" && (
+          <div className="space-y-4">
+            <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-display font-bold text-white">
+                  10 Kişilik ABD Sourcing Ekibi Zekâsı (Quality-Adjusted Researcher Scorecard)
+                </h2>
+                <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
+                  Madde 33: Sadece ürün sayısı değil; Onay Oranı → Satın Alma Dönüşümü → Üretilen Net Kâr ve Fire Oranı ölçümü
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-mono-tech font-bold">
+                10 ABD SOURCING UZMANI AKTİF
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {researchers.map((r) => (
+                <div
+                  key={r.id}
+                  className="bg-[#0F1626] border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 flex flex-col justify-between transition shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-mono-tech font-bold flex items-center justify-center text-xs">
+                          {r.avatar}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-white">{r.name}</span>
+                            <span className="text-[10px] font-mono-tech text-slate-400">{r.code}</span>
+                          </div>
+                          <span className="text-[11px] text-indigo-400 block truncate max-w-[210px]">
+                            {r.specialtyDomain}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right font-mono-tech">
+                        <span className="text-[10px] text-slate-400 block">KALİTE SKORU</span>
+                        <span
+                          className={`text-xl font-bold ${
+                            Number(r.researcherScore) >= 90
+                              ? "text-emerald-400"
+                              : "text-indigo-300"
+                          }`}
+                        >
+                          {r.researcherScore}/100
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono-tech bg-[#080C14] p-3 rounded-xl border border-slate-800 my-3">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Keşif Hacmi</span>
+                        <span className="text-white font-bold">{r.discoveryVolume} Ürün</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Onay Oranı</span>
+                        <span className="text-emerald-400 font-bold">%{r.approvalRate}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Aylık Net Kâr Katkısı</span>
+                        <span className="text-emerald-400 font-bold">+${Number(r.averageNetProfit).toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Ortalama ROI</span>
+                        <span className="text-indigo-300 font-bold">%{r.averageRoi}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech text-slate-400">
+                    <span>Aktif FBA Listing: {r.activeListingsCount}</span>
+                    <span className="text-amber-400">Fire Oranı: %{r.problemRate}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ========================================================================= */}
         {/* TAB 1: GOOGLE DRIVE XLS MASTER VIEW                                       */}
         {/* ========================================================================= */}
@@ -1174,6 +1551,13 @@ export default function CerberusApp() {
         )}
       </main>
 
+      {/* Slide-Over Drawer: Product Master Decision Vault Inspector */}
+      <ProductMasterDrawer
+        master={selectedMaster}
+        onClose={() => setSelectedMaster(null)}
+        onUpdateDecision={handleUpdateMasterDecision}
+      />
+
       {/* Slide-Over Drawer: 40-Column Detailed Inspection */}
       <OrderDetailDrawer
         order={selectedOrder}
@@ -1197,7 +1581,7 @@ export default function CerberusApp() {
       <GoogleDriveXlsImportModal
         isOpen={isXlsImportOpen}
         onClose={() => setIsXlsImportOpen(false)}
-        onImportSuccess={() => fetchOrders()}
+        onImportSuccess={() => fetchAllData()}
         currentStore={selectedStore}
       />
 
@@ -1205,7 +1589,7 @@ export default function CerberusApp() {
       <PshBatchModal
         isOpen={isPshBatchOpen}
         onClose={() => setIsPshBatchOpen(false)}
-        onCreated={() => fetchOrders()}
+        onCreated={() => fetchAllData()}
         currentStore={selectedStore}
         unbatchedOrders={orders.filter((o) => !o.pshBatchNo || o.pshBatchNo === "")}
       />
@@ -1214,7 +1598,7 @@ export default function CerberusApp() {
       <WarehouseReconciliationModal
         isOpen={isWarehouseReconOpen}
         onClose={() => setIsWarehouseReconOpen(false)}
-        onSaved={() => fetchOrders()}
+        onSaved={() => fetchAllData()}
         orders={filteredOrders}
       />
     </div>

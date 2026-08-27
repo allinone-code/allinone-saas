@@ -1,48 +1,56 @@
-# CERBERUS — Çoklu Mağaza Operasyon & E-Ticaret Komuta Platformu (Enterprise v2.4)
+# CERBERUS — DECISION-CENTRIC COMMERCE OPERATING SYSTEM (v3.0)
 
-**Cerberus**, Amazon, Walmart ve Shopify mağazalarında satış yapan e-ticaret operasyonları için geliştirilmiş; **mağaza bazlı veri izolasyonu**, **kullanıcı yetkilendirmesi**, **Google Drive XLS 40-kolon entegrasyonu + CSV Export**, **PSH envanter batch yönetimi**, **depo sayım & fire eşleştirme**, **Amazon SP-API senkronizasyonu** ve **Inventory Lab kârlılık muhasebesi** sunan kurumsal bir SaaS platformudur.
+> **Mükemmellik daha fazla ekran yapmak değildir. Mükemmellik; doğru verinin, doğru zamanda, doğru güven seviyesiyle, doğru insana, doğru kararı aldırmasıdır.**
 
 ---
 
-## 🔐 Kullanıcı Girişi & Mağaza İzolasyonu
+## 🏛️ Mimari Katmanlar (Kaynak A + Kaynak B Birleşimi)
 
-Sistemde her kullanıcının bir rolü ve atanmış bir mağazası (`storeCode`) bulunur:
+```text
+DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → RISK + CONFIDENCE → DECIDE → APPROVE → BUY → RECEIVE → LIST → SELL → MEASURE → RECONCILE → LEARN → BETTER DECISION
+```
 
-### 1-Tıkla Test Giriş Hesapları
-| Kullanıcı | E-posta | Parola | Rol | Yetki Kapsamı |
+1. **Yönetici Sabah Brifingi (Morning Briefing) & İş Sağlığı Skoru (0–100):**
+   - `WHAT CHANGED?` • `WHAT MATTERS?` • `WHAT SHOULD I DO?`
+   - Günlük 26 mağaza konsolide ciro, Landed-Cost ayarlı ROI ve FBA sevk oranı.
+2. **Product Master Decision Vault (`Product ≠ Listing`):**
+   - Karar Motoru: `BUY | TEST | WAIT | REJECT | REPRICE | REORDER | PAUSE | LIQUIDATE`
+   - Veri Tazeliği: `FRESH | AGING | STALE | EXPIRED`
+   - Veri Kalitesi: `VALID | INVALID | CONFLICTING`
+   - 6-Eksenli Hexagonal SVG Yapay Zeka Radarı (`PROFITABILITY`, `DEMAND`, `COMPETITION`, `PRICE STABILITY`, `SUPPLIER RELIABILITY`, `OPERATIONAL RISK`)
+   - AI Kanıt Zinciri (`Evidence Chain` - Kaynak, gözlem tarihi, güven yüzdesi)
+   - Tahmini ROI vs Gerçekleşen ROI (`Actual vs Estimated Profitability Engine`)
+3. **10 Kişilik ABD Sourcing Ekibi Zekâsı (`Quality-Adjusted Researcher Score`):**
+   - Bulunan Ürün → Onaylanan → Satın Alınan → Kâr Üreten Ürün + Fire Oranı.
+4. **40 Kolonluk Google Drive XLS Siparişleri + CSV İndir:**
+   - 38 gerçek The Vitamin Shoppe siparişi (`WO110074776`, `WO310759607`...)
+5. **PSH Envanter & Batch Partileri Modülü:**
+   - Ön-envanter sevkiyat partileri (`PSH-BATCH-2026-01`, `PSH-BATCH-2026-02`).
+6. **Depo Karşılama & Sayım (Order No Eşleştirme & P1–P4 Fire):**
+   - Gelen kutulardaki Order No'yu eşleştirip `P1 İptal`, `P2 Eksik`, `P3 Defolu`, `P4 Tarihi Geçmiş` kaydı.
+7. **Inventory Lab & Amazon Muhasebesi:**
+   - Birim alış, satış fiyatı, kâr ve net ROI.
+8. **Admin Komuta Merkezi & Mağaza İzolasyonu (Zero Trust RBAC):**
+   - `ADMIN` (Tüm Mağazalar) vs `STORE_USER` (`HRN`, `SEL`, `MK` İzole Mağazalar).
+
+---
+
+## 🔐 1-Tıkla Test Giriş Hesapları
+
+| Kullanıcı | E-posta | Parola | Rol | Mağaza Kapsamı |
 |---|---|---|---|---|
-| **Ahmet Erdem** | `ahmet@cerberus-commerce.io` | `admin2026` | `ADMIN` | **Tüm Mağazalar**: Yeni mağaza tanımlayabilir, kullanıcıların mağaza atamasını değiştirebilir, SP-API token'larını denetler, tüm sipariş ve denetim loglarını görür. |
-| **Harun** | `harun@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca HRN Mağazası**: Sadece HRN'in 38 siparişini, Google Drive faturalarını ve PSH batch'lerini görür. Başka mağazaya erişemez. |
-| **Selin Yılmaz** | `selin@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca SEL Mağazası**: Kendi mağazasının ürünlerini ve sipariş süreçlerini yönetir. |
-| **Can Demir** | `can@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca MK Mağazası**: Yalnızca MK mağazasına yetkilidir. |
+| **Ahmet Erdem** | `ahmet@cerberus-commerce.io` | `admin2026` | `ADMIN` | **Tüm Mağazalar**: Yeni mağaza ve kullanıcı açabilir, SP-API ve denetim loglarını yönetir. |
+| **Harun** | `harun@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca HRN Mağazası**: Sadece HRN'in 38 siparişini ve verilerini görür. |
+| **Selin Yılmaz** | `selin@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca SEL Mağazası** |
+| **Can Demir** | `can@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca MK Mağazası** |
 
 ---
 
-## 🛡️ Admin Komuta Merkezi & SP-API Paneli (Yalnızca Admin Girişinde Görünür)
+## ⚡ Canlıya Alma (Vercel + Neon)
 
-Admin girişi yapıldığında üst sekmelerde **"🛡️ Admin Komuta Merkezi"** açılır:
-1. **Mağaza Yönetimi**:
-   - Yeni mağaza tanımlama (`storeCode`, `storeName`, `marketplace`, `buyerName`, `currency`, `defaultCard`, `defaultEmail`, `notes`).
-   - Mağazaları tek tıkla Aktif/Pasif yapma veya sipariş tablosuna geçiş.
-2. **Kullanıcı & Mağaza İzolasyon Atama Yönetimi**:
-   - Yeni kullanıcı ekleme.
-   - Kullanıcıların yetkisini (`ADMIN` / `STORE_USER`) ve sorumlu olduğu mağazayı dinamik olarak değiştirme.
-3. **Amazon SP-API & Muhasebe Bağlantıları**:
-   - Her mağazanın Amazon Marketplace ID (`ATVPDKIKX0DER`), LWA Client Token durumu ve FBA envanter beslemesi.
-4. **Sistem Denetim İzi (Audit Log Stream)**:
-   - Kim, ne zaman, hangi mağazada, hangi siparişi veya mağazayı değiştirdi? (`WHO • WHAT • WHEN • BEFORE • AFTER`).
-
----
-
-## 📦 40 Kolonluk Google Drive XLS, CSV Export ve Operasyonel Akış
-
-1. **Google Drive XLS Siparişleri + CSV İndir**:
-   - 40 kolonlu tabloyu görüntüleyin, filtrelenin veya tek tıkla **CSV Export** butonuyla Excel/CSV olarak indirin.
-2. **PSH Envanter & Batch Partileri**:
-   - Ürünler depoya gelmeden önce açılan sevkiyat batch'leri (`PSH-BATCH-2026-01`, `PSH-BATCH-2026-02`).
-3. **Depo Karşılama & Sayım (Order No Eşleştirme)**:
-   - Depocu kutunun üzerindeki Order No'yu aratır; gelen, eksik (P2), defolu (P3) adetleri ve Amazona sevk miktarını kaydeder.
-4. **Inventory Lab & Amazon Muhasebesi**:
-   - Birim alış, satış fiyatı, tahmini Amazon cirosu, kâr ve net **% ROI** dökümü.
-5. **P1–P4 Fire & Refund Takip Merkezi**:
-   - Satıcı iptalleri, eksik teslimatlar ve R-kodlu iade tutarları.
+1. Projeyi GitHub'a pushlayın (`allinone-code/allinone-saas`).
+2. Neon veritabanında şemayı güncelleyin:
+   ```bash
+   DATABASE_URL="your-neon-pooled-connection-string" npx drizzle-kit push
+   ```
+3. Vercel'de **Redeploy** çalıştırın.

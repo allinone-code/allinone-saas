@@ -6,6 +6,7 @@ import {
   numeric,
   boolean,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // 1. Users table (Preserved users with password_hash, store assignment & role)
@@ -13,14 +14,14 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull().default("admin2026"),
+  passwordHash: text("password_hash").notNull().default("store2026"),
   role: text("role").notNull().default("STORE_USER"), // 'ADMIN' | 'MANAGER' | 'STORE_USER'
   storeCode: text("store_code").notNull().default("HRN"), // e.g. 'HRN', 'ALL' for admin
   avatar: text("avatar"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// 2. Stores Table (Multi-Store Isolation & Admin Management)
+// 2. Stores Table (26 Multi-Store Fleet & Admin Management)
 export const stores = pgTable("stores", {
   id: serial("id").primaryKey(),
   storeCode: text("store_code").notNull().unique(), // e.g. 'HRN', 'SEL', 'MK', 'AMZ-US-01'
@@ -32,12 +33,115 @@ export const stores = pgTable("stores", {
   defaultCard: text("default_card").default("1753"),
   defaultEmail: text("default_email"),
   notes: text("notes"),
+  accountHealthScore: integer("account_health_score").notNull().default(98),
   totalOrdersCount: integer("total_orders_count").notNull().default(0),
   totalSpend: numeric("total_spend", { precision: 12, scale: 2 }).notNull().default("0.00"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// 3. Orders Master Table (Exact 40-Column Google Drive XLS Structure + PSH & Inventory Lab)
+// 3. 10-Person US Sourcing Specialists (Quality-Adjusted Researcher Score)
+export const researchers = pgTable("researchers", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(), // e.g. 'SRC-01'
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  specialtyDomain: text("specialty_domain").notNull(), // e.g. 'Home Depot & Lowe's Clearance Arbitrage'
+  discoveryVolume: integer("discovery_volume").notNull().default(0),
+  approvalRate: numeric("approval_rate", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  purchaseConversion: numeric("purchase_conversion", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  averageRoi: numeric("average_roi", { precision: 6, scale: 2 }).notNull().default("0.00"),
+  averageNetProfit: numeric("average_net_profit", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  problemRate: numeric("problem_rate", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  researcherScore: integer("researcher_score").notNull().default(85), // Quality-adjusted 0-100 score
+  activeListingsCount: integer("active_listings_count").notNull().default(0),
+  avatar: text("avatar"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 4. Research Sessions (Phase 5 Sourcing Engine Tracking)
+export const researchSessions = pgTable("research_sessions", {
+  id: serial("id").primaryKey(),
+  sessionCode: text("session_code").notNull().unique(), // e.g. 'SES-2026-0827-01'
+  researcherCode: text("researcher_code").notNull(),
+  researcherName: text("researcher_name").notNull(),
+  sourceDomain: text("source_domain").notNull(), // 'homedepot.com', 'ulta.com'
+  productsFound: integer("products_found").notNull().default(0),
+  productsApproved: integer("products_approved").notNull().default(0),
+  sessionQualityScore: integer("session_quality_score").notNull().default(90),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+});
+
+// 5. Product Master Decision Vault (Product ≠ Listing + Decision Engine + Evidence Chain)
+export const productMasters = pgTable("product_masters", {
+  id: serial("id").primaryKey(),
+  productCode: text("product_code").notNull().unique(), // e.g. 'CRB-2026-9041'
+  title: text("title").notNull(),
+  brand: text("brand").notNull(),
+  category: text("category").notNull(),
+  upc: text("upc").notNull(),
+  asin: text("asin").notNull(),
+  msku: text("msku").notNull(),
+  sourceUrl: text("source_url").notNull(),
+  sourceDomain: text("source_domain").notNull(),
+  supplierName: text("supplier_name").notNull(),
+  researcherCode: text("researcher_code").notNull().default("SRC-01"),
+  researcherName: text("researcher_name").notNull(),
+
+  // 13-Stage Cerberus Lifecycle
+  lifecycleStage: text("lifecycle_stage").notNull().default("APPROVED"),
+
+  // Data Quality & Freshness Engine (Gap Phase 7 & 8)
+  dataQualityStatus: text("data_quality_status").notNull().default("VALID"),
+  // 'VALID' | 'INVALID' | 'MISSING' | 'STALE' | 'CONFLICTING'
+  dataFreshnessStatus: text("data_freshness_status").notNull().default("FRESH"),
+  // 'FRESH' | 'AGING' | 'STALE' | 'EXPIRED'
+  observedAt: timestamp("observed_at").defaultNow().notNull(),
+
+  // Commercial Decision Intelligence Engine (Gap Phase 12 & 13)
+  decisionAction: text("decision_action").notNull().default("BUY"),
+  // 'BUY' | 'TEST' | 'WAIT' | 'REJECT' | 'REPRICE' | 'REORDER' | 'PAUSE' | 'LIQUIDATE'
+  confidenceScore: integer("confidence_score").notNull().default(88), // 0-100%
+  riskLevel: text("risk_level").notNull().default("LOW"), // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  policyStatus: text("policy_status").notNull().default("APPROVED_BY_POLICY"),
+  // 'APPROVED_BY_POLICY' | 'REQUIRES_MANAGER_APPROVAL' | 'FLAGGED_IP_RISK'
+
+  // Landed Cost & Profitability
+  sourcePrice: numeric("source_price", { precision: 10, scale: 2 }).notNull(),
+  prepCost: numeric("prep_cost", { precision: 10, scale: 2 }).notNull().default("1.35"),
+  marketplaceFee: numeric("marketplace_fee", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  fulfillmentFee: numeric("fulfillment_fee", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  landedCost: numeric("landed_cost", { precision: 10, scale: 2 }).notNull(),
+  sellingPrice: numeric("selling_price", { precision: 10, scale: 2 }).notNull(),
+  estimatedNetProfit: numeric("estimated_net_profit", { precision: 10, scale: 2 }).notNull(),
+  roiPercent: numeric("roi_percent", { precision: 7, scale: 2 }).notNull(),
+  actualRoiPercent: numeric("actual_roi_percent", { precision: 7, scale: 2 }), // Actual vs Estimated Engine
+
+  // Duplicate Detection Score (0-100)
+  duplicateScore: integer("duplicate_score").notNull().default(12),
+  duplicateStatus: text("duplicate_status").notNull().default("CLEAR"),
+
+  // AI Opportunity Radar Sub-Scores (0-100)
+  profitabilityScore: integer("profitability_score").notNull().default(88),
+  demandScore: integer("demand_score").notNull().default(92),
+  competitionScore: integer("competition_score").notNull().default(78),
+  priceStabilityScore: integer("price_stability_score").notNull().default(85),
+  supplierRiskScore: integer("supplier_risk_score").notNull().default(94),
+  operationalRiskScore: integer("operational_risk_score").notNull().default(90),
+  opportunityScore: integer("opportunity_score").notNull().default(88),
+
+  // Evidence Chain JSONB (Phase 30)
+  evidenceChain: jsonb("evidence_chain").notNull().default([]),
+  // Multi-Store channel allocations JSONB
+  channelListings: jsonb("channel_listings").notNull().default([]),
+  // Cost & Price History JSONB
+  costHistory: jsonb("cost_history").notNull().default([]),
+
+  notes: text("notes"),
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 6. Orders Master Table (Exact 40-Column Google Drive XLS Structure + PSH & Inventory Lab)
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
 
@@ -106,7 +210,7 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 4. PSH Batch Master Table (PSH Programı Ön-Envanter Gruplama)
+// 7. PSH Batch Master Table (PSH Programı Ön-Envanter Gruplama)
 export const pshBatches = pgTable("psh_batches", {
   id: serial("id").primaryKey(),
   batchNumber: text("batch_number").notNull().unique(), // e.g. 'PSH-2026-01-21'
@@ -124,13 +228,13 @@ export const pshBatches = pgTable("psh_batches", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 5. Audit Log (İşlem Denetim İzi)
+// 8. Audit Log (Değiştirilemez Denetim İzi & AI Kanıt Zinciri)
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   actorName: text("actor_name").notNull(),
   storeCode: text("store_code").notNull().default("HRN"),
-  actionType: text("action_type").notNull(), // 'ORDER_CREATED' | 'STORE_CREATED' | 'USER_UPDATED' | 'CARGO_STATUS_CHANGED' | 'PSH_BATCH_ASSIGNED'
-  targetEntity: text("target_entity").notNull(), // e.g. 'WO110074776 (MegaFood)'
+  actionType: text("action_type").notNull(), // 'DECISION_APPROVED' | 'ORDER_CREATED' | 'XLS_BATCH_IMPORT' | 'STORE_CREATED'
+  targetEntity: text("target_entity").notNull(),
   beforeState: text("before_state"),
   afterState: text("after_state"),
   details: text("details"),
@@ -138,10 +242,10 @@ export const auditLogs = pgTable("audit_logs", {
 });
 
 export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
 export type Store = typeof stores.$inferSelect;
-export type NewStore = typeof stores.$inferInsert;
+export type Researcher = typeof researchers.$inferSelect;
+export type ResearchSession = typeof researchSessions.$inferSelect;
+export type ProductMaster = typeof productMasters.$inferSelect;
 export type Order = typeof orders.$inferSelect;
-export type NewOrder = typeof orders.$inferInsert;
 export type PshBatch = typeof pshBatches.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;

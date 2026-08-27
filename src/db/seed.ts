@@ -1,10 +1,25 @@
 import { db } from "@/db";
-import { users, stores, orders, pshBatches, auditLogs } from "@/db/schema";
-import { count, eq } from "drizzle-orm";
-import { ALL_38_XLS_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
+import {
+  users,
+  stores,
+  researchers,
+  researchSessions,
+  productMasters,
+  orders,
+  pshBatches,
+  auditLogs,
+} from "@/db/schema";
+import { count } from "drizzle-orm";
+import {
+  ALL_38_XLS_ORDERS,
+  INITIAL_STORES,
+  INITIAL_BATCHES,
+  INITIAL_RESEARCHERS,
+  INITIAL_PRODUCT_MASTERS,
+} from "@/lib/mockData";
 
 export async function ensureCerberusSeeded() {
-  // 1. Ensure users exist with passwords and store codes
+  // 1. Ensure users exist
   const existingUsers = await db.select({ total: count() }).from(users);
   if (Number(existingUsers[0]?.total || 0) === 0) {
     await db.insert(users).values([
@@ -43,7 +58,7 @@ export async function ensureCerberusSeeded() {
     ]);
   }
 
-  // 2. Stores Table (Multi-Store Fleet)
+  // 2. Stores Table (26 Multi-Store Fleet)
   const existingStores = await db.select({ total: count() }).from(stores);
   if (Number(existingStores[0]?.total || 0) === 0) {
     await db.insert(stores).values(
@@ -63,7 +78,104 @@ export async function ensureCerberusSeeded() {
     );
   }
 
-  // 3. Seed PSH Batches
+  // 3. 10-Person US Sourcing Intelligence Specialists
+  const existingResearchers = await db.select({ total: count() }).from(researchers);
+  if (Number(existingResearchers[0]?.total || 0) === 0) {
+    await db.insert(researchers).values(
+      INITIAL_RESEARCHERS.map((r) => ({
+        code: r.code,
+        name: r.name,
+        email: r.email,
+        specialtyDomain: r.specialtyDomain,
+        discoveryVolume: r.discoveryVolume,
+        approvalRate: r.approvalRate,
+        purchaseConversion: r.purchaseConversion,
+        averageRoi: r.averageRoi,
+        averageNetProfit: r.averageNetProfit,
+        problemRate: r.problemRate,
+        researcherScore: r.researcherScore,
+        activeListingsCount: r.activeListingsCount,
+        avatar: r.avatar,
+      }))
+    );
+  }
+
+  // 4. Research Sessions
+  const existingSessions = await db.select({ total: count() }).from(researchSessions);
+  if (Number(existingSessions[0]?.total || 0) === 0) {
+    await db.insert(researchSessions).values([
+      {
+        sessionCode: "SES-2026-0827-01",
+        researcherCode: "SRC-01",
+        researcherName: "Ahmet Kaya (SRC-01)",
+        sourceDomain: "homedepot.com",
+        productsFound: 14,
+        productsApproved: 6,
+        sessionQualityScore: 94,
+      },
+      {
+        sessionCode: "SES-2026-0827-02",
+        researcherCode: "SRC-05",
+        researcherName: "Zeynep Aksoy (SRC-05)",
+        sourceDomain: "ulta.com",
+        productsFound: 19,
+        productsApproved: 9,
+        sessionQualityScore: 96,
+      },
+    ]);
+  }
+
+  // 5. Product Master Decision Vault
+  const existingMasters = await db.select({ total: count() }).from(productMasters);
+  if (Number(existingMasters[0]?.total || 0) === 0) {
+    await db.insert(productMasters).values(
+      INITIAL_PRODUCT_MASTERS.map((p) => ({
+        productCode: p.productCode,
+        title: p.title,
+        brand: p.brand,
+        category: p.category,
+        upc: p.upc,
+        asin: p.asin,
+        msku: p.msku,
+        sourceUrl: p.sourceUrl,
+        sourceDomain: p.sourceDomain,
+        supplierName: p.supplierName,
+        researcherCode: p.researcherCode,
+        researcherName: p.researcherName,
+        lifecycleStage: p.lifecycleStage,
+        dataQualityStatus: p.dataQualityStatus,
+        dataFreshnessStatus: p.dataFreshnessStatus,
+        decisionAction: p.decisionAction,
+        confidenceScore: p.confidenceScore,
+        riskLevel: p.riskLevel,
+        policyStatus: p.policyStatus,
+        sourcePrice: p.sourcePrice,
+        prepCost: p.prepCost,
+        marketplaceFee: p.marketplaceFee,
+        fulfillmentFee: p.fulfillmentFee,
+        landedCost: p.landedCost,
+        sellingPrice: p.sellingPrice,
+        estimatedNetProfit: p.estimatedNetProfit,
+        roiPercent: p.roiPercent,
+        actualRoiPercent: p.actualRoiPercent,
+        duplicateScore: p.duplicateScore,
+        duplicateStatus: p.duplicateStatus,
+        profitabilityScore: p.profitabilityScore,
+        demandScore: p.demandScore,
+        competitionScore: p.competitionScore,
+        priceStabilityScore: p.priceStabilityScore,
+        supplierRiskScore: p.supplierRiskScore,
+        operationalRiskScore: p.operationalRiskScore,
+        opportunityScore: p.opportunityScore,
+        evidenceChain: p.evidenceChain,
+        channelListings: p.channelListings,
+        costHistory: p.costHistory,
+        notes: p.notes,
+      }))
+    );
+  }
+
+  // 6. Seed PSH Batches
   const existingBatches = await db.select({ total: count() }).from(pshBatches);
   if (Number(existingBatches[0]?.total || 0) === 0) {
     await db.insert(pshBatches).values(
@@ -83,13 +195,16 @@ export async function ensureCerberusSeeded() {
     );
   }
 
-  // 4. Seed all 38 Real Orders from the XLS data if not yet present
+  // 7. Seed all 38 Real Orders from the XLS data if not yet present
   const existingCount = await db.select({ total: count() }).from(orders);
-  if (Number(existingCount[0]?.total || 0) === 0) {
+  if (Number(existingCount[0]?.total || 0) < 30) {
+    if (Number(existingCount[0]?.total || 0) > 0) {
+      await db.delete(orders);
+    }
     await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
   }
 
-  // 5. Initial Audit Log
+  // 8. Initial Audit Log
   const existingLogs = await db.select({ total: count() }).from(auditLogs);
   if (Number(existingLogs[0]?.total || 0) === 0) {
     await db.insert(auditLogs).values([
