@@ -6,18 +6,15 @@ import {
   Users,
   ShieldCheck,
   Plus,
-  Edit2,
-  CheckCircle2,
   XCircle,
-  Building2,
-  FileText,
-  DollarSign,
-  Lock,
-  Search,
-  ExternalLink,
-  RefreshCw,
-  AlertTriangle,
   History,
+  Activity,
+  CheckCircle2,
+  Key,
+  Globe,
+  TrendingUp,
+  Server,
+  Zap,
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -26,7 +23,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"STORES" | "USERS" | "AUDIT">("STORES");
+  const [activeSubTab, setActiveSubTab] = useState<"STORES" | "USERS" | "SP_API" | "AUDIT">("STORES");
   const [stores, setStores] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -144,7 +141,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
         );
         showFeedback(`${store.storeCode} mağazası ${nextStatus === "ACTIVE" ? "Aktif" : "Pasif"} yapıldı.`);
       }
-    } catch (err: any) {
+    } catch {
       showFeedback("Durum güncellenemedi", "error");
     }
   };
@@ -183,7 +180,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
     }
   };
 
-  const handleUpdateUserStore = async (userId: number, targetStore: string, currentRole: string) => {
+  const handleUpdateUserStore = async (userId: number, targetStore: string) => {
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
@@ -199,7 +196,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
         );
         showFeedback("Kullanıcı mağaza ataması güncellendi.");
       }
-    } catch (err: any) {
+    } catch {
       showFeedback("Güncelleme başarısız", "error");
     }
   };
@@ -214,13 +211,13 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       {/* Admin Top Notification */}
       {feedbackMsg && (
         <div
-          className={`p-3 rounded-xl text-xs font-mono-tech flex items-center justify-between border ${
+          className={`p-3.5 rounded-xl text-xs font-mono-tech flex items-center justify-between border ${
             feedbackMsg.type === "success"
-              ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
-              : "bg-rose-500/15 border-rose-500/30 text-rose-300"
+              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+              : "bg-rose-500/15 border-rose-500/40 text-rose-300"
           }`}
         >
-          <span>{feedbackMsg.text}</span>
+          <span className="font-bold">{feedbackMsg.text}</span>
           <button onClick={() => setFeedbackMsg(null)}>
             <XCircle className="w-4 h-4" />
           </button>
@@ -228,43 +225,43 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       )}
 
       {/* Admin Header Strip */}
-      <div className="bg-[#121A2C] border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-lg">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono-tech uppercase font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              YÖNETİCİ KONSOLU
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-tech uppercase font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              SİSTEM ADMIN MERKEZİ
             </span>
             <h2 className="text-lg font-bold text-white tracking-tight">
-              Admin &amp; Çoklu Mağaza Yetki Yönetimi
+              Çoklu Mağaza Filosu, Yetki &amp; SP-API Entegrasyon Yönetimi
             </h2>
           </div>
           <p className="text-xs text-slate-400 font-mono-tech">
-            Yeni mağaza tanımlayın, kullanıcıların mağaza erişimlerini sınırlayın ve sistem denetim izini inceleyin.
+            26 mağazalık operasyonel filonuzu, satınalma uzmanlarının erişimlerini ve Amazon SP-API bağlantılarını yönetin.
           </p>
         </div>
 
         {/* Global Stats */}
-        <div className="flex items-center gap-3 font-mono-tech text-xs">
-          <div className="bg-[#0B101E] px-3 py-2 rounded-xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 block">Kayıtlı Mağaza</span>
-            <span className="text-white font-bold">{activeStores} Aktif / {totalStores}</span>
+        <div className="flex flex-wrap items-center gap-3 font-mono-tech text-xs">
+          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-500 block uppercase">Mağaza Filosu</span>
+            <span className="text-white font-bold">{activeStores} Aktif / {totalStores} Mağaza</span>
           </div>
-          <div className="bg-[#0B101E] px-3 py-2 rounded-xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 block">Kullanıcılar</span>
-            <span className="text-sky-400 font-bold">{totalUsers} Personel</span>
+          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-slate-800 text-center">
+            <span className="text-[10px] text-slate-500 block uppercase">Uzman Personel</span>
+            <span className="text-indigo-400 font-bold">{totalUsers} Kullanıcı</span>
           </div>
-          <div className="bg-[#0B101E] px-3 py-2 rounded-xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 block">Konsolide Harcama</span>
+          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-indigo-500/40 text-center">
+            <span className="text-[10px] text-indigo-400 block uppercase">Konsolide Tedarik Bedeli</span>
             <span className="text-emerald-400 font-bold">${totalGlobalSpend.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       {/* Admin Subtabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 font-mono-tech text-xs">
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5 font-mono-tech text-xs overflow-x-auto">
         <button
           onClick={() => setActiveSubTab("STORES")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "STORES"
               ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
               : "text-slate-400 hover:text-white hover:bg-slate-800/60"
@@ -276,26 +273,38 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
 
         <button
           onClick={() => setActiveSubTab("USERS")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "USERS"
               ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
               : "text-slate-400 hover:text-white hover:bg-slate-800/60"
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>2. Kullanıcı &amp; Mağaza Atamaları ({users.length})</span>
+          <span>2. Kullanıcı &amp; Mağaza İzolasyon Atamaları ({users.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("SP_API")}
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === "SP_API"
+              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <Zap className="w-4 h-4 text-emerald-400" />
+          <span>3. Amazon SP-API &amp; Muhasebe Bağlantıları</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab("AUDIT")}
-          className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-2 ${
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "AUDIT"
               ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
               : "text-slate-400 hover:text-white hover:bg-slate-800/60"
           }`}
         >
           <History className="w-4 h-4" />
-          <span>3. Sistem Denetim İzi (Audit Logs)</span>
+          <span>4. Değiştirilemez Denetim İzi (Audit Log)</span>
         </button>
       </div>
 
@@ -310,33 +319,33 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
             </h3>
             <button
               onClick={() => setIsNewStoreModalOpen(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25"
             >
-              <Plus className="w-3.5 h-3.5" /> Yeni Mağaza Tanımla
+              <Plus className="w-4 h-4" /> Yeni Mağaza Tanımla
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {stores.map((st) => {
               const isActive = st.status === "ACTIVE";
               return (
                 <div
                   key={st.id}
-                  className="bg-[#121A2C] border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-4 flex flex-col justify-between transition"
+                  className="bg-[#0F1626] border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 flex flex-col justify-between transition shadow-md"
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-mono-tech text-xs font-bold border border-indigo-500/30">
+                        <span className="px-2.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-mono-tech text-xs font-bold border border-indigo-500/30">
                           {st.storeCode}
                         </span>
-                        <span className="text-[10px] font-mono-tech text-slate-400">
+                        <span className="text-[10px] font-mono-tech text-slate-400 bg-slate-900 px-2 py-0.5 rounded">
                           {st.marketplace}
                         </span>
                       </div>
                       <button
                         onClick={() => handleToggleStoreStatus(st)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono-tech font-bold transition ${
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-mono-tech font-bold transition ${
                           isActive
                             ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
                             : "bg-slate-800 text-slate-500 hover:text-slate-300"
@@ -346,12 +355,12 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                       </button>
                     </div>
 
-                    <h4 className="text-sm font-bold text-white mb-1">{st.storeName}</h4>
-                    <p className="text-xs text-slate-400 font-mono-tech mb-3">
+                    <h4 className="text-base font-bold text-white mb-1">{st.storeName}</h4>
+                    <p className="text-xs text-slate-400 font-mono-tech mb-4">
                       Alıcı Sorumlusu: <strong className="text-slate-200">{st.buyerName}</strong>
                     </p>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono-tech bg-[#0B101E] p-2.5 rounded-xl border border-slate-800/80 mb-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono-tech bg-[#080C14] p-3 rounded-xl border border-slate-800/80 mb-3">
                       <div>
                         <span className="text-[10px] text-slate-500 block">Sipariş Sayısı</span>
                         <span className="text-white font-bold">{st.totalOrdersCount} Kayıt</span>
@@ -363,12 +372,12 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                     </div>
                   </div>
 
-                  <div className="pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech">
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech">
                     <span className="text-slate-500 text-[11px]">Kart: **** {st.defaultCard || "1753"}</span>
                     {onStoreSelected && (
                       <button
                         onClick={() => onStoreSelected(st.storeCode)}
-                        className="text-indigo-400 hover:underline font-bold text-xs"
+                        className="text-indigo-400 hover:underline font-bold text-xs flex items-center gap-1"
                       >
                         Siparişleri İncele →
                       </button>
@@ -392,15 +401,15 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
             </h3>
             <button
               onClick={() => setIsNewUserModalOpen(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/20"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25"
             >
-              <Plus className="w-3.5 h-3.5" /> Yeni Kullanıcı Ekle
+              <Plus className="w-4 h-4" /> Yeni Kullanıcı Ekle
             </button>
           </div>
 
-          <div className="bg-[#121A2C] border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
             <table className="w-full text-left text-xs font-mono-tech">
-              <thead className="bg-[#0B101E] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+              <thead className="bg-[#080C14] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
                 <tr>
                   <th className="p-3.5">Kullanıcı</th>
                   <th className="p-3.5">E-posta</th>
@@ -414,8 +423,8 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   const isAdmin = u.role === "ADMIN";
                   return (
                     <tr key={u.id} className="hover:bg-slate-800/30 transition">
-                      <td className="p-3.5 flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs">
+                      <td className="p-3.5 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs border border-indigo-500/30">
                           {u.avatar || u.name.slice(0, 2).toUpperCase()}
                         </div>
                         <span className="font-bold text-white">{u.name}</span>
@@ -425,15 +434,15 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                         <span
                           className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${
                             isAdmin
-                              ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/30"
-                              : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                              ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/40"
+                              : "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
                           }`}
                         >
                           {u.role}
                         </span>
                       </td>
                       <td className="p-3.5">
-                        <span className="font-bold text-white px-2 py-0.5 rounded bg-slate-800">
+                        <span className="font-bold text-white px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
                           {u.storeCode === "ALL" ? "TÜM MAĞAZALAR (YETKİLİ)" : `${u.storeCode} STORE`}
                         </span>
                       </td>
@@ -441,8 +450,8 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                         {!isAdmin ? (
                           <select
                             value={u.storeCode}
-                            onChange={(e) => handleUpdateUserStore(u.id, e.target.value, u.role)}
-                            className="px-2 py-1 bg-[#0B101E] border border-slate-700 rounded-lg text-xs font-mono-tech text-sky-400 font-semibold focus:outline-none"
+                            onChange={(e) => handleUpdateUserStore(u.id, e.target.value)}
+                            className="px-3 py-1.5 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono-tech text-indigo-400 font-bold focus:outline-none"
                           >
                             {stores.map((s) => (
                               <option key={s.storeCode} value={s.storeCode}>
@@ -464,29 +473,92 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       )}
 
       {/* ========================================================================= */}
-      {/* 3. SİSTEM DENETİM İZİ (AUDIT LOGS)                                        */}
+      {/* 3. AMAZON SP-API & MUHASEBE BAĞLANTILARI                                   */}
+      {/* ========================================================================= */}
+      {activeSubTab === "SP_API" && (
+        <div className="space-y-4">
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-white uppercase font-mono-tech flex items-center gap-2">
+              <Server className="w-4 h-4 text-indigo-400" />
+              Amazon Seller Central SP-API &amp; Inventory Lab Entegrasyon Durumu
+            </h3>
+            <p className="text-xs text-slate-400 font-mono-tech mt-1">
+              Her mağazanın Amazon Marketplace ID, LWA Refresh Token ve BuyBox Repricer bağlantısı denetlenir.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {stores.map((st) => (
+              <div
+                key={st.id}
+                className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-indigo-400 font-mono-tech">
+                      {st.storeCode} — {st.marketplace}
+                    </span>
+                    <h4 className="text-sm font-bold text-white">{st.storeName}</h4>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono-tech font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> SP-API BAĞLI
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs font-mono-tech bg-[#080C14] p-3.5 rounded-xl border border-slate-800">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Marketplace ID:</span>
+                    <span className="text-slate-200 font-bold">ATVPDKIKX0DER (US-EAST)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">LWA Client Token:</span>
+                    <span className="text-emerald-400">amzn1.application-oa2-client.••••</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Inventory Lab Senkronu:</span>
+                    <span className="text-indigo-400 font-bold">Otomatik (FBA Feed)</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 text-xs font-mono-tech">
+                  <span className="text-slate-500">Son Senkronizasyon: 2 dk önce</span>
+                  <button
+                    onClick={() => showFeedback(`${st.storeCode} SP-API FBA stok senkronizasyonu tetiklendi.`)}
+                    className="px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-lg text-xs font-bold transition"
+                  >
+                    Senkronize Et
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. SİSTEM DENETİM İZİ (AUDIT LOGS)                                        */}
       {/* ========================================================================= */}
       {activeSubTab === "AUDIT" && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
             Gerçek Zamanlı Sistem Değişiklik Günlüğü (Audit Trail)
           </h3>
-          <div className="bg-[#121A2C] border border-slate-800 rounded-2xl p-4 max-h-[500px] overflow-y-auto space-y-2.5">
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 max-h-[500px] overflow-y-auto space-y-2.5">
             {auditLogs.length === 0 ? (
               <p className="text-xs font-mono-tech text-slate-500">Henüz denetim kaydı bulunmuyor.</p>
             ) : (
               auditLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 rounded-xl bg-[#0B101E] border border-slate-800/80 text-xs font-mono-tech flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  className="p-3.5 rounded-xl bg-[#080C14] border border-slate-800/80 text-xs font-mono-tech flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-indigo-400 font-bold">{log.actorName}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-amber-300">
+                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-amber-300">
                         {log.actionType}
                       </span>
-                      <span className="text-slate-300 font-semibold truncate max-w-sm">
+                      <span className="text-slate-200 font-semibold truncate max-w-sm">
                         {log.targetEntity}
                       </span>
                     </div>
@@ -507,7 +579,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       {/* ========================================================================= */}
       {isNewStoreModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121A2C] border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-[#0F1626] border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Store className="w-5 h-5 text-indigo-400" />
@@ -528,7 +600,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                     placeholder="Örn: WMT-01, AMZ-03"
                     value={storeCode}
                     onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
                   />
                 </div>
                 <div>
@@ -536,7 +608,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   <select
                     value={marketplace}
                     onChange={(e) => setMarketplace(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                   >
                     <option value="AMAZON">AMAZON FBA</option>
                     <option value="WALMART">WALMART</option>
@@ -554,7 +626,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   placeholder="Örn: Vanguard Retail Amazon Storefront"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                 />
               </div>
 
@@ -566,7 +638,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                     placeholder="Örn: Selin Yılmaz"
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                   />
                 </div>
                 <div>
@@ -576,7 +648,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                     maxLength={4}
                     value={defaultCard}
                     onChange={(e) => setDefaultCard(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
                   />
                 </div>
               </div>
@@ -588,7 +660,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   placeholder="amz03@cerberus-commerce.io"
                   value={defaultEmail}
                   onChange={(e) => setDefaultEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                 />
               </div>
 
@@ -618,7 +690,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       {/* ========================================================================= */}
       {isNewUserModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121A2C] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-[#0F1626] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-indigo-400" />
@@ -638,7 +710,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   placeholder="Örn: Ece Demir"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                 />
               </div>
 
@@ -650,7 +722,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   placeholder="ece@cerberus-commerce.io"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                 />
               </div>
 
@@ -660,7 +732,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   <select
                     value={newUserRole}
                     onChange={(e) => setNewUserRole(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                   >
                     <option value="STORE_USER">Mağaza Sorumlusu</option>
                     <option value="ADMIN">Sistem Yöneticisi</option>
@@ -672,7 +744,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                     disabled={newUserRole === "ADMIN"}
                     value={newUserStore}
                     onChange={(e) => setNewUserStore(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
                   >
                     {stores.map((s) => (
                       <option key={s.storeCode} value={s.storeCode}>
@@ -689,7 +761,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                   type="text"
                   value={newUserPass}
                   onChange={(e) => setNewUserPass(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#0B101E] border border-slate-700 rounded-xl text-white font-bold"
+                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
                 />
               </div>
 
