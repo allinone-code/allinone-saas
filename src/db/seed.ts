@@ -9,7 +9,7 @@ import {
   pshBatches,
   auditLogs,
 } from "@/db/schema";
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import {
   ALL_38_XLS_ORDERS,
   INITIAL_STORES,
@@ -17,45 +17,31 @@ import {
   INITIAL_RESEARCHERS,
   INITIAL_PRODUCT_MASTERS,
 } from "@/lib/mockData";
+import { DEFAULT_SYSTEM_USERS } from "@/lib/auth";
 
 export async function ensureCerberusSeeded() {
-  // 1. Ensure users exist
-  const existingUsers = await db.select({ total: count() }).from(users);
-  if (Number(existingUsers[0]?.total || 0) === 0) {
-    await db.insert(users).values([
-      {
-        name: "Ahmet Erdem (Sistem Yöneticisi)",
-        email: "ahmet@cerberus-commerce.io",
-        passwordHash: "admin2026",
-        role: "ADMIN",
-        storeCode: "ALL",
-        avatar: "AE",
-      },
-      {
-        name: "Harun (HRN Store Yöneticisi)",
-        email: "harun@cerberus-commerce.io",
-        passwordHash: "store2026",
-        role: "STORE_USER",
-        storeCode: "HRN",
-        avatar: "HRN",
-      },
-      {
-        name: "Selin Yılmaz (SEL Store Yöneticisi)",
-        email: "selin@cerberus-commerce.io",
-        passwordHash: "store2026",
-        role: "STORE_USER",
-        storeCode: "SEL",
-        avatar: "SY",
-      },
-      {
-        name: "Can Demir (MK Store Yöneticisi)",
-        email: "can@cerberus-commerce.io",
-        passwordHash: "store2026",
-        role: "STORE_USER",
-        storeCode: "MK",
-        avatar: "CD",
-      },
-    ]);
+  // 1. Ensure all default system users exist in PostgreSQL (Ahmet Erdem, Harun, Selin, Can, etc.)
+  for (const defaultUser of DEFAULT_SYSTEM_USERS) {
+    try {
+      const found = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, defaultUser.email.toLowerCase()))
+        .limit(1);
+
+      if (found.length === 0) {
+        await db.insert(users).values({
+          name: defaultUser.name,
+          email: defaultUser.email.toLowerCase(),
+          passwordHash: defaultUser.passwordHash,
+          role: defaultUser.role,
+          storeCode: defaultUser.storeCode,
+          avatar: defaultUser.avatar,
+        });
+      }
+    } catch (userSeedErr) {
+      console.warn(`User seed warning for ${defaultUser.email}:`, userSeedErr);
+    }
   }
 
   // 2. Stores Table (26 Multi-Store Fleet)

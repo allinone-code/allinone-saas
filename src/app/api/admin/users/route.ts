@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, auditLogs } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { ensureCerberusSeeded } from "@/db/seed";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
   try {
+    await ensureCerberusSeeded();
     const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
     // Sanitize password_hash before returning
     const safeUsers = allUsers.map((u) => ({
