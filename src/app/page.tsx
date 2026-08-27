@@ -2,86 +2,68 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  ShieldAlert,
+  Store,
   Search,
   Plus,
   FileSpreadsheet,
-  Cpu,
-  Store,
-  Users,
+  PackageCheck,
+  Building2,
   AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
   ExternalLink,
-  Lock,
-  History,
-  Database,
-  Info,
+  DollarSign,
+  TrendingUp,
+  CheckCircle2,
+  RefreshCw,
+  SlidersHorizontal,
+  ChevronRight,
+  Truck,
+  CreditCard,
+  Mail,
+  HelpCircle,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
-import { QuickSourceCaptureModal } from "@/components/QuickSourceCaptureModal";
-import { XlsImportModal } from "@/components/XlsImportModal";
-import { ProductIntelligenceDrawer } from "@/components/ProductIntelligenceDrawer";
-import {
-  INITIAL_DISCOVERIES,
-  INITIAL_PROBLEMS,
-  INITIAL_RESEARCHERS,
-  INITIAL_STORES,
-  INITIAL_SUPPLIERS,
-  INITIAL_AUDIT_LOGS,
-} from "@/lib/mockData";
+import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
+import { NewOrderModal } from "@/components/NewOrderModal";
+import { GoogleDriveXlsImportModal } from "@/components/GoogleDriveXlsImportModal";
+import { PshBatchModal } from "@/components/PshBatchModal";
+import { WarehouseReconciliationModal } from "@/components/WarehouseReconciliationModal";
+import { INITIAL_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
 
 export default function CerberusApp() {
-  const [data, setData] = useState<any>({
-    discoveries: INITIAL_DISCOVERIES,
-    stores: INITIAL_STORES,
-    researchers: INITIAL_RESEARCHERS,
-    suppliers: INITIAL_SUPPLIERS,
-    problems: INITIAL_PROBLEMS,
-    auditLogs: INITIAL_AUDIT_LOGS,
-    executiveKpis: {
-      totalGrossSales: "2845900.00",
-      totalMonthlyNetProfit: "682410.00",
-      totalActiveProducts: INITIAL_DISCOVERIES.length,
-      totalActiveListings: 3140,
-      averageRoiPercent: "48.20",
-      openProblemsCount: 3,
-      totalStoresCount: 26,
-      totalResearchersCount: 10,
-    },
-    dbStatus: {
-      connected: false,
-      message: "Checking database status...",
-    },
-  });
+  const [orders, setOrders] = useState<any[]>(INITIAL_ORDERS);
+  const [stores, setStores] = useState<any[]>(INITIAL_STORES);
+  const [batches, setBatches] = useState<any[]>(INITIAL_BATCHES);
   const [loading, setLoading] = useState(true);
+
+  // Active Store Isolation State (Top Priority!)
+  const [selectedStore, setSelectedStore] = useState<string>("HRN");
+
+  // Operational Workflow Tab
   const [activeTab, setActiveTab] = useState<
-    "INTELLIGENCE" | "RESEARCHERS" | "STORES" | "PROBLEMS"
-  >("INTELLIGENCE");
+    "XLS_MASTER" | "PSH_BATCHES" | "WAREHOUSE" | "INVENTORY_LAB" | "PROBLEMS"
+  >("XLS_MASTER");
 
-  // Current Role RBAC Selector
-  const [currentUserRole, setCurrentUserRole] = useState<
-    "MANAGER" | "LEAD_SOURCER" | "RESEARCHER"
-  >("MANAGER");
-
-  // Filter & Search states
+  // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
-  const [stageFilter, setStageFilter] = useState("ALL");
-  const [researcherFilter, setResearcherFilter] = useState("ALL");
-  const [duplicateFilter, setDuplicateFilter] = useState("ALL");
+  const [cargoFilter, setCargoFilter] = useState("ALL");
+  const [batchFilter, setBatchFilter] = useState("ALL");
 
-  // Modals & Drawer
-  const [isQuickCaptureOpen, setIsQuickCaptureOpen] = useState(false);
+  // Modals & Drawers
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isXlsImportOpen, setIsXlsImportOpen] = useState(false);
-  const [selectedDiscovery, setSelectedDiscovery] = useState<any | null>(null);
+  const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
+  const [isWarehouseReconOpen, setIsWarehouseReconOpen] = useState(false);
 
-  const fetchPlatformData = async () => {
+  const fetchOrders = async () => {
     try {
-      const res = await fetch("/api/cerberus", { cache: "no-store" });
+      const res = await fetch(`/api/orders?storeCode=${selectedStore}`, { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
-        if (json.discoveries && json.discoveries.length > 0) {
-          setData(json);
-        }
+        if (json.orders) setOrders(json.orders);
+        if (json.stores) setStores(json.stores);
+        if (json.batches) setBatches(json.batches);
       }
     } catch (err) {
       console.warn("Using offline memory dataset:", err);
@@ -91,142 +73,88 @@ export default function CerberusApp() {
   };
 
   useEffect(() => {
-    fetchPlatformData();
-  }, []);
+    fetchOrders();
+  }, [selectedStore]);
 
-  const handleUpdateStage = async (id: number, newStage: string) => {
-    // Optimistic immediate update
-    setData((prev: any) => ({
-      ...prev,
-      discoveries: prev.discoveries.map((d: any) =>
-        d.id === id ? { ...d, lifecycleStage: newStage } : d
-      ),
-    }));
-    if (selectedDiscovery?.id === id) {
-      setSelectedDiscovery((prev: any) => ({
-        ...prev,
-        lifecycleStage: newStage,
-      }));
+  const handleUpdateOrder = async (id: number, updates: any) => {
+    // Optimistic UI update
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, ...updates } : o))
+    );
+    if (selectedOrder?.id === id) {
+      setSelectedOrder((prev: any) => ({ ...prev, ...updates }));
     }
 
     try {
-      await fetch(`/api/cerberus/discoveries/${id}`, {
+      await fetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lifecycleStage: newStage,
-          actorName:
-            currentUserRole === "MANAGER"
-              ? "Ahmet Erdem (VP Operations)"
-              : currentUserRole === "LEAD_SOURCER"
-              ? "Selin Yilmaz (Lead Sourcing)"
-              : "Mert Çelik (Senior Researcher)",
-          actorRole: currentUserRole,
-        }),
+        body: JSON.stringify(updates),
       });
     } catch (err) {
-      console.warn("Stage update synced in UI:", err);
+      console.error("Order update failed:", err);
     }
   };
 
-  const handleUpdatePrice = async (id: number, newPrice: number) => {
-    setData((prev: any) => ({
-      ...prev,
-      discoveries: prev.discoveries.map((d: any) => {
-        if (d.id === id) {
-          const landed = Number(d.landedCost || 100);
-          const net = Number((newPrice - landed).toFixed(2));
-          const roi = Number(((net / landed) * 100).toFixed(2));
-          return {
-            ...d,
-            sellingPrice: String(newPrice),
-            estimatedNetProfit: String(net),
-            roiPercent: String(roi),
-          };
-        }
-        return d;
-      }),
-    }));
+  // Filtered Orders for current view
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      // Store isolation
+      const matchStore = selectedStore === "ALL" || o.buyerStore === selectedStore;
 
-    try {
-      await fetch(`/api/cerberus/discoveries/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sellingPrice: newPrice,
-          actorName: "Ahmet Erdem (VP Operations)",
-        }),
-      });
-    } catch (err) {
-      console.warn("Price update synced in UI:", err);
-    }
-  };
+      // Cargo status
+      const matchCargo = cargoFilter === "ALL" || o.cargoStatus === cargoFilter;
 
-  const handleResolveProblem = async (problemId: number) => {
-    setData((prev: any) => ({
-      ...prev,
-      problems: prev.problems.map((p: any) =>
-        p.id === problemId
-          ? { ...p, status: "RESOLVED", resolvedAt: new Date().toISOString() }
-          : p
-      ),
-    }));
+      // Batch
+      const matchBatch = batchFilter === "ALL" || o.pshBatchNo === batchFilter;
 
-    try {
-      await fetch(`/api/cerberus/problems/${problemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "RESOLVED",
-          actionTaken:
-            "Verified supplier invoice & re-enabled FBA buybox protection via Cerberus API.",
-        }),
-      });
-    } catch (err) {
-      console.warn("Problem resolution synced in UI:", err);
-    }
-  };
-
-  const filteredDiscoveries = useMemo(() => {
-    if (!data?.discoveries) return [];
-    return data.discoveries.filter((d: any) => {
+      // Search query
+      const q = searchQuery.toLowerCase();
       const matchSearch =
-        !searchQuery ||
-        d.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.productCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.upc.includes(searchQuery) ||
-        d.asin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        d.brand.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        o.orderNumber?.toLowerCase().includes(q) ||
+        o.asin?.toLowerCase().includes(q) ||
+        o.msku?.toLowerCase().includes(q) ||
+        o.productTitle?.toLowerCase().includes(q) ||
+        o.brandName?.toLowerCase().includes(q) ||
+        o.supplierName?.toLowerCase().includes(q) ||
+        o.orderEmail?.toLowerCase().includes(q);
 
-      const matchStage =
-        stageFilter === "ALL" || d.lifecycleStage === stageFilter;
-
-      const matchResearcher =
-        researcherFilter === "ALL" ||
-        d.researcherName.toLowerCase().includes(researcherFilter.toLowerCase());
-
-      const matchDuplicate =
-        duplicateFilter === "ALL" || d.duplicateStatus === duplicateFilter;
-
-      return matchSearch && matchStage && matchResearcher && matchDuplicate;
+      return matchStore && matchCargo && matchBatch && matchSearch;
     });
-  }, [data, searchQuery, stageFilter, researcherFilter, duplicateFilter]);
+  }, [orders, selectedStore, cargoFilter, batchFilter, searchQuery]);
 
-  const kpis = data?.executiveKpis || {
-    totalGrossSales: "2845900.00",
-    totalMonthlyNetProfit: "682410.00",
-    totalActiveProducts: 12,
-    totalActiveListings: 3140,
-    averageRoiPercent: "48.20",
-    openProblemsCount: 3,
-  };
+  // Aggregated KPIs
+  const kpis = useMemo(() => {
+    const totalOrders = filteredOrders.length;
+    const totalUnits = filteredOrders.reduce((s, o) => s + Number(o.quantity || 0), 0);
+    const totalSpend = filteredOrders.reduce((s, o) => s + Number(o.totalCost || 0), 0);
+    const totalShipped = filteredOrders.reduce((s, o) => s + Number(o.shippedToAmazon || 0), 0);
+    const problemCount = filteredOrders.filter(
+      (o) =>
+        o.cargoStatus === "İPTAL" ||
+        Number(o.p1CancelQty) > 0 ||
+        Number(o.p2MissingQty) > 0 ||
+        Number(o.p3DefectiveQty) > 0 ||
+        Number(o.p4ExpiredQty) > 0 ||
+        Number(o.refundAmount) > 0
+    ).length;
+    const totalRefunds = filteredOrders.reduce((s, o) => s + Number(o.refundAmount || 0), 0);
 
-  const isDbConnected = data?.dbStatus?.connected === true;
+    return {
+      totalOrders,
+      totalUnits,
+      totalSpend: totalSpend.toFixed(2),
+      totalShipped,
+      problemCount,
+      totalRefunds: totalRefunds.toFixed(2),
+    };
+  }, [filteredOrders]);
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-[#F3F4F6] flex flex-col">
-      {/* Top Tactical Command Navigation Header */}
-      <header className="h-16 border-b border-slate-800/80 bg-[#0E1420]/90 backdrop-blur-md sticky top-0 z-30 px-6 flex items-center justify-between">
+    <div className="min-h-screen bg-[#0B0F17] text-[#F3F4F6] flex flex-col font-sans">
+      {/* Top Header & Store Isolation Switcher */}
+      <header className="h-16 border-b border-slate-800/80 bg-[#0E1420]/95 backdrop-blur-md sticky top-0 z-30 px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center font-display font-bold text-white text-sm shadow-md shadow-sky-500/20">
             C
@@ -234,199 +162,165 @@ export default function CerberusApp() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-display font-bold text-sm tracking-wider text-white">
-                CERBERUS
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono-tech uppercase bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                26 MULTI-STORE FLEET
+                CERBERUS COMMERCE
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono-tech uppercase bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                10 US SOURCERS ONLINE
+                GOOGLE DRIVE XLS &amp; PSH MOTORU
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono-tech">
-              Product Intelligence • Sourcing • Landed-Cost Profitability • Marketplace Automation
+              US Online Sourcing • PSH Envanter • Depo Karşılama • Inventory Lab Muhasebe
             </p>
           </div>
         </div>
 
-        {/* Action Bar + DB Badge + Role Switcher */}
+        {/* Store Isolation Dropdown & Action Buttons */}
         <div className="flex items-center gap-3">
-          {/* Database Connection Status Badge */}
-          <div
-            title={data?.dbStatus?.message || "Database status"}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono-tech border ${
-              isDbConnected
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                : "bg-amber-500/15 text-amber-300 border-amber-500/30"
-            }`}
-          >
-            <Database className="w-3 h-3" />
-            <span>
-              {isDbConnected ? "POSTGRES LIVE" : "DEMO / OFFLINE MODE"}
-            </span>
-          </div>
-
-          {/* RBAC Role Simulator */}
-          <div className="hidden lg:flex items-center gap-1.5 bg-[#0B0F17] border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono-tech">
-            <Lock className="w-3.5 h-3.5 text-sky-400" />
-            <span className="text-slate-400">RBAC ROLE:</span>
+          {/* MAĞAZA İZOLASYON SEÇİCİ */}
+          <div className="flex items-center gap-2 bg-[#0B0F17] border border-sky-500/40 rounded-xl px-3 py-1.5 shadow-sm">
+            <Store className="w-4 h-4 text-sky-400" />
+            <span className="text-[11px] font-mono-tech text-slate-400 font-bold">MAĞAZA:</span>
             <select
-              value={currentUserRole}
-              onChange={(e: any) => setCurrentUserRole(e.target.value)}
-              className="bg-transparent text-sky-300 font-semibold focus:outline-none cursor-pointer"
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              className="bg-transparent text-xs font-mono-tech text-emerald-400 font-bold focus:outline-none cursor-pointer"
             >
-              <option value="MANAGER" className="bg-[#0B0F17]">
-                Ahmet Erdem (VP Operations / MANAGER)
-              </option>
-              <option value="LEAD_SOURCER" className="bg-[#0B0F17]">
-                Selin Yilmaz (Lead Sourcing Specialist)
-              </option>
-              <option value="RESEARCHER" className="bg-[#0B0F17]">
-                Mert Çelik (US Sourcing Researcher)
-              </option>
+              <option value="HRN" className="bg-[#0B0F17]">HRN (Harun Storefront - 37 Sipariş)</option>
+              <option value="SEL" className="bg-[#0B0F17]">SEL (Selin Amazon US)</option>
+              <option value="MK" className="bg-[#0B0F17]">MK (Mert Prime Tech)</option>
+              <option value="AMZ-02" className="bg-[#0B0F17]">AMZ-02 (Apex Frontier)</option>
+              <option value="ALL" className="bg-[#0B0F17]">TÜM MAĞAZALAR (Yönetici Paneli)</option>
             </select>
           </div>
 
           <button
             onClick={() => setIsXlsImportOpen(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-tech text-slate-200 border border-slate-700/60 transition"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono-tech text-slate-200 border border-slate-700 transition"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            Excel Batch Import
+            Drive XLS'den Yapıştır
           </button>
 
           <button
-            onClick={() => setIsQuickCaptureOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-mono-tech text-xs uppercase font-bold tracking-wider shadow-lg shadow-sky-500/25 transition"
+            onClick={() => setIsNewOrderOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-sky-500/25"
           >
             <Plus className="w-4 h-4" />
-            Chrome Extension Quick-Capture
+            Yeni Sipariş Gir
           </button>
         </div>
       </header>
 
-      {/* Optional Helpful Database Configuration Banner if Offline */}
-      {!isDbConnected && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between text-xs font-mono-tech text-amber-200">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Demo Modu:</strong> Veritabanı bağlantısı bulunamadığı için sistem yerel bellek üzerinden eksiksiz çalışmaktadır. Canlı PostgreSQL için <code>.env</code> dosyasına <code>DATABASE_URL</code> ekleyip <code>npx drizzle-kit push</code> çalıştırabilirsiniz.
-            </span>
-          </div>
-          <button
-            onClick={() => fetchPlatformData()}
-            className="px-2.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] shrink-0 transition"
-          >
-            Yeniden Dene
-          </button>
-        </div>
-      )}
-
-      {/* Executive Command Center KPI Strip */}
-      <section className="border-b border-slate-800/80 bg-[#0E1420]/50 px-6 py-4">
+      {/* Operational KPI Strip */}
+      <section className="border-b border-slate-800/80 bg-[#0E1420]/60 px-6 py-3.5">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-slate-400 block">
-              26-STORE GROSS REVENUE
+          <div className="bg-[#161C28] border border-slate-800 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-slate-400 block">
+              SİPARİŞ SAYISI ({selectedStore})
             </span>
             <div className="text-xl font-display font-bold text-white mt-1">
-              ${Number(kpis.totalGrossSales).toLocaleString()}
+              {kpis.totalOrders} Kayıt
             </div>
-            <span className="text-[10px] font-mono-tech text-emerald-400">
-              18 Amazon • 2 Walmart • 5 Shopify • 1 Wholesale
+            <span className="text-[10px] font-mono-tech text-sky-400">
+              The Vitamin Shoppe US
             </span>
           </div>
 
-          <div className="bg-[#161C28] border border-emerald-500/30 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-emerald-400 block">
-              TOTAL MONTHLY NET PROFIT
+          <div className="bg-[#161C28] border border-slate-800 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-slate-400 block">
+              TOPLAM ALINAN ÜRÜN
             </span>
             <div className="text-xl font-display font-bold text-emerald-400 mt-1">
-              +${Number(kpis.totalMonthlyNetProfit).toLocaleString()}
+              {kpis.totalUnits} Adet
             </div>
             <span className="text-[10px] font-mono-tech text-slate-400">
-              Landed-Cost Adjusted Profit
+              Sipariş verilen miktar
             </span>
           </div>
 
-          <div className="bg-[#161C28] border border-sky-500/30 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-sky-400 block">
-              PORTFOLIO AVERAGE ROI
+          <div className="bg-[#161C28] border border-sky-500/30 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-sky-400 block">
+              TOPLAM SİPARİŞ MALİYETİ
             </span>
             <div className="text-xl font-display font-bold text-sky-400 mt-1">
-              {kpis.averageRoiPercent}%
+              ${Number(kpis.totalSpend).toLocaleString()}
             </div>
             <span className="text-[10px] font-mono-tech text-slate-400">
-              Target benchmark &gt;30%
+              Satıcı fatura bedeli
             </span>
           </div>
 
-          <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-slate-400 block">
-              PRODUCT MASTER DISCOVERIES
+          <div className="bg-[#161C28] border border-slate-800 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-slate-400 block">
+              AMAZONA SEVK EDİLEN
             </span>
             <div className="text-xl font-display font-bold text-white mt-1">
-              {data?.discoveries?.length || 0}
+              {kpis.totalShipped} Adet
             </div>
-            <span className="text-[10px] font-mono-tech text-slate-400">
-              13-Stage Central Product Vault
+            <span className="text-[10px] font-mono-tech text-emerald-400">
+              FBA deposuna çıkan
             </span>
           </div>
 
-          <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-slate-400 block">
-              ACTIVE STORE LISTINGS
-            </span>
-            <div className="text-xl font-display font-bold text-white mt-1">
-              {Number(kpis.totalActiveListings).toLocaleString()}
-            </div>
-            <span className="text-[10px] font-mono-tech text-slate-400">
-              Multi-ASIN / Multi-Store Synced
-            </span>
-          </div>
-
-          <div className="bg-[#161C28] border border-amber-500/40 rounded-xl p-3.5">
-            <span className="text-[11px] font-mono-tech uppercase text-amber-400 block">
-              OPEN P1–P2 ALARMS
+          <div className="bg-[#161C28] border border-amber-500/30 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-amber-400 block">
+              P1–P4 FİRE / PROBLEM
             </span>
             <div className="text-xl font-display font-bold text-amber-400 mt-1">
-              {kpis.openProblemsCount}
+              {kpis.problemCount} Sipariş
             </div>
             <span className="text-[10px] font-mono-tech text-slate-400">
-              BuyBox drop &amp; Amazon health alerts
+              İptal, eksik veya defo
+            </span>
+          </div>
+
+          <div className="bg-[#161C28] border border-rose-500/30 rounded-xl p-3">
+            <span className="text-[10px] font-mono-tech uppercase text-rose-400 block">
+              REFUND İADE TUTARI
+            </span>
+            <div className="text-xl font-display font-bold text-rose-400 mt-1">
+              ${Number(kpis.totalRefunds).toLocaleString()}
+            </div>
+            <span className="text-[10px] font-mono-tech text-slate-400">
+              R-kodlu kart iadeleri
             </span>
           </div>
         </div>
       </section>
 
-      {/* Layer Switcher Navigation Tabs */}
+      {/* Operational Pipeline Navigation Tabs */}
       <div className="px-6 border-b border-slate-800 bg-[#0E1420] flex items-center justify-between overflow-x-auto">
         <nav className="flex items-center gap-6">
           {[
             {
-              id: "INTELLIGENCE",
-              label: "1. Product Intelligence & Sourcing Engine",
-              badge: `${filteredDiscoveries.length} Products`,
-              icon: Cpu,
+              id: "XLS_MASTER",
+              label: "1. Google Drive XLS Sipariş Tablosu",
+              badge: `${filteredOrders.length} Satır`,
+              icon: FileSpreadsheet,
             },
             {
-              id: "RESEARCHERS",
-              label: "2. 10-Person Sourcing Team Intelligence",
-              badge: "10 US Specialists",
-              icon: Users,
+              id: "PSH_BATCHES",
+              label: "2. PSH Envanter & Batch Partileri",
+              badge: `${batches.length} Batch`,
+              icon: Building2,
             },
             {
-              id: "STORES",
-              label: "3. 26 Multi-Store Fleet & Suppliers",
-              badge: "26 Stores",
-              icon: Store,
+              id: "WAREHOUSE",
+              label: "3. Depo Karşılama & Sayım (Order No)",
+              badge: "Depo Eşleştirme",
+              icon: PackageCheck,
+            },
+            {
+              id: "INVENTORY_LAB",
+              label: "4. Inventory Lab & Amazon Muhasebesi",
+              badge: "Maliyet vs Satış",
+              icon: TrendingUp,
             },
             {
               id: "PROBLEMS",
-              label: "4. P1–P4 Problem Center & Audit Trail",
-              badge: `${kpis.openProblemsCount} Open`,
-              icon: ShieldAlert,
+              label: "5. P1–P4 Problem, Fire & Refund Takip",
+              badge: `${kpis.problemCount} Sorun`,
+              icon: AlertTriangle,
             },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -458,227 +352,242 @@ export default function CerberusApp() {
         </nav>
       </div>
 
-      {/* Main Dynamic View Content */}
-      <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto space-y-6">
-        {/* TAB 1: PRODUCT INTELLIGENCE & SOURCING ENGINE */}
-        {activeTab === "INTELLIGENCE" && (
+      {/* Main Content Area */}
+      <main className="flex-1 p-6 max-w-[1700px] w-full mx-auto space-y-4">
+        {/* ========================================================================= */}
+        {/* TAB 1: GOOGLE DRIVE XLS MASTER SPREADSHEET VIEW (40 KOLON)                */}
+        {/* ========================================================================= */}
+        {activeTab === "XLS_MASTER" && (
           <div className="space-y-4">
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="relative flex-1 min-w-[260px]">
+            {/* Filter & Toolbar */}
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[280px]">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ASIN, UPC, Brand, Product Title, or Code (e.g. DEWALT, B0183RLW8A, 885911425129)..."
-                  className="w-full pl-9 pr-3 py-1.5 bg-[#0B0F17] border border-slate-700/80 rounded-lg text-xs font-mono-tech text-white focus:outline-none focus:border-sky-500"
+                  placeholder="Order No (WO...), ASIN, MSKU, Ürün Adı veya Sipariş Maili ara..."
+                  className="w-full pl-9 pr-3 py-1.5 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white focus:outline-none focus:border-sky-500"
                 />
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
-                  value={stageFilter}
-                  onChange={(e) => setStageFilter(e.target.value)}
-                  className="bg-[#0B0F17] border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs font-mono-tech text-slate-200 focus:outline-none"
+                  value={cargoFilter}
+                  onChange={(e) => setCargoFilter(e.target.value)}
+                  className="bg-[#0B0F17] border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono-tech text-slate-200"
                 >
-                  <option value="ALL">ALL LIFECYCLE STAGES (13)</option>
-                  <option value="DISCOVERED">DISCOVERED</option>
-                  <option value="SCREENING">SCREENING</option>
-                  <option value="DUPLICATE_CHECK">DUPLICATE_CHECK</option>
-                  <option value="ANALYZING">ANALYZING</option>
-                  <option value="REVIEW">REVIEW</option>
-                  <option value="APPROVED">APPROVED</option>
-                  <option value="PURCHASING">PURCHASING</option>
-                  <option value="RECEIVED">RECEIVED</option>
-                  <option value="LISTING">LISTING</option>
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="MONITORING">MONITORING</option>
-                  <option value="PAUSED">PAUSED</option>
-                  <option value="DISCONTINUED">DISCONTINUED</option>
+                  <option value="ALL">TÜM KARGO DURUMLARI</option>
+                  <option value="Tam Geldi">Tam Geldi</option>
+                  <option value="İPTAL">İPTAL</option>
+                  <option value="Yolda">Yolda</option>
+                  <option value="Kayıp Depoya gelmiş">Kayıp Depoya gelmiş</option>
                 </select>
 
                 <select
-                  value={duplicateFilter}
-                  onChange={(e) => setDuplicateFilter(e.target.value)}
-                  className="bg-[#0B0F17] border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs font-mono-tech text-slate-200 focus:outline-none"
+                  value={batchFilter}
+                  onChange={(e) => setBatchFilter(e.target.value)}
+                  className="bg-[#0B0F17] border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono-tech text-slate-200"
                 >
-                  <option value="ALL">ALL DUPLICATE STATUS</option>
-                  <option value="CLEAR">CLEAR (Unique UPC/ASIN)</option>
-                  <option value="EXACT_DUPLICATE">EXACT_DUPLICATE (Flagged)</option>
-                  <option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option>
-                </select>
-
-                <select
-                  value={researcherFilter}
-                  onChange={(e) => setResearcherFilter(e.target.value)}
-                  className="bg-[#0B0F17] border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs font-mono-tech text-slate-200 focus:outline-none"
-                >
-                  <option value="ALL">ALL 10 SOURCING SPECIALISTS</option>
-                  {data?.researchers?.map((r: any) => (
-                    <option key={r.code} value={r.name}>
-                      {r.name} ({r.code})
+                  <option value="ALL">TÜM PSH BATCH'LERİ</option>
+                  {batches.map((b) => (
+                    <option key={b.batchNumber} value={b.batchNumber}>
+                      {b.batchNumber}
                     </option>
                   ))}
                 </select>
+
+                <button
+                  onClick={() => setIsWarehouseReconOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-mono-tech font-bold transition flex items-center gap-1.5"
+                >
+                  <PackageCheck className="w-3.5 h-3.5" /> Depo Sayım Modu
+                </button>
               </div>
             </div>
 
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl overflow-hidden shadow-xl">
-              <div className="overflow-x-auto">
+            {/* 40-Column Master Data Table */}
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto max-h-[640px]">
                 <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#0E1420] border-b border-slate-800 text-[11px] font-mono-tech uppercase text-slate-400">
-                      <th className="py-3 px-4">Code / Barcodes</th>
-                      <th className="py-3 px-4">Product Master &amp; US Source</th>
-                      <th className="py-3 px-4">Duplicate Check</th>
-                      <th className="py-3 px-4">13-Stage Lifecycle</th>
-                      <th className="py-3 px-4 text-right">Landed Cost</th>
-                      <th className="py-3 px-4 text-right">Target Sale</th>
-                      <th className="py-3 px-4 text-right">Net Profit / ROI</th>
-                      <th className="py-3 px-4 text-center">AI Opp. Score</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+                  <thead className="sticky top-0 z-10 bg-[#0E1420] text-[11px] font-mono-tech uppercase text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="py-3 px-3">Mağaza / Tarih</th>
+                      <th className="py-3 px-3">Order No / Fatura</th>
+                      <th className="py-3 px-3">Ürün Adı Amazon</th>
+                      <th className="py-3 px-3">ASIN / MSKU</th>
+                      <th className="py-3 px-3">Satıcı &amp; Link</th>
+                      <th className="py-3 px-3 text-center">Adet</th>
+                      <th className="py-3 px-3 text-right">Birim Maliyet</th>
+                      <th className="py-3 px-3 text-right">Satış Fiyatı</th>
+                      <th className="py-3 px-3 text-right">Toplam Maliyet</th>
+                      <th className="py-3 px-3">Kargo Durumu</th>
+                      <th className="py-3 px-3 text-center">Amazona Sevk</th>
+                      <th className="py-3 px-3">P1-P4 Fire</th>
+                      <th className="py-3 px-3">PSH Batch</th>
+                      <th className="py-3 px-3 text-right">İşlem</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-xs">
-                    {filteredDiscoveries.map((item: any) => {
-                      const isDup = item.duplicateStatus === "EXACT_DUPLICATE";
-                      const isHighRoi = Number(item.roiPercent) >= 30;
+                  <tbody className="divide-y divide-slate-800/60 text-xs font-mono-tech">
+                    {filteredOrders.map((item) => {
+                      const isCancelled = item.cargoStatus === "İPTAL";
+                      const hasMissing = Number(item.p2MissingQty) > 0;
                       return (
                         <tr
                           key={item.id}
                           className="hover:bg-[#1C2434]/80 transition group"
                         >
-                          <td className="py-3.5 px-4 font-mono-tech whitespace-nowrap">
-                            <span className="text-sky-400 font-bold block">
-                              {item.productCode}
+                          {/* 1. Mağaza & Tarih */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 font-bold block w-fit">
+                              {item.buyerStore}
                             </span>
-                            <span className="text-[11px] text-slate-400 block">
-                              ASIN: {item.asin}
-                            </span>
-                            <span className="text-[10px] text-slate-500 block">
-                              UPC: {item.upc}
+                            <span className="text-[11px] text-slate-400 block mt-1">
+                              {item.orderDate}
                             </span>
                           </td>
 
-                          <td className="py-3.5 px-4 max-w-sm">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-mono-tech text-[10px] font-bold">
-                                {item.brand}
-                              </span>
-                              <span className="text-[11px] text-slate-400">
-                                {item.researcherName}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => setSelectedDiscovery(item)}
-                              className="font-medium text-white hover:text-sky-400 text-left line-clamp-2 transition"
-                            >
-                              {item.title}
-                            </button>
-                            <a
-                              href={item.sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] font-mono-tech text-slate-400 hover:text-sky-400 inline-flex items-center gap-1 mt-0.5"
-                            >
-                              {item.sourceDomain} <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </td>
-
-                          <td className="py-3.5 px-4 font-mono-tech whitespace-nowrap">
-                            {isDup ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px]">
-                                <AlertTriangle className="w-3.5 h-3.5" /> DUP{" "}
-                                {item.duplicateScore}%
-                              </span>
+                          {/* 2. Order No & Drive Fatura Linki */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span className="text-white font-bold block">
+                              {item.orderNumber}
+                            </span>
+                            {item.driveLink ? (
+                              <a
+                                href={item.driveLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-emerald-400 hover:underline inline-flex items-center gap-1 mt-0.5"
+                              >
+                                Drive Fatura <ExternalLink className="w-3 h-3" />
+                              </a>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px]">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> UNIQUE (
-                                {item.duplicateScore}%)
+                              <span className="text-[10px] text-slate-500 block mt-0.5">
+                                Fatura yok
                               </span>
                             )}
                           </td>
 
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            <select
-                              value={item.lifecycleStage}
-                              onChange={(e) =>
-                                handleUpdateStage(item.id, e.target.value)
-                              }
-                              className="bg-[#0B0F17] border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs font-mono-tech text-sky-300 font-semibold focus:outline-none focus:border-sky-500 cursor-pointer"
-                            >
-                              {[
-                                "DISCOVERED",
-                                "SCREENING",
-                                "DUPLICATE_CHECK",
-                                "ANALYZING",
-                                "REVIEW",
-                                "APPROVED",
-                                "PURCHASING",
-                                "RECEIVED",
-                                "LISTING",
-                                "ACTIVE",
-                                "MONITORING",
-                                "PAUSED",
-                                "DISCONTINUED",
-                              ].map((stage) => (
-                                <option key={stage} value={stage}>
-                                  {stage}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-mono-tech whitespace-nowrap">
-                            <span className="text-amber-400 font-bold block">
-                              ${Number(item.sourcePrice).toFixed(2)}
-                            </span>
-                            <span className="text-[11px] text-slate-400 block">
-                              Landed: ${Number(item.landedCost).toFixed(2)}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-mono-tech whitespace-nowrap">
-                            <span className="text-white font-bold block">
-                              ${Number(item.sellingPrice).toFixed(2)}
-                            </span>
-                            <span className="text-[10px] text-slate-500 block">
-                              Est {item.monthlyEstimatedUnits} u/mo
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-mono-tech whitespace-nowrap">
-                            <span className="text-emerald-400 font-bold block">
-                              +${Number(item.estimatedNetProfit).toFixed(2)}
-                            </span>
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                isHighRoi
-                                  ? "bg-emerald-500/20 text-emerald-400"
-                                  : "bg-sky-500/20 text-sky-400"
-                              }`}
-                            >
-                              {item.roiPercent}% ROI
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-center font-mono-tech whitespace-nowrap">
-                            <div className="inline-flex flex-col items-center">
-                              <span className="text-sm font-bold text-sky-400">
-                                {item.opportunityScore}/100
+                          {/* 3. Ürün Adı */}
+                          <td className="py-3 px-3 max-w-xs font-sans text-xs">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 font-mono-tech text-[10px] font-bold">
+                                {item.brandName}
                               </span>
-                              <span className="text-[10px] text-slate-400 uppercase">
-                                {item.aiRecommendation?.replace(/_/g, " ")}
+                              <span className="text-[10px] text-slate-400 font-mono-tech">
+                                {item.fulfillmentType}
                               </span>
                             </div>
+                            <button
+                              onClick={() => setSelectedOrder(item)}
+                              className="font-medium text-white hover:text-sky-400 text-left line-clamp-2 transition"
+                            >
+                              {item.productTitle}
+                            </button>
                           </td>
 
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => setSelectedDiscovery(item)}
-                              className="px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-400 font-mono-tech text-xs font-bold transition"
+                          {/* 4. ASIN & MSKU */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <a
+                              href={item.amazonUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 font-bold hover:underline inline-flex items-center gap-1"
                             >
-                              Inspect 360°
+                              {item.asin} <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                            <span className="text-[10px] text-slate-400 block truncate max-w-[110px]">
+                              {item.msku}
+                            </span>
+                          </td>
+
+                          {/* 5. Satıcı & Link */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <a
+                              href={item.supplierUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-slate-300 hover:text-amber-400 inline-flex items-center gap-1"
+                            >
+                              {item.supplierName} <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                            <span className="text-[10px] text-slate-500 block">
+                              Kod: {item.supplierCode}
+                            </span>
+                          </td>
+
+                          {/* 6. Adet */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="text-white font-bold">{item.quantity}</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              {item.packCount}li paket
+                            </span>
+                          </td>
+
+                          {/* 7. Birim Maliyet */}
+                          <td className="py-3 px-3 text-right whitespace-nowrap text-amber-300 font-bold">
+                            ${item.unitCost}
+                          </td>
+
+                          {/* 8. Satış Fiyatı */}
+                          <td className="py-3 px-3 text-right whitespace-nowrap text-emerald-400 font-bold">
+                            ${item.sellingPrice}
+                          </td>
+
+                          {/* 9. Toplam Maliyet */}
+                          <td className="py-3 px-3 text-right whitespace-nowrap text-sky-400 font-bold">
+                            ${item.totalCost}
+                          </td>
+
+                          {/* 10. Kargo Durumu */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                isCancelled
+                                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                  : item.cargoStatus === "Tam Geldi"
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              }`}
+                            >
+                              {item.cargoStatus}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block mt-0.5 truncate max-w-[120px]">
+                              {item.orderEmail}
+                            </span>
+                          </td>
+
+                          {/* 11. Amazona Sevk */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap font-bold text-emerald-400">
+                            {item.shippedToAmazon} / {item.quantity}
+                          </td>
+
+                          {/* 12. P1-P4 Fire */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {isCancelled ? (
+                              <span className="text-rose-400 font-bold">P1 İptal: {item.p1CancelQty}</span>
+                            ) : hasMissing ? (
+                              <span className="text-amber-400 font-bold">P2 Eksik: {item.p2MissingQty}</span>
+                            ) : (
+                              <span className="text-slate-500">Fire Yok</span>
+                            )}
+                          </td>
+
+                          {/* 13. PSH Batch No */}
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                              {item.pshBatchNo || "Atanmadı"}
+                            </span>
+                          </td>
+
+                          {/* 14. İşlem */}
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedOrder(item)}
+                              className="px-2.5 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 text-[11px] font-bold transition"
+                            >
+                              Detay / İncele
                             </button>
                           </td>
                         </tr>
@@ -691,401 +600,348 @@ export default function CerberusApp() {
           </div>
         )}
 
-        {/* TAB 2: 10-PERSON SOURCING SPECIALIST PERFORMANCE LEADERBOARD */}
-        {activeTab === "RESEARCHERS" && (
+        {/* ========================================================================= */}
+        {/* TAB 2: PSH ENVANTER & BATCH MODÜLÜ                                        */}
+        {/* ========================================================================= */}
+        {activeTab === "PSH_BATCHES" && (
           <div className="space-y-4">
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-display font-bold text-white">
-                    10-PERSON US SOURCING SPECIALIST INTELLIGENCE ATTRIBUTION
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Measuring real commercial conversion: Bulunan Ürün → Onaylanan → Satın Alınan → Kâr Üreten Ürün (Points #5 &amp; #6)
-                  </p>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-mono-tech font-bold">
-                  100% US Retail Coverage
-                </span>
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-display font-bold text-white">
+                  PSH Envanter Programı Ön-Parti (Batch) Yönetimi
+                </h2>
+                <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
+                  Ürünler depoya varmadan önce açılan sevkiyat batch'leri ve envanter hazırlığı
+                </p>
               </div>
+              <button
+                onClick={() => setIsPshBatchOpen(true)}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-mono-tech font-bold uppercase rounded-lg transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+              >
+                <Plus className="w-4 h-4" /> Yeni PSH Batch Aç
+              </button>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data?.researchers?.map((r: any) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {batches.map((batch) => {
+                const batchOrders = orders.filter((o) => o.pshBatchNo === batch.batchNumber);
+                const totalUnits = batchOrders.reduce((s, o) => s + Number(o.quantity || 0), 0);
+                const shippedUnits = batchOrders.reduce((s, o) => s + Number(o.shippedToAmazon || 0), 0);
+                const totalSpend = batchOrders.reduce((s, o) => s + Number(o.totalCost || 0), 0);
+
+                return (
                   <div
-                    key={r.id}
-                    className="bg-[#0E1420] border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between hover:border-sky-500/50 transition"
+                    key={batch.id}
+                    className="bg-[#0E1420] border border-slate-800 hover:border-sky-500/40 rounded-xl p-5 flex flex-col justify-between transition"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 font-mono-tech font-bold flex items-center justify-center text-xs">
-                            {r.avatar}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-display font-bold text-white">
-                                {r.name}
-                              </span>
-                              <span className="text-[11px] font-mono-tech text-slate-400">
-                                {r.code}
-                              </span>
-                            </div>
-                            <span className="text-[11px] text-sky-400 block truncate max-w-[210px]">
-                              {r.specialtyDomain}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-right font-mono-tech">
-                          <span className="text-xs text-slate-400 block">
-                            Researcher Score
-                          </span>
-                          <span
-                            className={`text-lg font-bold ${
-                              Number(r.researcherScore) >= 90
-                                ? "text-emerald-400"
-                                : "text-sky-400"
-                            }`}
-                          >
-                            {r.researcherScore}/100
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 my-3 text-xs font-mono-tech">
-                        <div className="bg-[#0B0F17] p-2 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-400 block">
-                            Discoveries Logged
-                          </span>
-                          <span className="text-white font-bold">
-                            {r.discoveryVolume} items
-                          </span>
-                        </div>
-                        <div className="bg-[#0B0F17] p-2 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-400 block">
-                            Manager Approval Rate
-                          </span>
-                          <span className="text-emerald-400 font-bold">
-                            {r.approvalRate}%
-                          </span>
-                        </div>
-                        <div className="bg-[#0B0F17] p-2 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-400 block">
-                            Avg Net Profit / Mo
-                          </span>
-                          <span className="text-emerald-400 font-bold">
-                            +${Number(r.averageNetProfit).toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="bg-[#0B0F17] p-2 rounded-lg border border-slate-800">
-                          <span className="text-[10px] text-slate-400 block">
-                            Average Portfolio ROI
-                          </span>
-                          <span className="text-sky-400 font-bold">
-                            {r.averageRoi}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech text-slate-400">
-                      <span>Active Listings: {r.activeListingsCount}</span>
-                      <span className="text-amber-400">
-                        Problem Rate: {r.problemRate}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: 26 MULTI-STORE FLEET & SUPPLIER INTELLIGENCE SCORECARD */}
-        {activeTab === "STORES" && (
-          <div className="space-y-6">
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-display font-bold text-white">
-                    SUPPLIER INTELLIGENCE RATING (0-100 COMPOSITE SCORE)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Price stability, delivery reliability, stockout frequency, and return rate scoring across US retail partners
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {data?.suppliers?.map((sup: any) => (
-                  <div
-                    key={sup.id}
-                    className="p-4 rounded-xl bg-[#0E1420] border border-slate-800 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="text-xs font-mono-tech text-sky-400 font-bold block">
-                        {sup.supplierCode}
-                      </span>
-                      <h3 className="text-sm font-display font-bold text-white">
-                        {sup.name}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-2 text-xs font-mono-tech text-slate-400">
-                        <span>Price Stab: {sup.priceStabilityScore}</span>
-                        <span>Returns: {sup.returnRatePercent}%</span>
-                      </div>
-                    </div>
-                    <div className="text-right font-mono-tech">
-                      <span
-                        className={`text-2xl font-bold ${
-                          Number(sup.supplierScore) >= 90
-                            ? "text-emerald-400"
-                            : Number(sup.supplierScore) >= 80
-                            ? "text-sky-400"
-                            : "text-amber-400"
-                        }`}
-                      >
-                        {sup.supplierScore}
-                      </span>
-                      <span className="block text-[10px] text-slate-500">
-                        / 100 SCORE
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-display font-bold text-white">
-                    26 MULTI-CHANNEL STOREFRONT FLEET (18 AMAZON + 2 WALMART + 5 SHOPIFY + 1 WHOLESALE)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Central ASIN / MSKU inventory sync, account health score, and monthly gross/net breakdown
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {data?.stores?.map((st: any) => (
-                  <div
-                    key={st.id}
-                    className="p-3.5 rounded-xl bg-[#0E1420] border border-slate-800/80 flex flex-col justify-between hover:border-sky-500/40 transition"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 font-mono-tech text-xs font-bold">
-                          {st.storeCode}
+                        <span className="px-2.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-mono-tech text-xs font-bold">
+                          {batch.batchNumber}
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-mono-tech font-bold ${
-                            st.status === "ACTIVE"
+                            batch.status === "AMAZONA_GONDERILDI"
                               ? "bg-emerald-500/20 text-emerald-400"
                               : "bg-amber-500/20 text-amber-300"
                           }`}
                         >
-                          {st.status} • HEALTH {st.accountHealthScore}%
+                          {batch.status}
                         </span>
                       </div>
-                      <h4 className="text-xs font-semibold text-white truncate">
-                        {st.storeName}
-                      </h4>
+
+                      <h3 className="text-sm font-display font-bold text-white mb-2">
+                        {batch.title}
+                      </h3>
+                      <p className="text-xs text-slate-400 mb-4">{batch.notes}</p>
+
+                      <div className="grid grid-cols-3 gap-2 text-xs font-mono-tech bg-[#0B0F17] p-3 rounded-lg border border-slate-800">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Sipariş Sayısı</span>
+                          <span className="text-white font-bold">{batchOrders.length} Sipariş</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Beklenen / Sevk</span>
+                          <span className="text-emerald-400 font-bold">{shippedUnits} / {totalUnits} Adet</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Batch Tutarı</span>
+                          <span className="text-sky-400 font-bold">${totalSpend.toFixed(2)}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between font-mono-tech text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">
-                          Gross Revenue
-                        </span>
-                        <span className="text-white font-bold">
-                          ${Number(st.monthlyGrossRevenue).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block">
-                          Net Profit
-                        </span>
-                        <span className="text-emerald-400 font-bold">
-                          +${Number(st.monthlyNetProfit).toLocaleString()}
-                        </span>
-                      </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech">
+                      <span className="text-slate-500">Mağaza: {batch.storeCode}</span>
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {batch.inventoryLabSynced ? "Inventory Lab Eşleşti" : "Inventory Lab Bekliyor"}
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* TAB 4: P1–P4 PROBLEM CENTER & AUDIT SECURITY LOGS */}
-        {activeTab === "PROBLEMS" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-display font-bold text-white">
-                    P1–P4 OPERATIONAL &amp; STORE ALARM CENTER (POINTS #20 &amp; #21)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    BuyBox repricer drops, Account Health verification requests, and Supplier Stockouts
-                  </p>
-                </div>
+        {/* ========================================================================= */}
+        {/* TAB 3: DEPO KARŞILAMA & SAYIM                                             */}
+        {/* ========================================================================= */}
+        {activeTab === "WAREHOUSE" && (
+          <div className="space-y-4">
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl p-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-display font-bold text-white">
+                  Depo Karşılama, Sayım ve Order No Eşleştirme Modülü
+                </h2>
+                <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
+                  Depoya ulaşan kutuları Orderno ile eşleştirip gelen, eksik ve defolu adetleri kaydedin
+                </p>
               </div>
-
-              <div className="space-y-3">
-                {data?.problems?.map((prob: any) => {
-                  const isCritical = prob.severity === "P1_CRITICAL";
-                  return (
-                    <div
-                      key={prob.id}
-                      className={`p-4 rounded-xl border ${
-                        isCritical
-                          ? "bg-red-500/10 border-red-500/40"
-                          : prob.status === "RESOLVED"
-                          ? "bg-[#0E1420] border-emerald-500/30"
-                          : "bg-amber-500/10 border-amber-500/30"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2 py-0.5 rounded font-mono-tech text-xs font-bold ${
-                              isCritical
-                                ? "bg-red-500 text-white"
-                                : "bg-amber-500/20 text-amber-300"
-                            }`}
-                          >
-                            {prob.severity}
-                          </span>
-                          <span className="font-mono-tech text-xs text-sky-400 font-bold">
-                            {prob.storeCode}
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-black/40 text-[10px] font-mono-tech text-slate-300">
-                            {prob.problemType}
-                          </span>
-                        </div>
-                        <span className="font-mono-tech text-xs font-bold text-amber-400">
-                          Impact: -${Number(prob.financialImpact).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <h4 className="text-xs font-bold text-white mb-1">
-                        {prob.productTitle}
-                      </h4>
-                      <p className="text-xs text-slate-300 mb-2">
-                        {prob.rootCause}
-                      </p>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                        <span className="text-slate-400 font-mono-tech">
-                          Assigned: {prob.assignedTo}
-                        </span>
-                        {prob.status === "RESOLVED" ? (
-                          <span className="text-emerald-400 font-mono-tech font-bold flex items-center gap-1">
-                            <CheckCircle2 className="w-4 h-4" /> RESOLVED
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleResolveProblem(prob.id)}
-                            className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-mono-tech text-xs font-bold transition"
-                          >
-                            Mark Action Complete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <button
+                onClick={() => setIsWarehouseReconOpen(true)}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white text-xs font-mono-tech font-bold uppercase rounded-lg transition flex items-center gap-1.5 shadow-lg shadow-sky-500/20"
+              >
+                <PackageCheck className="w-4 h-4" /> Sayım Başlat
+              </button>
             </div>
 
-            <div className="bg-[#161C28] border border-slate-800/80 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <History className="w-5 h-5 text-sky-400" />
-                  <div>
-                    <h2 className="text-base font-display font-bold text-white">
-                      CERBERUS IMMUTABLE AUDIT LOG (WHO • WHAT • WHEN • BEFORE • AFTER)
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      26-Store RBAC action trail for every sourcing capture, stage transition &amp; price shift
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs font-mono-tech">
+                <thead className="bg-[#0E1420] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+                  <tr>
+                    <th className="p-3">Order No</th>
+                    <th className="p-3">Ürün Adı</th>
+                    <th className="p-3 text-center">Beklenen Sipariş</th>
+                    <th className="p-3 text-center">Gelen / Amazona Sevk</th>
+                    <th className="p-3">Fire Durumu</th>
+                    <th className="p-3">Depo Notu</th>
+                    <th className="p-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredOrders.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-800/40">
+                      <td className="p-3 font-bold text-sky-400">{o.orderNumber}</td>
+                      <td className="p-3 font-sans text-white max-w-sm truncate">{o.productTitle}</td>
+                      <td className="p-3 text-center font-bold text-white">{o.quantity} Adet</td>
+                      <td className="p-3 text-center font-bold text-emerald-400">{o.shippedToAmazon} Adet</td>
+                      <td className="p-3">
+                        {Number(o.p2MissingQty) > 0 ? (
+                          <span className="text-amber-400 font-bold">P2: {o.p2MissingQty} Eksik</span>
+                        ) : Number(o.p1CancelQty) > 0 ? (
+                          <span className="text-rose-400 font-bold">P1: {o.p1CancelQty} İptal</span>
+                        ) : (
+                          <span className="text-emerald-400">Tam Teslim</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-slate-400 max-w-xs truncate">
+                        {o.description1 || o.auditNote || "Not yok"}
+                      </td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => setSelectedOrder(o)}
+                          className="px-3 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 rounded font-bold"
+                        >
+                          Sayıma Gir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-              <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
-                {data?.auditLogs?.map((log: any) => (
-                  <div
-                    key={log.id}
-                    className="p-3 rounded-lg bg-[#0E1420] border border-slate-800/80 text-xs font-mono-tech"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sky-400 font-bold">
-                        {log.actorName} ({log.actorRole})
-                      </span>
-                      <span className="text-slate-500 text-[10px]">
-                        {new Date(log.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-200">
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-amber-300">
-                        {log.actionType}
-                      </span>
-                      <span className="truncate">{log.targetEntity}</span>
-                    </div>
-                    {log.beforeState && log.afterState && (
-                      <div className="mt-1.5 text-[11px] text-slate-400 flex items-center gap-1.5">
-                        <span>{log.beforeState}</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400 font-bold">
-                          {log.afterState}
-                        </span>
-                      </div>
-                    )}
-                    {log.details && (
-                      <p className="mt-1 text-[11px] text-slate-400 font-sans">
-                        {log.details}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+        {/* ========================================================================= */}
+        {/* TAB 4: INVENTORY LAB & AMAZON MUHASEBESİ                                   */}
+        {/* ========================================================================= */}
+        {activeTab === "INVENTORY_LAB" && (
+          <div className="space-y-4">
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl p-5">
+              <h2 className="text-base font-display font-bold text-white">
+                Inventory Lab &amp; Amazon Satış / Kârlılık Muhasebesi
+              </h2>
+              <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
+                PSH'ta hazırlanan batch'lerin Amazon satış fiyatı, maliyet ve tahmini net marj dökümü
+              </p>
+            </div>
+
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs font-mono-tech">
+                <thead className="bg-[#0E1420] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+                  <tr>
+                    <th className="p-3">MSKU / ASIN</th>
+                    <th className="p-3">Ürün Adı</th>
+                    <th className="p-3 text-right">Birim Alış ($)</th>
+                    <th className="p-3 text-right">Amazon Satış ($)</th>
+                    <th className="p-3 text-right">Brüt Kâr / Adet</th>
+                    <th className="p-3 text-right">ROI %</th>
+                    <th className="p-3 text-center">Sevk Adet</th>
+                    <th className="p-3">Muhasebe Durumu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredOrders.map((o) => {
+                    const unitCost = Number(o.unitCost) || 1;
+                    const selling = Number(o.sellingPrice) || 1;
+                    const profitPerUnit = (selling - unitCost).toFixed(2);
+                    const roi = ((Number(profitPerUnit) / unitCost) * 100).toFixed(1);
+
+                    return (
+                      <tr key={o.id} className="hover:bg-slate-800/40">
+                        <td className="p-3">
+                          <span className="font-bold text-white block">{o.msku}</span>
+                          <span className="text-[10px] text-sky-400">{o.asin}</span>
+                        </td>
+                        <td className="p-3 font-sans text-white max-w-sm truncate">{o.productTitle}</td>
+                        <td className="p-3 text-right text-amber-300 font-bold">${o.unitCost}</td>
+                        <td className="p-3 text-right text-emerald-400 font-bold">${o.sellingPrice}</td>
+                        <td className="p-3 text-right text-sky-400 font-bold">+${profitPerUnit}</td>
+                        <td className="p-3 text-right font-bold text-emerald-400">%{roi}</td>
+                        <td className="p-3 text-center text-white">{o.shippedToAmazon}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                            {o.inventoryLabStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: P1–P4 PROBLEM, FİRE & REFUND                                       */}
+        {/* ========================================================================= */}
+        {activeTab === "PROBLEMS" && (
+          <div className="space-y-4">
+            <div className="bg-[#161C28] border border-rose-500/30 rounded-xl p-5">
+              <h2 className="text-base font-display font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+                P1–P4 Fire, İptal ve Refund Yönetim Paneli
+              </h2>
+              <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
+                P1 (İptal), P2 (Eksik), P3 (Defolu), P4 (Tarihi Geçmiş) adetleri ve R-kodlu iade tutarları
+              </p>
+            </div>
+
+            <div className="bg-[#161C28] border border-slate-800 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs font-mono-tech">
+                <thead className="bg-[#0E1420] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+                  <tr>
+                    <th className="p-3">Order No</th>
+                    <th className="p-3">Ürün</th>
+                    <th className="p-3">Problem Türü</th>
+                    <th className="p-3">Problem Eylemi</th>
+                    <th className="p-3">Problem Sonucu</th>
+                    <th className="p-3 text-right">Refund Miktarı</th>
+                    <th className="p-3 text-right">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredOrders
+                    .filter(
+                      (o) =>
+                        o.cargoStatus === "İPTAL" ||
+                        Number(o.p1CancelQty) > 0 ||
+                        Number(o.p2MissingQty) > 0 ||
+                        Number(o.p3DefectiveQty) > 0 ||
+                        Number(o.p4ExpiredQty) > 0 ||
+                        Number(o.refundAmount) > 0
+                    )
+                    .map((o) => (
+                      <tr key={o.id} className="hover:bg-slate-800/40">
+                        <td className="p-3 text-sky-400 font-bold">{o.orderNumber}</td>
+                        <td className="p-3 font-sans text-white max-w-xs truncate">{o.productTitle}</td>
+                        <td className="p-3">
+                          {o.cargoStatus === "İPTAL" ? (
+                            <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">
+                              P1: İPTAL ({o.p1CancelQty || o.quantity} Adet)
+                            </span>
+                          ) : Number(o.p2MissingQty) > 0 ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">
+                              P2: EKSİK ({o.p2MissingQty} Adet)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                              Depo Kaybı / Kontrol
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-300 max-w-xs truncate">
+                          {o.problemAction || "Eylem bekleniyor"}
+                        </td>
+                        <td className="p-3 text-emerald-400 max-w-xs truncate">
+                          {o.problemResult || "İşlem sürüyor"}
+                        </td>
+                        <td className="p-3 text-right text-rose-400 font-bold">
+                          ${o.refundAmount}
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            onClick={() => setSelectedOrder(o)}
+                            className="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded text-[11px]"
+                          >
+                            Çözümle
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
       </main>
 
-      {/* Slide-Over Product Intelligence 360 Inspector Drawer */}
-      <ProductIntelligenceDrawer
-        discovery={selectedDiscovery}
-        onClose={() => setSelectedDiscovery(null)}
-        onUpdateStage={handleUpdateStage}
-        onUpdatePrice={handleUpdatePrice}
-        stores={data?.stores || []}
+      {/* Slide-Over Drawer: 40-Column Detailed Inspection */}
+      <OrderDetailDrawer
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onUpdate={handleUpdateOrder}
+        batches={batches}
       />
 
-      {/* Chrome Extension & US Retail Quick Capture Modal */}
-      <QuickSourceCaptureModal
-        isOpen={isQuickCaptureOpen}
-        onClose={() => setIsQuickCaptureOpen(false)}
-        onCreated={(newDisc) => {
-          setData((prev: any) => ({
-            ...prev,
-            discoveries: [newDisc, ...(prev?.discoveries || [])],
-          }));
-          setSelectedDiscovery(newDisc);
+      {/* Modal: New Order Entry */}
+      <NewOrderModal
+        isOpen={isNewOrderOpen}
+        onClose={() => setIsNewOrderOpen(false)}
+        onCreated={(newOrder) => {
+          setOrders((prev) => [newOrder, ...prev]);
+          setSelectedOrder(newOrder);
         }}
-        existingDiscoveries={data?.discoveries || []}
-        researchers={data?.researchers || []}
+        currentStore={selectedStore}
       />
 
-      {/* Excel Migration / Batch Import Modal */}
-      <XlsImportModal
+      {/* Modal: Google Drive XLS Paste & Import */}
+      <GoogleDriveXlsImportModal
         isOpen={isXlsImportOpen}
         onClose={() => setIsXlsImportOpen(false)}
-        onImportSuccess={() => fetchPlatformData()}
+        onImportSuccess={() => fetchOrders()}
+        currentStore={selectedStore}
+      />
+
+      {/* Modal: Create PSH Batch */}
+      <PshBatchModal
+        isOpen={isPshBatchOpen}
+        onClose={() => setIsPshBatchOpen(false)}
+        onCreated={() => fetchOrders()}
+        currentStore={selectedStore}
+        unbatchedOrders={orders.filter((o) => !o.pshBatchNo || o.pshBatchNo === "")}
+      />
+
+      {/* Modal: Warehouse Reconciliation */}
+      <WarehouseReconciliationModal
+        isOpen={isWarehouseReconOpen}
+        onClose={() => setIsWarehouseReconOpen(false)}
+        onSaved={() => fetchOrders()}
+        orders={filteredOrders}
       />
     </div>
   );
