@@ -1,6 +1,7 @@
-# CERBERUS — DECISION-CENTRIC COMMERCE OPERATING SYSTEM (v3.0)
+# CERBERUS — DECISION-CENTRIC COMMERCE OPERATING SYSTEM (v3.0 LOCKED SCHEMA)
 
-> **Mükemmellik daha fazla ekran yapmak değildir. Mükemmellik; doğru verinin, doğru zamanda, doğru güven seviyesiyle, doğru insana, doğru kararı aldırmasıdır.**
+> 🔒 **ASIL MİMARİ VE VERİTABANI ANAYASASI:**  
+> Projenin Neon Cloud PostgreSQL veritabanındaki değişmez 8 tablosu (`users`, `stores`, `researchers`, `research_sessions`, `product_masters`, `orders`, `psh_batches`, `audit_logs`), 40-kolonluk Google Drive XLS şeması ve yazılım mimarisi **[`ARCHITECTURE_AND_DATABASE_SPEC.md`](./ARCHITECTURE_AND_DATABASE_SPEC.md)** dosyasında kilitlenmiştir.
 
 ---
 
@@ -22,8 +23,9 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
    - Tahmini ROI vs Gerçekleşen ROI (`Actual vs Estimated Profitability Engine`)
 3. **10 Kişilik ABD Sourcing Ekibi Zekâsı (`Quality-Adjusted Researcher Score`):**
    - Bulunan Ürün → Onaylanan → Satın Alınan → Kâr Üreten Ürün + Fire Oranı.
-4. **40 Kolonluk Google Drive XLS Siparişleri + CSV İndir:**
+4. **40 Kolonluk Google Drive XLS Siparişleri + CSV İndir (KİLİTLİ ŞEMA):**
    - 38 gerçek The Vitamin Shoppe siparişi (`WO110074776`, `WO310759607`...)
+   - Tek tıkla CSV Export (`.csv`) ve Drive XLS'den Yapıştır modülü.
 5. **PSH Envanter & Batch Partileri Modülü:**
    - Ön-envanter sevkiyat partileri (`PSH-BATCH-2026-01`, `PSH-BATCH-2026-02`).
 6. **Depo Karşılama & Sayım (Order No Eşleştirme & P1–P4 Fire):**
@@ -40,7 +42,7 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
 | Kullanıcı | E-posta | Parola | Rol | Mağaza Kapsamı |
 |---|---|---|---|---|
 | **Ahmet Erdem** | `ahmet@cerberus-commerce.io` | `admin2026` | `ADMIN` | **Tüm Mağazalar**: Yeni mağaza ve kullanıcı açabilir, SP-API ve denetim loglarını yönetir. |
-| **Harun** | `harun@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca HRN Mağazası**: Sadece HRN'in 38 siparişini ve verilerini görür. |
+| **Harun** | `harun@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca HRN Mağazası**: Sadece HRN'in 38 siparişini ve verilerini görür. Başka mağazaya erişemez. |
 | **Selin Yılmaz** | `selin@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca SEL Mağazası** |
 | **Can Demir** | `can@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca MK Mağazası** |
 
