@@ -15,19 +15,39 @@ import {
   TrendingUp,
   Server,
   Zap,
+  Trash2,
+  AlertTriangle,
+  Database,
+  RefreshCw,
+  FileSpreadsheet,
+  Package,
+  Layers,
 } from "lucide-react";
 
 interface AdminDashboardProps {
   onStoreSelected?: (storeCode: string) => void;
   currentUser: any;
+  onDataRefresh?: () => void;
 }
 
-export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"STORES" | "USERS" | "SP_API" | "AUDIT">("STORES");
+export function AdminDashboard({
+  onStoreSelected,
+  currentUser,
+  onDataRefresh,
+}: AdminDashboardProps) {
+  const [activeSubTab, setActiveSubTab] = useState<
+    "STORES" | "USERS" | "ORDERS_CRUD" | "SP_API" | "AUDIT" | "DB_TOOLS"
+  >("STORES");
+
   const [stores, setStores] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter for orders subtab
+  const [orderStoreFilter, setOrderStoreFilter] = useState("ALL");
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
 
   // New Store Modal state
   const [isNewStoreModalOpen, setIsNewStoreModalOpen] = useState(false);
@@ -49,12 +69,19 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
   const [newUserPass, setNewUserPass] = useState("store2026");
   const [savingUser, setSavingUser] = useState(false);
 
+  // Database Reset confirmation state
+  const [confirmationInput, setConfirmationInput] = useState("");
+  const [resettingDb, setResettingDb] = useState(false);
+
   // Status message
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [feedbackMsg, setFeedbackMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const showFeedback = (text: string, type: "success" | "error" = "success") => {
     setFeedbackMsg({ type, text });
-    setTimeout(() => setFeedbackMsg(null), 3500);
+    setTimeout(() => setFeedbackMsg(null), 4500);
   };
 
   const fetchAdminData = async () => {
@@ -76,6 +103,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       if (logsRes.ok) {
         const data = await logsRes.json();
         setAuditLogs(data.auditLogs || []);
+        setOrders(data.orders || []);
       }
     } catch (err) {
       console.error("Admin data fetch error:", err);
@@ -114,6 +142,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
         setStoreCode("");
         setStoreName("");
         fetchAdminData();
+        if (onDataRefresh) onDataRefresh();
       } else {
         showFeedback(data.error || "Mağaza oluşturulamadı", "error");
       }
@@ -201,10 +230,74 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
     }
   };
 
+  // Delete a specific row from orders table
+  const handleDeleteOrderRow = async (orderId: number) => {
+    try {
+      const res = await fetch("/api/admin/master-crud", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableName: "orders", id: orderId }),
+      });
+      if (res.ok) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        showFeedback("Sipariş satırı veritabanından kalıcı olarak silindi.");
+        if (onDataRefresh) onDataRefresh();
+      }
+    } catch {
+      showFeedback("Silme başarısız oldu", "error");
+    }
+  };
+
+  // Execute Database Reset or Restore action
+  const handleExecuteDatabaseTool = async (
+    actionType: "CLEAN_ORDERS_ONLY" | "RESTORE_REAL_XLS" | "NUKE_ALL_KEEP_ADMIN"
+  ) => {
+    if (confirmationInput !== "RESET-CERBERUS") {
+      showFeedback("Lütfen kutuya tam olarak 'RESET-CERBERUS' yazın.", "error");
+      return;
+    }
+    setResettingDb(true);
+    try {
+      const res = await fetch("/api/admin/database-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionType,
+          confirmationCode: confirmationInput,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showFeedback(data.message);
+        setConfirmationInput("");
+        fetchAdminData();
+        if (onDataRefresh) onDataRefresh();
+      } else {
+        showFeedback(data.error || "İşlem başarısız", "error");
+      }
+    } catch (err: any) {
+      showFeedback(err.message, "error");
+    } finally {
+      setResettingDb(false);
+    }
+  };
+
   const totalStores = stores.length;
   const activeStores = stores.filter((s) => s.status === "ACTIVE").length;
   const totalUsers = users.length;
   const totalGlobalSpend = stores.reduce((sum, s) => sum + Number(s.totalSpend || 0), 0);
+
+  const displayedOrders = orders.filter((o) => {
+    const matchStore = orderStoreFilter === "ALL" || o.buyerStore === orderStoreFilter;
+    const q = orderSearchQuery.toLowerCase();
+    const matchSearch =
+      !q ||
+      o.orderNumber?.toLowerCase().includes(q) ||
+      o.asin?.toLowerCase().includes(q) ||
+      o.productTitle?.toLowerCase().includes(q);
+    return matchStore && matchSearch;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -232,11 +325,11 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
               SİSTEM ADMIN MERKEZİ
             </span>
             <h2 className="text-lg font-bold text-white tracking-tight">
-              Çoklu Mağaza Filosu, Yetki &amp; SP-API Entegrasyon Yönetimi
+              Çoklu Mağaza Filosu, Yetki, Sipariş &amp; Veritabanı Temizleme Konsolu
             </h2>
           </div>
           <p className="text-xs text-slate-400 font-mono-tech">
-            26 mağazalık operasyonel filonuzu, satınalma uzmanlarının erişimlerini ve Amazon SP-API bağlantılarını yönetin.
+            26 mağazayı denetleyin, kullanıcıların mağazalarını atayın, sipariş satırlarını yönetin ve gerçek canlı verilerinizi yüklemek için temizlik araçlarını kullanın.
           </p>
         </div>
 
@@ -280,7 +373,19 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>2. Kullanıcı &amp; Mağaza İzolasyon Atamaları ({users.length})</span>
+          <span>2. Kullanıcı &amp; Mağaza İzolasyonu ({users.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("ORDERS_CRUD")}
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
+            activeSubTab === "ORDERS_CRUD"
+              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
+              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+          <span>3. Siparişler &amp; Toplu Düzenleme ({orders.length})</span>
         </button>
 
         <button
@@ -291,8 +396,8 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
               : "text-slate-400 hover:text-white hover:bg-slate-800/60"
           }`}
         >
-          <Zap className="w-4 h-4 text-emerald-400" />
-          <span>3. Amazon SP-API &amp; Muhasebe Bağlantıları</span>
+          <Zap className="w-4 h-4 text-sky-400" />
+          <span>4. Amazon SP-API &amp; Muhasebe</span>
         </button>
 
         <button
@@ -304,7 +409,19 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
           }`}
         >
           <History className="w-4 h-4" />
-          <span>4. Değiştirilemez Denetim İzi (Audit Log)</span>
+          <span>5. Denetim İzi (Audit Log)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("DB_TOOLS")}
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap border ${
+            activeSubTab === "DB_TOOLS"
+              ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-600/25"
+              : "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
+          }`}
+        >
+          <Database className="w-4 h-4 text-rose-400" />
+          <span>6. 🧹 Veritabanı Temizleme &amp; Sıfırlama Araçları</span>
         </button>
       </div>
 
@@ -473,7 +590,92 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       )}
 
       {/* ========================================================================= */}
-      {/* 3. AMAZON SP-API & MUHASEBE BAĞLANTILARI                                   */}
+      {/* 3. SİPARİŞLER YÖNETİMİ & HIZLI SİLME / DÜZENLEME (ORDERS CRUD)            */}
+      {/* ========================================================================= */}
+      {activeSubTab === "ORDERS_CRUD" && (
+        <div className="space-y-4">
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+                Tüm Mağazaların Sipariş Listesi ({displayedOrders.length} Kayıt)
+              </h3>
+              <p className="text-xs text-slate-400 font-mono-tech">
+                Herhangi bir hatalı satırı tek tıkla silebilir veya inceleyebilirsiniz.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <select
+                value={orderStoreFilter}
+                onChange={(e) => setOrderStoreFilter(e.target.value)}
+                className="bg-[#080C14] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono-tech text-indigo-300 font-bold"
+              >
+                <option value="ALL">TÜM MAĞAZALAR</option>
+                {stores.map((st) => (
+                  <option key={st.storeCode} value={st.storeCode}>
+                    {st.storeCode}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={orderSearchQuery}
+                onChange={(e) => setOrderSearchQuery(e.target.value)}
+                placeholder="Order No veya ASIN ara..."
+                className="px-3 py-1.5 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono-tech text-white"
+              />
+            </div>
+          </div>
+
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl overflow-hidden max-h-[520px] overflow-y-auto">
+            <table className="w-full text-left text-xs font-mono-tech">
+              <thead className="bg-[#080C14] text-slate-400 border-b border-slate-800 sticky top-0">
+                <tr>
+                  <th className="p-3">ID</th>
+                  <th className="p-3">Mağaza</th>
+                  <th className="p-3">Order No</th>
+                  <th className="p-3">ASIN</th>
+                  <th className="p-3">Ürün Başlığı</th>
+                  <th className="p-3">Adet</th>
+                  <th className="p-3">Birim Maliyet</th>
+                  <th className="p-3">Kargo Durumu</th>
+                  <th className="p-3 text-right">Sil</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {displayedOrders.map((o) => (
+                  <tr key={o.id} className="hover:bg-slate-800/40">
+                    <td className="p-3 text-slate-500">#{o.id}</td>
+                    <td className="p-3 font-bold text-indigo-400">{o.buyerStore}</td>
+                    <td className="p-3 font-bold text-white">{o.orderNumber}</td>
+                    <td className="p-3 text-sky-400">{o.asin}</td>
+                    <td className="p-3 font-sans text-slate-200 truncate max-w-xs">{o.productTitle}</td>
+                    <td className="p-3 text-white font-bold">{o.quantity}</td>
+                    <td className="p-3 text-amber-300 font-bold">${o.unitCost}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]">
+                        {o.cargoStatus}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => handleDeleteOrderRow(o.id)}
+                        className="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white transition"
+                        title="Bu siparişi kalıcı olarak sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. AMAZON SP-API & MUHASEBE BAĞLANTILARI                                   */}
       {/* ========================================================================= */}
       {activeSubTab === "SP_API" && (
         <div className="space-y-4">
@@ -536,7 +738,7 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
       )}
 
       {/* ========================================================================= */}
-      {/* 4. SİSTEM DENETİM İZİ (AUDIT LOGS)                                        */}
+      {/* 5. SİSTEM DENETİM İZİ (AUDIT LOGS)                                        */}
       {/* ========================================================================= */}
       {activeSubTab === "AUDIT" && (
         <div className="space-y-4">
@@ -570,6 +772,114 @@ export function AdminDashboard({ onStoreSelected, currentUser }: AdminDashboardP
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. VERİTABANI TEMİZLEME & SIFIRLAMA ARAÇLARI (DATABASE CLEAN & RESET)      */}
+      {/* ========================================================================= */}
+      {activeSubTab === "DB_TOOLS" && (
+        <div className="space-y-6">
+          <div className="bg-rose-500/10 border border-rose-500/40 rounded-2xl p-5 flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-base font-bold text-rose-300 uppercase font-mono-tech">
+                ⚠️ DANGER ZONE: Veritabanı Temizleme &amp; Gerçek Veri Hazırlık Merkezi
+              </h3>
+              <p className="text-xs text-slate-300 font-mono-tech mt-1">
+                Kendi gerçek Google Drive / Excel sipariş verilerinizi yüklemeden önce mevcut test/demo siparişlerini tek tıkla temizleyebilir veya dilediğinizde 38 gerçek Vitamin Shoppe siparişini fabrika verisi olarak geri getirebilirsiniz.
+              </p>
+            </div>
+          </div>
+
+          {/* Security confirmation input */}
+          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 space-y-3 font-mono-tech text-xs">
+            <label className="block text-slate-300 font-bold">
+              Güvenlik Onayı: Aşağıdaki araçları çalıştırmak için kutuya büyük harflerle{" "}
+              <code className="text-rose-400 bg-slate-900 px-1.5 py-0.5 rounded">RESET-CERBERUS</code> yazın:
+            </label>
+            <input
+              type="text"
+              value={confirmationInput}
+              onChange={(e) => setConfirmationInput(e.target.value)}
+              placeholder="RESET-CERBERUS"
+              className="w-full max-w-sm px-3.5 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold tracking-wider focus:outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Tool 1: Clean Orders Only (Keep Users & Stores) */}
+            <div className="bg-[#0F1626] border border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono-tech text-[10px] font-bold">
+                  EN ÇOK ÖNERİLEN (TEMİZ BAŞLANGIÇ)
+                </span>
+                <h4 className="text-base font-bold text-white mt-2">
+                  1. Sadece Siparişleri Temizle
+                </h4>
+                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                  Tüm demo siparişlerini (`orders`) ve PSH sevkiyat partilerini (`psh_batches`) temizler.  
+                  <strong className="text-emerald-400 block mt-1">
+                    ✓ 26 Mağaza tanımınız ve kullanıcı hesaplarınız (Harun, Selin, Can, Ahmet) KORUNUR!
+                  </strong>
+                </p>
+              </div>
+
+              <button
+                disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
+                onClick={() => handleExecuteDatabaseTool("CLEAN_ORDERS_ONLY")}
+                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-emerald-600/20"
+              >
+                {resettingDb ? "Temizleniyor..." : "Siparişleri Temizle & Hazırla"}
+              </button>
+            </div>
+
+            {/* Tool 2: Restore 38 Real Vitamin Shoppe Orders */}
+            <div className="bg-[#0F1626] border border-indigo-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono-tech text-[10px] font-bold">
+                  REFERANS VERİYİ GERİ YÜKLE
+                </span>
+                <h4 className="text-base font-bold text-white mt-2">
+                  2. 38 Gerçek XLS Siparişi Yükle
+                </h4>
+                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                  Paylaştığınız 40-kolonluk The Vitamin Shoppe 38 gerçek siparişini (`WO110074776` vb.), Google Drive linklerini ve PSH partilerini tek tıkla geri getirir.
+                </p>
+              </div>
+
+              <button
+                disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
+                onClick={() => handleExecuteDatabaseTool("RESTORE_REAL_XLS")}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-indigo-600/20"
+              >
+                {resettingDb ? "Yükleniyor..." : "38 Gerçek Siparişi Geri Yükle"}
+              </button>
+            </div>
+
+            {/* Tool 3: Factory Reset Keep Admin */}
+            <div className="bg-[#0F1626] border border-rose-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono-tech text-[10px] font-bold">
+                  TAM SIFIRLAMA
+                </span>
+                <h4 className="text-base font-bold text-white mt-2">
+                  3. Fabrika Ayarlarına Dön
+                </h4>
+                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                  Tüm siparişleri, batch'leri, mağaza kullanıcılarını (`STORE_USER`) ve denetim kayıtlarını siler. Sadece Sistem Yöneticisi (`Ahmet Erdem`) kalır.
+                </p>
+              </div>
+
+              <button
+                disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
+                onClick={() => handleExecuteDatabaseTool("NUKE_ALL_KEEP_ADMIN")}
+                className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-rose-600/20"
+              >
+                {resettingDb ? "Sıfırlanıyor..." : "Tüm Verileri Sıfırla"}
+              </button>
+            </div>
           </div>
         </div>
       )}

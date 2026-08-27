@@ -35,8 +35,16 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
    - Gelen kutulardaki Order No'yu eşleştirip `P1 İptal`, `P2 Eksik`, `P3 Defolu`, `P4 Tarihi Geçmiş` kaydı.
 7. **Inventory Lab & Amazon Muhasebesi:**
    - Birim alış, satış fiyatı, kâr ve net ROI.
-8. **Admin Komuta Merkezi & Mağaza İzolasyonu (Zero Trust RBAC):**
+8. **Admin Komuta Merkezi & Veritabanı Temizleme/Sıfırlama Paneli (Zero Trust RBAC):**
    - `ADMIN` (Tüm Mağazalar) vs `STORE_USER` (`HRN`, `SEL`, `MK` İzole Mağazalar).
+   - **Mağaza Yönetimi (Stores CRUD)**: 26 Mağaza tanımı, aktif/pasif, varsayılan kart ve e-posta yönetimi.
+   - **Kullanıcı Yönetimi (Users & RBAC)**: Personel ekleme, şifre belirleme, mağaza izolasyon ataması.
+   - **Siparişler Yönetimi & Satır Silme (Orders CRUD)**: Tüm mağazaların siparişlerini süzme ve tek tek silme.
+   - **🧹 Veritabanı Temizleme & Sıfırlama Araçları (DANGER ZONE)**:
+     - `RESET-CERBERUS` güvenlik onayıyla çalışır.
+     - **1. Sadece Siparişleri Temizle (Kullanıcılar & Mağazalar Kalır):** Kendi gerçek Excel/Drive verilerinizi yüklemek için sipariş ve batch tablolarını sıfırlar; kullanıcı ve mağaza ayarlarını korur.
+     - **2. 38 Gerçek XLS Siparişi Geri Yükle:** 40-kolonluk referans verisini dilediğinizde tek tıkla geri getirir.
+     - **3. Fabrika Ayarlarına Dön:** Sadece Süper Admin hesabını bırakıp tüm tabloları boşaltır.
 
 ---
 

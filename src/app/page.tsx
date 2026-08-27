@@ -1538,7 +1538,7 @@ export default function CerberusApp() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 6: ADMIN KOMUTA MERKEZİ                                               */}
+        {/* TAB 6: ADMIN KOMUTA MERKEZİ & VERİTABANI SIFIRLAMA ARAÇLARI               */}
         {/* ========================================================================= */}
         {activeTab === "ADMIN" && isAdmin && (
           <AdminDashboard
@@ -1547,6 +1547,7 @@ export default function CerberusApp() {
               setSelectedStore(storeCode);
               setActiveTab("XLS_MASTER");
             }}
+            onDataRefresh={() => fetchAllData()}
           />
         )}
       </main>
