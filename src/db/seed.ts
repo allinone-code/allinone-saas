@@ -1,47 +1,41 @@
 import { db } from "@/db";
 import { users, stores, orders, pshBatches, auditLogs } from "@/db/schema";
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { ALL_38_XLS_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
 
 export async function ensureCerberusSeeded() {
-  const existingCount = await db.select({ total: count() }).from(orders);
-  if (Number(existingCount[0]?.total || 0) >= 30) {
-    return;
-  }
-
-  // Clear existing dummy orders if fewer to ensure complete 38 rows
-  if (Number(existingCount[0]?.total || 0) > 0) {
-    await db.delete(orders);
-  }
-
-  // 1. Ensure users exist
+  // 1. Ensure users exist with passwords and store codes
   const existingUsers = await db.select({ total: count() }).from(users);
   if (Number(existingUsers[0]?.total || 0) === 0) {
     await db.insert(users).values([
       {
-        name: "Ahmet Erdem",
+        name: "Ahmet Erdem (Sistem Yöneticisi)",
         email: "ahmet@cerberus-commerce.io",
+        passwordHash: "admin2026",
         role: "ADMIN",
         storeCode: "ALL",
         avatar: "AE",
       },
       {
-        name: "Harun (HRN Store)",
+        name: "Harun (HRN Store Yöneticisi)",
         email: "harun@cerberus-commerce.io",
+        passwordHash: "store2026",
         role: "STORE_USER",
         storeCode: "HRN",
         avatar: "HRN",
       },
       {
-        name: "Selin Yılmaz (SEL Store)",
+        name: "Selin Yılmaz (SEL Store Yöneticisi)",
         email: "selin@cerberus-commerce.io",
+        passwordHash: "store2026",
         role: "STORE_USER",
         storeCode: "SEL",
         avatar: "SY",
       },
       {
-        name: "Can Demir (MK Store)",
+        name: "Can Demir (MK Store Yöneticisi)",
         email: "can@cerberus-commerce.io",
+        passwordHash: "store2026",
         role: "STORE_USER",
         storeCode: "MK",
         avatar: "CD",
@@ -60,6 +54,9 @@ export async function ensureCerberusSeeded() {
         buyerName: s.buyerName,
         currency: s.currency,
         status: s.status,
+        defaultCard: "1753",
+        defaultEmail: `${s.storeCode.toLowerCase()}@cerberus-commerce.io`,
+        notes: `${s.storeName} ana operasyon mağazası`,
         totalOrdersCount: s.totalOrdersCount,
         totalSpend: s.totalSpend,
       }))
@@ -86,20 +83,26 @@ export async function ensureCerberusSeeded() {
     );
   }
 
-  // 4. Seed all 38 Real Orders from the XLS data
-  await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
+  // 4. Seed all 38 Real Orders from the XLS data if not yet present
+  const existingCount = await db.select({ total: count() }).from(orders);
+  if (Number(existingCount[0]?.total || 0) === 0) {
+    await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
+  }
 
   // 5. Initial Audit Log
-  await db.insert(auditLogs).values([
-    {
-      actorName: "Harun (HRN Store)",
-      storeCode: "HRN",
-      actionType: "XLS_BATCH_IMPORT",
-      targetEntity: `HRN Master XLS (${ALL_38_XLS_ORDERS.length} Sipariş)`,
-      beforeState: "GOOGLE_DRIVE_XLS",
-      afterState: "CERBERUS_DATABASE",
-      details:
-        "Google Drive XLS tablosundaki 40 kolonlu gerçek siparişler aktarıldı. PSH ve Inventory Lab entegrasyonu sağlandı.",
-    },
-  ]);
+  const existingLogs = await db.select({ total: count() }).from(auditLogs);
+  if (Number(existingLogs[0]?.total || 0) === 0) {
+    await db.insert(auditLogs).values([
+      {
+        actorName: "Harun (HRN Store)",
+        storeCode: "HRN",
+        actionType: "XLS_BATCH_IMPORT",
+        targetEntity: `HRN Master XLS (${ALL_38_XLS_ORDERS.length} Sipariş)`,
+        beforeState: "GOOGLE_DRIVE_XLS",
+        afterState: "CERBERUS_DATABASE",
+        details:
+          "Google Drive XLS tablosundaki 40 kolonlu gerçek siparişler aktarıldı. PSH ve Inventory Lab entegrasyonu sağlandı.",
+      },
+    ]);
+  }
 }

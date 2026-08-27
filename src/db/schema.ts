@@ -8,18 +8,19 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
-// 1. Users table (Preserved users with store assignment & role)
+// 1. Users table (Preserved users with password_hash, store assignment & role)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull().default("admin2026"),
   role: text("role").notNull().default("STORE_USER"), // 'ADMIN' | 'MANAGER' | 'STORE_USER'
-  storeCode: text("store_code").default("HRN"), // e.g. 'HRN', 'ALL' for admin
+  storeCode: text("store_code").notNull().default("HRN"), // e.g. 'HRN', 'ALL' for admin
   avatar: text("avatar"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// 2. Stores Table (Multi-Store Isolation)
+// 2. Stores Table (Multi-Store Isolation & Admin Management)
 export const stores = pgTable("stores", {
   id: serial("id").primaryKey(),
   storeCode: text("store_code").notNull().unique(), // e.g. 'HRN', 'SEL', 'MK', 'AMZ-US-01'
@@ -28,6 +29,9 @@ export const stores = pgTable("stores", {
   buyerName: text("buyer_name").notNull().default("Harun"),
   currency: text("currency").notNull().default("USD"),
   status: text("status").notNull().default("ACTIVE"), // 'ACTIVE' | 'PASSIVE'
+  defaultCard: text("default_card").default("1753"),
+  defaultEmail: text("default_email"),
+  notes: text("notes"),
   totalOrdersCount: integer("total_orders_count").notNull().default(0),
   totalSpend: numeric("total_spend", { precision: 12, scale: 2 }).notNull().default("0.00"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -125,7 +129,7 @@ export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   actorName: text("actor_name").notNull(),
   storeCode: text("store_code").notNull().default("HRN"),
-  actionType: text("action_type").notNull(), // 'ORDER_CREATED' | 'CARGO_STATUS_CHANGED' | 'PSH_BATCH_ASSIGNED' | 'PROBLEM_REPORTED'
+  actionType: text("action_type").notNull(), // 'ORDER_CREATED' | 'STORE_CREATED' | 'USER_UPDATED' | 'CARGO_STATUS_CHANGED' | 'PSH_BATCH_ASSIGNED'
   targetEntity: text("target_entity").notNull(), // e.g. 'WO110074776 (MegaFood)'
   beforeState: text("before_state"),
   afterState: text("after_state"),
@@ -134,7 +138,9 @@ export const auditLogs = pgTable("audit_logs", {
 });
 
 export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
 export type Store = typeof stores.$inferSelect;
+export type NewStore = typeof stores.$inferInsert;
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type PshBatch = typeof pshBatches.$inferSelect;

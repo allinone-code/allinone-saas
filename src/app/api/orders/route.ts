@@ -2,23 +2,29 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { ensureCerberusSeeded } from "@/db/seed";
-import { desc, eq, and, sql } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { desc, eq, and, inArray } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
     await ensureCerberusSeeded();
+    const currentUser = await getCurrentUser();
 
     const { searchParams } = new URL(req.url);
-    const storeCode = searchParams.get("storeCode") || "ALL";
+    const requestedStore = searchParams.get("storeCode") || "ALL";
     const cargoStatus = searchParams.get("cargoStatus");
     const pshBatchNo = searchParams.get("pshBatchNo");
-    const search = searchParams.get("search");
 
-    let query = db.select().from(orders);
+    // Enforce Store Isolation:
+    // If user is STORE_USER, lock to their assigned storeCode!
+    let effectiveStore = requestedStore;
+    if (currentUser && currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL") {
+      effectiveStore = currentUser.storeCode;
+    }
 
     const conditions = [];
-    if (storeCode && storeCode !== "ALL") {
-      conditions.push(eq(orders.buyerStore, storeCode));
+    if (effectiveStore && effectiveStore !== "ALL") {
+      conditions.push(eq(orders.buyerStore, effectiveStore));
     }
     if (cargoStatus && cargoStatus !== "ALL") {
       conditions.push(eq(orders.cargoStatus, cargoStatus));
@@ -27,14 +33,24 @@ export async function GET(req: Request) {
       conditions.push(eq(orders.pshBatchNo, pshBatchNo));
     }
 
-    const allOrders = conditions.length > 0
-      ? await db.select().from(orders).where(and(...conditions)).orderBy(desc(orders.orderDate), desc(orders.id))
-      : await db.select().from(orders).orderBy(desc(orders.orderDate), desc(orders.id));
+    const allOrders =
+      conditions.length > 0
+        ? await db
+            .select()
+            .from(orders)
+            .where(and(...conditions))
+            .orderBy(desc(orders.orderDate), desc(orders.id))
+        : await db
+            .select()
+            .from(orders)
+            .orderBy(desc(orders.orderDate), desc(orders.id));
 
     const [allStores, allBatches, allAuditLogs, allUsers] = await Promise.all([
       db.select().from(stores).orderBy(stores.storeCode),
-      db.select().from(pshBatches).orderBy(desc(pshBatches.createdAt)),
-      db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(30),
+      effectiveStore && effectiveStore !== "ALL"
+        ? db.select().from(pshBatches).where(eq(pshBatches.storeCode, effectiveStore)).orderBy(desc(pshBatches.createdAt))
+        : db.select().from(pshBatches).orderBy(desc(pshBatches.createdAt)),
+      db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(40),
       db.select().from(users),
     ]);
 
@@ -44,7 +60,6 @@ export async function GET(req: Request) {
     const totalSpend = allOrders.reduce((sum, o) => sum + Number(o.totalCost || 0), 0);
     const totalShippedToAmazon = allOrders.reduce((sum, o) => sum + Number(o.shippedToAmazon || 0), 0);
 
-    // Problem / Discrepancy counts
     const p1CancelTotal = allOrders.reduce((sum, o) => sum + Number(o.p1CancelQty || 0), 0);
     const p2MissingTotal = allOrders.reduce((sum, o) => sum + Number(o.p2MissingQty || 0), 0);
     const p3DefectiveTotal = allOrders.reduce((sum, o) => sum + Number(o.p3DefectiveQty || 0), 0);
@@ -67,6 +82,11 @@ export async function GET(req: Request) {
       batches: allBatches,
       auditLogs: allAuditLogs,
       users: allUsers,
+      currentUser: currentUser || {
+        name: "Ahmet Erdem",
+        role: "ADMIN",
+        storeCode: "ALL",
+      },
       kpis: {
         totalOrdersCount,
         totalUnits,
@@ -91,9 +111,16 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const currentUser = await getCurrentUser();
     const body = await req.json();
+
+    // If store user, enforce their store
+    let targetStore = body.buyerStore || "HRN";
+    if (currentUser && currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL") {
+      targetStore = currentUser.storeCode;
+    }
+
     const {
-      buyerStore = "HRN",
       orderDate = new Date().toISOString().split("T")[0],
       imageUrl = "",
       fulfillmentType = "FBA",
@@ -132,10 +159,10 @@ export async function POST(req: Request) {
       auditNote = "",
       periodCode = "Ş26",
       correctedCost = 0,
-      pshBatchNo = "PSH-BATCH-2026-02",
+      pshBatchNo = "",
       pshStatus = "BEKLIYOR",
       inventoryLabStatus = "GIRILMEDI",
-      actorName = "Store Specialist",
+      actorName = currentUser?.name || "Store User",
     } = body;
 
     if (!productTitle || !asin || !orderNumber) {
@@ -151,13 +178,13 @@ export async function POST(req: Request) {
     const [inserted] = await db
       .insert(orders)
       .values({
-        buyerStore,
+        buyerStore: targetStore,
         orderDate,
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80",
         fulfillmentType,
         productTitle,
         asin: asin.trim().toUpperCase(),
-        msku: msku ? msku.trim() : `${buyerStore}-${asin.trim()}`,
+        msku: msku ? msku.trim() : `${targetStore}-${asin.trim()}`,
         supplierName,
         supplierCode,
         supplierUrl: supplierUrl || `https://www.vitaminshoppe.com/search?q=${encodeURIComponent(productTitle)}`,
@@ -190,7 +217,7 @@ export async function POST(req: Request) {
         auditNote,
         periodCode,
         correctedCost: calculatedCorrected.toFixed(2),
-        pshBatchNo,
+        pshBatchNo: pshBatchNo || null,
         pshStatus,
         inventoryLabStatus,
       })
@@ -199,12 +226,12 @@ export async function POST(req: Request) {
     // Audit log
     await db.insert(auditLogs).values({
       actorName,
-      storeCode: buyerStore,
+      storeCode: targetStore,
       actionType: "ORDER_CREATED",
       targetEntity: `${orderNumber} - ${productTitle.slice(0, 32)}`,
       beforeState: "YENI_GIRIS",
       afterState: cargoStatus,
-      details: `${buyerStore} mağazasına ${quantity} adet (${unitCost}$) sipariş girildi.`,
+      details: `${targetStore} mağazasına ${quantity} adet (${unitCost}$) sipariş girildi.`,
     });
 
     return NextResponse.json({
