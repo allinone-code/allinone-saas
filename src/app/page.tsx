@@ -100,7 +100,7 @@ export default function CerberusApp() {
   const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
   const [isWarehouseReconOpen, setIsWarehouseReconOpen] = useState(false);
 
-  // 1. Check Authentication on Mount
+  // 1. Check Authentication on Mount & Query Params
   useEffect(() => {
     async function verifyUser() {
       try {
@@ -130,6 +130,23 @@ export default function CerberusApp() {
       }
     }
     verifyUser();
+
+    // Check for ?tab=admin or other tab parameters
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam) {
+        const up = tabParam.toUpperCase();
+        if (up === "ADMIN") setActiveTab("ADMIN");
+        else if (up === "XLS_MASTER") setActiveTab("XLS_MASTER");
+        else if (up === "PSH_BATCHES") setActiveTab("PSH_BATCHES");
+        else if (up === "WAREHOUSE") setActiveTab("WAREHOUSE");
+        else if (up === "INVENTORY_LAB") setActiveTab("INVENTORY_LAB");
+        else if (up === "PROBLEMS") setActiveTab("PROBLEMS");
+      }
+      const storeParam = params.get("store");
+      if (storeParam) setSelectedStore(storeParam);
+    }
   }, []);
 
   // 2. Fetch Orders and Intelligence for Selected Store
@@ -441,6 +458,21 @@ export default function CerberusApp() {
               </select>
             )}
           </div>
+
+          {/* Admin Komuta Merkezi Quick Link */}
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab("ADMIN")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-mono-tech text-xs font-bold uppercase tracking-wider transition border shadow-sm ${
+                activeTab === "ADMIN"
+                  ? "bg-indigo-600 text-white border-indigo-400 shadow-indigo-600/30"
+                  : "bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border-indigo-500/40"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>🛡️ Admin Paneli</span>
+            </button>
+          )}
 
           {/* Export CSV Button */}
           <button

@@ -46,6 +46,11 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
      - **2. 38 Gerçek XLS Siparişi Geri Yükle:** 40-kolonluk referans verisini dilediğinizde tek tıkla geri getirir.
      - **3. Fabrika Ayarlarına Dön:** Sadece Süper Admin hesabını bırakıp tüm tabloları boşaltır.
 
+### 🧭 Admin Dashboard'a Giriş Yapmanın 3 Kolay Yolu:
+1. **Giriş Ekranından:** `/login` sayfasında **Ahmet Erdem (Sistem Yöneticisi)** butonuna tıklayın veya `ahmet@cerberus-commerce.io` / `admin2026` ile giriş yapın → Sistem sizi doğrudan Admin Dashboard'una açar.
+2. **Üst Menüdeki Butondan:** Sayfanın en üstünde yer alan mor/indigo renkli **[ 🛡️ Admin Paneli ]** butonuna tıklayın.
+3. **Doğrudan URL ile:** Tarayıcı adres çubuğuna doğrudan `https://.../admin` yazın.
+
 ---
 
 ## 🔐 1-Tıkla Test Giriş Hesapları

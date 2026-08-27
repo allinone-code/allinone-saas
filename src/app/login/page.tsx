@@ -80,7 +80,11 @@ export default function LoginPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        router.push("/");
+        if (data.user?.role === "ADMIN") {
+          router.push("/?tab=admin");
+        } else {
+          router.push("/");
+        }
         router.refresh();
       } else {
         setErrorMsg(data.error || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.");
