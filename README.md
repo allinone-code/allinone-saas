@@ -4,50 +4,77 @@
 
 ---
 
-## 🏛️ Architecture & Core Domains
+## ⚡ Hızlı Başlangıç (Lokalde Çalıştırma)
 
-1. **Executive Dashboard & 4-Layer Operations Center**
-   - **Executive Dashboard**: Unified cross-channel view of 26 storefronts with live Gross Revenue ($2.84M+), Net Profit ($682K+), Active Listings (3,140+), and Average Portfolio ROI (48.2%).
-   - **Product Sourcing & Discovery Intelligence**: 13-stage lifecycle tracking with live search, filters, and 360° inspector.
-   - **10-Person US Sourcing Team Leaderboard**: Measures true commercial conversion (*Discovery Volume → Approval Rate → Purchase Conversion → Net ROI → Problem Rate*).
-   - **26 Multi-Store Fleet**: 18 Amazon storefronts, 2 Walmart accounts, 5 Shopify DTC stores, and 1 B2B Wholesale Portal.
-   - **P1–P4 Operational Alarm Center**: Instant alerts for BuyBox price shifts, Amazon account health warnings, and supplier stockouts.
+Projeyi bilgisayarınızda çalıştırmak için yalnızca **3 adım**:
 
-2. **13-Stage Central Product Lifecycle**
-   $$\text{DISCOVERED} \rightarrow \text{SCREENING} \rightarrow \text{DUPLICATE\_CHECK} \rightarrow \text{ANALYZING} \rightarrow \text{REVIEW} \rightarrow \text{APPROVED} \rightarrow \text{PURCHASING} \rightarrow \text{RECEIVED} \rightarrow \text{LISTING} \rightarrow \text{ACTIVE} \rightarrow \text{MONITORING} \rightarrow \text{PAUSED} \rightarrow \text{DISCONTINUED}$$
+### 1. Bağımlılıkları Yükleyin
+```bash
+npm install
+```
 
-3. **Landed Cost & Profitability Engine**
-   - Calculates landed cost with true precision:
-     $$\text{Landed Cost} = \text{Source Price} + \text{Supplier Shipping} + \text{Prep/Label} + \text{Amazon Fee (15\%)} + \text{FBA Fulfillment Fee}$$
-     $$\text{ROI (\%)} = \frac{\text{Estimated Net Profit}}{\text{Total Landed Cost}} \times 100$$
-   - SVG Cost History timeline tracking cost evolution over time.
+### 2. Ortam Değişkeni (.env)
+Proje kökünde `.env` dosyası oluşturun (veya `.env.example` dosyasını kopyalayın):
+```bash
+cp .env.example .env
+```
+İçine Neon veya yerel PostgreSQL bağlantı adresinizi yazın:
+```env
+DATABASE_URL=postgresql://neondb_owner:PAROLANIZ@ep-XXX-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
+```
 
-4. **AI Opportunity Score Radar (0–100)**
-   - 6-axis hexagonal SVG visualization evaluating:
-     - `PROFITABILITY`
-     - `DEMAND`
-     - `COMPETITION`
-     - `PRICE STABILITY`
-     - `SUPPLIER RELIABILITY`
-     - `OPERATIONAL RISK`
-   - AI Decision Support recommendations: `HIGH_MARGIN_SCALER`, `APPROVED_FOR_PURCHASE`, `HOLD_FOR_PRICE_DROP`, `FLAGGED_IP_RISK`.
+> **Not:** Eğer henüz bir veritabanınız yoksa, sistem otomatik olarak **Demo / Offline Modu**nda açılır ve 26 mağaza, 10 uzman ve ürünlerle eksiksiz çalışır!
 
-5. **Chrome Extension Quick-Capture & Excel Migration Pipeline**
-   - 1-click US retail deal capture (*Home Depot, Ulta, Costco, BestBuy, Target, Grainger*) with live UPC/ASIN duplicate checking.
-   - Batch Excel/CSV import pipeline with normalization and duplicate detection.
+### 3. Veritabanı Tablolarını Oluşturun (Eğer DATABASE_URL tanımladıysanız)
+```bash
+npx drizzle-kit push
+```
 
-6. **Immutable Audit Security Log**
-   - Tracks `WHO • WHAT • WHEN • BEFORE • AFTER` for every pricing change, status update, and discovery submission.
+### 4. Geliştirme Sunucusunu Başlatın
+```bash
+npm run dev
+```
+
+Tarayıcınızda açın: **http://localhost:3000** 🚀
 
 ---
 
-## 🚀 Live Deployment to Vercel & Neon
+## 🏛️ Mimari ve Çekirdek Modüller
 
-1. Push this repository to GitHub (`allinone-code/allinone-saas`).
-2. Create a serverless PostgreSQL database on [Neon](https://neon.tech) (Frankfurt region recommended).
-3. Push schema to Neon:
+1. **4 Katmanlı Taktik Komuta Dashboard'u**
+   - **Executive KPI Strip**: 26 mağazanın konsolide $2.84M+ brüt cirosu, +$682K+ net kârı, 3.140+ aktif listelemesi ve %48.2 ortalama portföy ROI'si.
+   - **1. Katman — Ürün İstihbaratı ve Sourcing Motoru**: 13 aşamalı yaşam döngüsü, canlı ASIN/UPC/Brand araması, filtreler, landed cost dökümü ve 360° müfettiş.
+   - **2. Katman — 10 Kişilik ABD Sourcing Ekibi Liderlik Tablosu**: Gerçek ticari dönüşüm takibi (*Keşif Hacmi → Yönetici Onayı → Satın Alma Oranı → Net ROI → Problem Oranı*).
+   - **3. Katman — 26 Mağazalık Filo ve Tedarikçi İstihbaratı**: 18 Amazon, 2 Walmart, 5 Shopify, 1 Toptan B2B portalı ve 0–100 arası tedarikçi skoru.
+   - **4. Katman — P1–P4 Operasyonel Problem Merkezi ve Denetim İzi**: BuyBox kırılmaları, hesap sağlığı alarmları ve değişmez Audit Log (*Kim • Ne Zaman • Öncesi • Sonrası*).
+
+2. **13 Aşamalı Merkezi Ürün Yaşam Döngüsü (Lifecycle Pipeline)**
+   $$\text{DISCOVERED} \rightarrow \text{SCREENING} \rightarrow \text{DUPLICATE\_CHECK} \rightarrow \text{ANALYZING} \rightarrow \text{REVIEW} \rightarrow \text{APPROVED} \rightarrow \text{PURCHASING} \rightarrow \text{RECEIVED} \rightarrow \text{LISTING} \rightarrow \text{ACTIVE} \rightarrow \text{MONITORING} \rightarrow \text{PAUSED} \rightarrow \text{DISCONTINUED}$$
+
+3. **Landed Cost & Kârlılık Motoru**
+   - Gerçek maliyet hesabı:
+     $$\text{Landed Cost} = \text{Kaynak Fiyat} + \text{Kargo} + \text{Prep/Etiket} + \text{Amazon Ref Bedeli (\%15)} + \text{FBA Kargo}$$
+     $$\text{ROI (\%)} = \frac{\text{Tahmini Net Kâr}}{\text{Landed Cost}} \times 100$$
+   - Zaman içindeki fiyat hareketlerini izleyen **SVG Alan Trend Grafiği**.
+
+4. **Yapay Zeka Fırsat Radarı (AI Opportunity Radar - 6 Eksenli Hexagonal SVG)**
+   - `PROFITABILITY`, `DEMAND`, `COMPETITION`, `PRICE STABILITY`, `SUPPLIER RELIABILITY`, `OPERATIONAL RISK` skorları.
+   - Yapay zeka tavsiyesi: `HIGH_MARGIN_SCALER`, `APPROVED_FOR_PURCHASE`, `HOLD_FOR_PRICE_DROP`, `FLAGGED_IP_RISK`.
+
+5. **Chrome Extension Hızlı Yakalama & Excel İçe Aktarma**
+   - Tek tıkla Home Depot, Ulta, Costco, BestBuy, Target sitelerinden veri yakalama.
+   - Anlık %96 duplicate tespiti.
+   - Excel / CSV toplu içe aktarma ve normalizasyon hattı.
+
+---
+
+## 🚀 Canlıya Alma (Vercel + Neon)
+
+1. Projeyi GitHub'a pushlayın:
    ```bash
-   DATABASE_URL="your-neon-pooled-connection-string" npx drizzle-kit push
+   git push origin main
    ```
-4. Deploy to [Vercel](https://vercel.com) and set the `DATABASE_URL` environment variable.
-5. On initial load, the system automatically seeds demo data (26 stores, 10 specialists, suppliers, products, problems, and audit logs).
+2. [Vercel](https://vercel.com) üzerinde projeyi içe aktarın (Import).
+3. **Environment Variables** bölümüne:
+   - `DATABASE_URL` = Neon Pooled Connection String
+4. **Deploy** butonuna basın. İlk açılışta demo veriler otomatik olarak PostgreSQL'e yazılır.

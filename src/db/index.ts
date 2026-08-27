@@ -1,11 +1,11 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-const databaseUrl = process.env.DATABASE_URL;
+export const isDatabaseConfigured = !!process.env.DATABASE_URL;
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required");
-}
+const databaseUrl =
+  process.env.DATABASE_URL ||
+  "postgresql://postgres:postgres@127.0.0.1:5432/app_db";
 
 const globalForDb = globalThis as typeof globalThis & {
   __cerberusPool?: Pool;
@@ -17,7 +17,7 @@ export const pool =
     connectionString: databaseUrl,
     max: 3,
     idleTimeoutMillis: 20_000,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 8_000,
   });
 
 globalForDb.__cerberusPool = pool;
