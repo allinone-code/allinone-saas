@@ -452,13 +452,13 @@ export default function CerberusApp() {
             CSV Export
           </button>
 
-          {/* Import XLS */}
+          {/* Import XLS / Google Drive */}
           <button
             onClick={() => setIsXlsImportOpen(true)}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-tech text-slate-200 border border-slate-700 transition"
+            className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-mono-tech font-bold transition shadow-sm"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            Drive XLS'den Yapıştır
+            Excel / Google Drive Yükle
           </button>
 
           <button

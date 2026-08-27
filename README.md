@@ -23,9 +23,12 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
    - Tahmini ROI vs Gerçekleşen ROI (`Actual vs Estimated Profitability Engine`)
 3. **10 Kişilik ABD Sourcing Ekibi Zekâsı (`Quality-Adjusted Researcher Score`):**
    - Bulunan Ürün → Onaylanan → Satın Alınan → Kâr Üreten Ürün + Fire Oranı.
-4. **40 Kolonluk Google Drive XLS Siparişleri + CSV İndir (KİLİTLİ ŞEMA):**
+4. **40 Kolonluk Google Drive XLS Siparişleri + Çoklu Kaynak Excel İçe Aktarıcı (KİLİTLİ ŞEMA):**
    - 38 gerçek The Vitamin Shoppe siparişi (`WO110074776`, `WO310759607`...)
-   - Tek tıkla CSV Export (`.csv`) ve Drive XLS'den Yapıştır modülü.
+   - **Bilgisayardan `.xlsx` / `.xls` / `.csv` Sürükle & Bırak:** SheetJS kütüphanesi dosyayı tarayıcıda okur ve 40 kolonu otomatik haritalar.
+   - **Google Drive E-Tablo Linki Çekme:** Paylaşım linkini (`https://docs.google.com/spreadsheets/d/...`) yapıştırıp doğrudan sunucu üzerinden içe aktarma.
+   - **Excel Tarzı Hücre Düzenleyici Önizleme Tablosu:** Kaydetmeden önce satırları, birim maliyeti, ASIN ve kargo durumunu Excel hücresi gibi tıklayıp düzeltebilme.
+   - Tek tıkla **CSV Export (`.csv`)**.
 5. **PSH Envanter & Batch Partileri Modülü:**
    - Ön-envanter sevkiyat partileri (`PSH-BATCH-2026-01`, `PSH-BATCH-2026-02`).
 6. **Depo Karşılama & Sayım (Order No Eşleştirme & P1–P4 Fire):**

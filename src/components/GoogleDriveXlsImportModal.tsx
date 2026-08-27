@@ -1,7 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, FileSpreadsheet, CheckCircle2, Upload, AlertCircle } from "lucide-react";
+import React, { useState, useRef } from "react";
+import * as XLSX from "xlsx";
+import {
+  X,
+  FileSpreadsheet,
+  CheckCircle2,
+  Upload,
+  AlertCircle,
+  CloudDownload,
+  FileUp,
+  ClipboardPaste,
+  Trash2,
+  Edit3,
+} from "lucide-react";
 
 interface GoogleDriveXlsImportModalProps {
   isOpen: boolean;
@@ -17,124 +29,183 @@ export function GoogleDriveXlsImportModal({
   currentStore,
 }: GoogleDriveXlsImportModalProps) {
   const store = currentStore === "ALL" ? "HRN" : currentStore;
+
+  const [activeImportMode, setActiveImportMode] = useState<
+    "FILE_UPLOAD" | "DRIVE_URL" | "PASTE_TSV"
+  >("FILE_UPLOAD");
+
+  // State for Drive URL
+  const [driveUrl, setDriveUrl] = useState("");
+  const [fetchingDrive, setFetchingDrive] = useState(false);
+
+  // State for Paste TSV
   const [tsvText, setTsvText] = useState("");
+
+  // Parsed Preview Rows ready to commit
+  const [previewRows, setPreviewRows] = useState<any[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  // Submission state
   const [importing, setImporting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const handleParseAndImport = async () => {
-    if (!tsvText.trim()) return;
+  // Convert raw 2D matrix array to 40-col objects
+  const parseMatrixToRows = (rawMatrix: any[][]) => {
+    if (!rawMatrix || rawMatrix.length < 2) return [];
+    const dataRows = rawMatrix.slice(1);
+    const parsed: any[] = [];
 
-    setImporting(true);
-    setResultMessage(null);
+    for (const cols of dataRows) {
+      if (!cols || cols.length < 3) continue;
+      const productTitle = String(cols[4] || cols[2] || "").trim();
+      const orderNumber = String(cols[11] || cols[5] || "").trim();
+      if (!productTitle && !orderNumber) continue;
 
-    try {
-      const lines = tsvText.trim().split("\n");
-      const rows = [];
+      parsed.push({
+        buyerStore: String(cols[0] || store).trim() || store,
+        orderDate: String(cols[1] || new Date().toISOString().split("T")[0]).trim(),
+        imageUrl: String(cols[2] || "").trim(),
+        fulfillmentType: String(cols[3] || "FBA").trim(),
+        productTitle: productTitle || "Excel Siparişi",
+        asin: String(cols[5] || "").trim().toUpperCase(),
+        msku: String(cols[6] || "").trim(),
+        supplierName: String(cols[7] || "THE VITAMINSHOPPE").trim(),
+        supplierCode: String(cols[8] || "A198").trim(),
+        supplierUrl: String(cols[9] || "").trim(),
+        amazonUrl: String(cols[10] || "").trim(),
+        orderNumber: orderNumber || `WO-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        driveLink: String(cols[12] || "").trim(),
+        packCount: Number(cols[13]) || 1,
+        quantity: Number(cols[14]) || 1,
+        unitCost: String(cols[15] || "0").replace(",", "."),
+        sellingPrice: String(cols[16] || "0").replace(",", "."),
+        totalCost: String(cols[17] || "0").replace(",", "."),
+        orderEmail: String(cols[18] || "").trim(),
+        cargoStatus: String(cols[19] || "Tam Geldi").trim(),
+        shippedToAmazon: Number(cols[20]) || 0,
+        p1CancelQty: Number(cols[21]) || 0,
+        p2MissingQty: Number(cols[22]) || 0,
+        p3DefectiveQty: Number(cols[23]) || 0,
+        p4ExpiredQty: Number(cols[24]) || 0,
+        problemAction: String(cols[25] || "").trim(),
+        problemResult: String(cols[26] || "").trim(),
+        refundAmount: String(cols[27] || "0").replace(",", "."),
+        creditCard: String(cols[28] || "1753").trim(),
+        isFragile: String(cols[29] || "NO").trim(),
+        isMultiPack: String(cols[30] || "NO").trim(),
+        isBundle: String(cols[31] || "NO").trim(),
+        condition: String(cols[33] || "New").trim(),
+        brandName: String(cols[34] || "General").trim(),
+        description1: String(cols[35] || "").trim(),
+        description2: String(cols[36] || "").trim(),
+        auditNote: String(cols[37] || "").trim(),
+        periodCode: String(cols[38] || "Ş26").trim(),
+        correctedCost: String(cols[39] || cols[17] || "0").replace(",", "."),
+      });
+    }
 
-      for (const line of lines) {
-        // Tab or comma separated
-        const cols = line.includes("\t") ? line.split("\t") : line.split(",");
-        if (cols.length < 5) continue;
+    return parsed;
+  };
 
-        // Map column indexes based on the 40-column prompt header
-        const buyerStore = cols[0]?.trim() || store;
-        const orderDate = cols[1]?.trim() || new Date().toISOString().split("T")[0];
-        const imageUrl = cols[2]?.trim() || "";
-        const fulfillmentType = cols[3]?.trim() || "FBA";
-        const productTitle = cols[4]?.trim() || "Sipariş Edilen Ürün";
-        const asin = cols[5]?.trim() || "";
-        const msku = cols[6]?.trim() || "";
-        const supplierName = cols[7]?.trim() || "THE VITAMINSHOPPE";
-        const supplierCode = cols[8]?.trim() || "A198";
-        const supplierUrl = cols[9]?.trim() || "";
-        const amazonUrl = cols[10]?.trim() || "";
-        const orderNumber = cols[11]?.trim() || `WO-${Math.floor(10000000 + Math.random() * 90000000)}`;
-        const driveLink = cols[12]?.trim() || "";
-        const packCount = Number(cols[13]) || 1;
-        const quantity = Number(cols[14]) || 1;
-        const unitCost = cols[15]?.trim() || "0";
-        const sellingPrice = cols[16]?.trim() || "0";
-        const totalCost = cols[17]?.trim() || "0";
-        const orderEmail = cols[18]?.trim() || "";
-        const cargoStatus = cols[19]?.trim() || "Tam Geldi";
-        const shippedToAmazon = Number(cols[20]) || 0;
-        const p1CancelQty = Number(cols[21]) || 0;
-        const p2MissingQty = Number(cols[22]) || 0;
-        const p3DefectiveQty = Number(cols[23]) || 0;
-        const p4ExpiredQty = Number(cols[24]) || 0;
-        const problemAction = cols[25]?.trim() || "";
-        const problemResult = cols[26]?.trim() || "";
-        const refundAmount = cols[27]?.trim() || "0";
-        const creditCard = cols[28]?.trim() || "1753";
-        const isFragile = cols[29]?.trim() || "NO";
-        const isMultiPack = cols[30]?.trim() || "NO";
-        const isBundle = cols[31]?.trim() || "NO";
-        const countPerBundle = Number(cols[32]) || null;
-        const condition = cols[33]?.trim() || "New";
-        const brandName = cols[34]?.trim() || "General";
-        const description1 = cols[35]?.trim() || "";
-        const description2 = cols[36]?.trim() || "";
-        const auditNote = cols[37]?.trim() || "";
-        const periodCode = cols[38]?.trim() || "O26";
-        const correctedCost = cols[39]?.trim() || totalCost;
+  // 1. Handle local Excel / CSV file upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
 
-        rows.push({
-          buyerStore,
-          orderDate,
-          imageUrl,
-          fulfillmentType,
-          productTitle,
-          asin,
-          msku,
-          supplierName,
-          supplierCode,
-          supplierUrl,
-          amazonUrl,
-          orderNumber,
-          driveLink,
-          packCount,
-          quantity,
-          unitCost,
-          sellingPrice,
-          totalCost,
-          orderEmail,
-          cargoStatus,
-          shippedToAmazon,
-          p1CancelQty,
-          p2MissingQty,
-          p3DefectiveQty,
-          p4ExpiredQty,
-          problemAction,
-          problemResult,
-          refundAmount,
-          creditCard,
-          isFragile,
-          isMultiPack,
-          isBundle,
-          countPerBundle,
-          condition,
-          brandName,
-          description1,
-          description2,
-          auditNote,
-          periodCode,
-          correctedCost,
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawMatrix: any[][] = XLSX.utils.sheet_to_json(firstSheet, {
+          header: 1,
+          defval: "",
         });
-      }
 
-      if (rows.length === 0) {
-        setResultMessage("Geçerli satır tespit edilemedi. Lütfen veriyi kontrol edin.");
-        setImporting(false);
-        return;
+        const rows = parseMatrixToRows(rawMatrix);
+        if (rows.length === 0) {
+          setErrorMsg("Excel dosyasında geçerli veri satırı bulunamadı. İlk satır başlık olmalıdır.");
+        } else {
+          setPreviewRows(rows);
+        }
+      } catch (err: any) {
+        setErrorMsg(`Dosya okuma hatası: ${err.message}`);
       }
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
+  // 2. Fetch directly from Google Drive URL
+  const handleFetchFromDrive = async () => {
+    if (!driveUrl.trim()) return;
+    setErrorMsg(null);
+    setFetchingDrive(true);
+    try {
+      const res = await fetch("/api/orders/import-drive-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driveUrl, defaultStore: store }),
+      });
+      const data = await res.json();
+      if (res.ok && data.rows) {
+        setPreviewRows(data.rows);
+        setFileName("Google Drive E-Tablo");
+      } else {
+        setErrorMsg(data.error || "Google Drive linki çözümlenemedi.");
+      }
+    } catch {
+      setErrorMsg("Bağlantı hatası oluştu.");
+    } finally {
+      setFetchingDrive(false);
+    }
+  };
+
+  // 3. Parse pasted TSV / CSV text
+  const handleParsePaste = () => {
+    setErrorMsg(null);
+    if (!tsvText.trim()) return;
+    const lines = tsvText.trim().split("\n");
+    const matrix = lines.map((l) => (l.includes("\t") ? l.split("\t") : l.split(",")));
+    const rows = parseMatrixToRows([["HEADER", ...Array(39).fill("")], ...matrix]);
+    if (rows.length === 0) {
+      setErrorMsg("Yapıştırılan metinde geçerli satır bulunamadı.");
+    } else {
+      setPreviewRows(rows);
+      setFileName("Panodan Yapıştırılan Veri");
+    }
+  };
+
+  // Update cell in preview table inline
+  const handleCellChange = (rowIndex: number, field: string, value: string) => {
+    setPreviewRows((prev) =>
+      prev.map((r, i) => (i === rowIndex ? { ...r, [field]: value } : r))
+    );
+  };
+
+  // Delete row from preview table
+  const handleDeleteRow = (rowIndex: number) => {
+    setPreviewRows((prev) => prev.filter((_, i) => i !== rowIndex));
+  };
+
+  // Commit preview rows to PostgreSQL
+  const handleCommitToDatabase = async () => {
+    if (previewRows.length === 0) return;
+    setImporting(true);
+    setErrorMsg(null);
+    try {
       const res = await fetch("/api/orders/import-xls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rows,
+          rows: previewRows,
           defaultStore: store,
           actorName: `Kullanıcı (${store})`,
         }),
@@ -148,10 +219,10 @@ export function GoogleDriveXlsImportModal({
           onClose();
         }, 1200);
       } else {
-        setResultMessage(`Hata: ${data.error}`);
+        setErrorMsg(data.error || "Veritabanına aktarım başarısız oldu.");
       }
     } catch (err: any) {
-      setResultMessage(`Hata oluştu: ${err.message}`);
+      setErrorMsg(err.message);
     } finally {
       setImporting(false);
     }
@@ -159,18 +230,19 @@ export function GoogleDriveXlsImportModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-slate-700/80 rounded-2xl max-w-3xl w-full p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+      <div className="bg-[#0F1626] border border-slate-700/80 rounded-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto p-6 shadow-2xl flex flex-col space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3.5 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-display font-bold text-white">
-                Google Drive XLS Tablosundan Toplu İçe Aktar
+                Çoklu Kaynak Excel / Google Drive Sipariş İçe Aktarıcı ({store} Mağazası)
               </h2>
               <p className="text-xs text-slate-400 font-mono-tech">
-                Excel veya Google E-Tablolar'dan kopyaladığınız satırları buraya yapıştırın ({store} Mağazası)
+                Bilgisayarınızdan .xlsx / .csv yükleyin veya Google E-Tablo linkini yapıştırıp Excel gibi hücre düzenleyin
               </p>
             </div>
           </div>
@@ -182,45 +254,283 @@ export function GoogleDriveXlsImportModal({
           </button>
         </div>
 
-        <div className="my-4 space-y-3">
-          <div className="p-3 rounded-lg bg-[#0E1420] border border-slate-800 text-xs font-mono-tech text-slate-300">
-            <p className="text-sky-400 font-bold mb-1">📋 Format Rehberi (40 Kolon Destekli):</p>
-            <p className="text-slate-400">
-              Google Drive tablonuzdaki satırları kopyalayıp (Ctrl+C / Cmd+C) doğrudan aşağıdaki metin kutusuna yapıştırın. Sistem satırları, birim maliyeti, ASIN, Orderno, Drive linki, P1-P4 eksik/defolu adetleri otomatik ayrıştıracaktır.
-            </p>
-          </div>
+        {/* Mode Selector Tabs */}
+        <div className="grid grid-cols-3 gap-2 text-xs font-mono-tech">
+          <button
+            type="button"
+            onClick={() => setActiveImportMode("FILE_UPLOAD")}
+            className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
+              activeImportMode === "FILE_UPLOAD"
+                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
+                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+            }`}
+          >
+            <FileUp className="w-4 h-4 text-emerald-400" />
+            <span>1. Bilgisayardan .XLSX / .CSV Yükle</span>
+          </button>
 
-          <textarea
-            rows={8}
-            value={tsvText}
-            onChange={(e) => setTsvText(e.target.value)}
-            placeholder={`Satın Alan\tTarih\tÜrün resmi\tFBM/FBA\tÜrün adı Amazon\tASIN\tMSKU\tSatıcı adı\tSatıcı kodu...\nHRN\t2026-01-21\t\tFBA\tMegaFood One Daily...\tB00014DAJ8\tMHB00014DAJ8\tTHE VITAMINSHOPPE\tA198\t...\tWO110074776\t...`}
-            className="w-full p-3 bg-[#0B0F17] border border-slate-700 rounded-xl text-xs font-mono-tech text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
-          />
+          <button
+            type="button"
+            onClick={() => setActiveImportMode("DRIVE_URL")}
+            className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
+              activeImportMode === "DRIVE_URL"
+                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
+                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+            }`}
+          >
+            <CloudDownload className="w-4 h-4 text-sky-400" />
+            <span>2. Google Drive Linkinden Çek</span>
+          </button>
 
-          {resultMessage && (
-            <div className="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-mono-tech flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              {resultMessage}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setActiveImportMode("PASTE_TSV")}
+            className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
+              activeImportMode === "PASTE_TSV"
+                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
+                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+            }`}
+          >
+            <ClipboardPaste className="w-4 h-4 text-amber-400" />
+            <span>3. Excel'den Kopyala / Yapıştır</span>
+          </button>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs font-mono-tech text-slate-400 hover:text-white transition"
+        {/* Input Mode Panels */}
+        {activeImportMode === "FILE_UPLOAD" && (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-8 bg-[#080C14] text-center cursor-pointer transition group"
           >
-            Vazgeç
-          </button>
-          <button
-            onClick={handleParseAndImport}
-            disabled={importing || !tsvText.trim()}
-            className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-mono-tech text-xs uppercase font-bold tracking-wider transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-          >
-            <Upload className="w-4 h-4" />
-            {importing ? "Satırlar İşleniyor..." : "Veritabanına Aktar"}
-          </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition">
+              <FileUp className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-white">
+              Excel (.xlsx, .xls) veya CSV dosyanızı buraya sürükleyin ya da tıklayıp seçin
+            </h4>
+            <p className="text-xs text-slate-400 font-mono-tech mt-1">
+              Google Drive'dan indirdiğiniz veya yerel bilgisayarınızdaki 40-kolon tablonuz anında ayrıştırılır
+            </p>
+          </div>
+        )}
+
+        {activeImportMode === "DRIVE_URL" && (
+          <div className="bg-[#080C14] border border-slate-800 rounded-2xl p-4 space-y-3 font-mono-tech text-xs">
+            <label className="block text-slate-300 font-bold">
+              Google Drive / Google Sheets Paylaşım Linki
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={driveUrl}
+                onChange={(e) => setDriveUrl(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/1DoJEF8iYPCRwhT3.../edit"
+                className="flex-1 px-3.5 py-2.5 bg-[#0F1626] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="button"
+                disabled={fetchingDrive || !driveUrl.trim()}
+                onClick={handleFetchFromDrive}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 transition"
+              >
+                <CloudDownload className="w-4 h-4" />
+                {fetchingDrive ? "Drive Okunuyor..." : "Drive'dan Otomatik Çek"}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              * İpucu: Google E-Tablonuzda sağ üstteki "Paylaş" butonundan "Bağlantıya sahip olan herkes görüntüleyebilir" seçili olmalıdır.
+            </p>
+          </div>
+        )}
+
+        {activeImportMode === "PASTE_TSV" && (
+          <div className="space-y-2 font-mono-tech text-xs">
+            <textarea
+              rows={5}
+              value={tsvText}
+              onChange={(e) => setTsvText(e.target.value)}
+              placeholder={`Satın Alan\tTarih\tÜrün resmi\tFBM/FBA\tÜrün adı Amazon\tASIN\tMSKU\tSatıcı adı\tOrderno...\nHRN\t2026-01-21\t\tFBA\tMegaFood One Daily...\tB00014DAJ8\tMHB00014DAJ8\tTHE VITAMINSHOPPE\tWO110074776`}
+              className="w-full p-3 bg-[#080C14] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-600"
+            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleParsePaste}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center gap-1.5"
+              >
+                Metni Çözümle &amp; Önizle
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error or Success notification */}
+        {errorMsg && (
+          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-mono-tech flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {resultMessage && (
+          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-mono-tech flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{resultMessage}</span>
+          </div>
+        )}
+
+        {/* EXCEL BENZERİ HÜCRE DÜZENLEYİCİ ÖNİZLEME TABLOSU (SPREADSHEET PREVIEW & EDIT GRID) */}
+        {previewRows.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono-tech">
+              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                <Edit3 className="w-4 h-4" />
+                Önizleme &amp; Excel Tarzı Hücre Düzenleme ({previewRows.length} Satır Hazır)
+              </span>
+              <span className="text-slate-400 text-[11px]">
+                Kaynak: {fileName || "Dosya"} • Hücrelere tıklayıp kaydetmeden önce düzeltebilirsiniz
+              </span>
+            </div>
+
+            <div className="border border-slate-800 rounded-xl overflow-hidden bg-[#080C14] max-h-64 overflow-y-auto">
+              <table className="w-full text-left text-xs font-mono-tech">
+                <thead className="bg-[#0F1626] text-slate-400 border-b border-slate-800 text-[11px] sticky top-0">
+                  <tr>
+                    <th className="p-2.5">#</th>
+                    <th className="p-2.5">Mağaza</th>
+                    <th className="p-2.5">Order No</th>
+                    <th className="p-2.5">ASIN</th>
+                    <th className="p-2.5">Ürün Adı</th>
+                    <th className="p-2.5">Adet</th>
+                    <th className="p-2.5">Birim Maliyet ($)</th>
+                    <th className="p-2.5">Satış ($)</th>
+                    <th className="p-2.5">Kargo Durumu</th>
+                    <th className="p-2.5 text-right">Sil</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {previewRows.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-900/80">
+                      <td className="p-2 text-slate-500">{idx + 1}</td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.buyerStore}
+                          onChange={(e) => handleCellChange(idx, "buyerStore", e.target.value)}
+                          className="w-14 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-indigo-400 font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.orderNumber}
+                          onChange={(e) => handleCellChange(idx, "orderNumber", e.target.value)}
+                          className="w-28 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-white font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.asin}
+                          onChange={(e) => handleCellChange(idx, "asin", e.target.value.toUpperCase())}
+                          className="w-24 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-sky-400 font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="text"
+                          value={row.productTitle}
+                          onChange={(e) => handleCellChange(idx, "productTitle", e.target.value)}
+                          className="w-full min-w-[200px] px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-slate-200"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          value={row.quantity}
+                          onChange={(e) => handleCellChange(idx, "quantity", e.target.value)}
+                          className="w-14 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-center text-white font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={row.unitCost}
+                          onChange={(e) => handleCellChange(idx, "unitCost", e.target.value)}
+                          className="w-20 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-amber-300 font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={row.sellingPrice}
+                          onChange={(e) => handleCellChange(idx, "sellingPrice", e.target.value)}
+                          className="w-20 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-emerald-400 font-bold"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <select
+                          value={row.cargoStatus}
+                          onChange={(e) => handleCellChange(idx, "cargoStatus", e.target.value)}
+                          className="px-2 py-1 bg-[#0F1626] border border-slate-700 rounded text-xs text-white"
+                        >
+                          <option value="Tam Geldi">Tam Geldi</option>
+                          <option value="İPTAL">İPTAL</option>
+                          <option value="Yolda">Yolda</option>
+                          <option value="Kayıp Depoya gelmiş">Kayıp Depoya gelmiş</option>
+                        </select>
+                      </td>
+                      <td className="p-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(idx)}
+                          className="p-1 text-slate-500 hover:text-rose-400 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+          <span className="text-xs text-slate-500 font-mono-tech">
+            {previewRows.length > 0
+              ? `${previewRows.length} satır veritabanına kaydedilmeye hazır`
+              : "Lütfen bir dosya yükleyin veya Google Drive linki girin"}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-mono-tech text-slate-400 hover:text-white transition"
+            >
+              Vazgeç
+            </button>
+            <button
+              onClick={handleCommitToDatabase}
+              disabled={importing || previewRows.length === 0}
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-mono-tech text-xs uppercase font-bold tracking-wider transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+            >
+              <Upload className="w-4 h-4" />
+              {importing
+                ? "Veritabanına Aktarılıyor..."
+                : `${previewRows.length} Siparişi Veritabanına Aktar`}
+            </button>
+          </div>
         </div>
       </div>
     </div>
