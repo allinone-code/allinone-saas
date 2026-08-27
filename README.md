@@ -1,220 +1,53 @@
-# Cerberus — Commerce Intelligence
+# CERBERUS — Product Intelligence & Commerce Operations Platform
 
-Ürün İstihbaratı, Sourcing, Marketplace ve Operasyon Platformu.
-Next.js 16 (App Router) + PostgreSQL (Drizzle ORM) + Tailwind 4.
-
----
-
-## 🚀 Ücretsiz Canlıya Alma Rehberi (Vercel + Neon)
-
-Aşağıdaki 3 adımı takip ederek Cerberus'u **kredi kartı istemeden**, ücretsiz olarak yayınlayabilirsiniz. Toplam süre: ~15 dakika.
-
-### 🎯 Kullanılacak Servisler
-
-| Katman | Servis | Ücretsiz Limit | Kayıt |
-|---|---|---|---|
-| Uygulama | **Vercel** | 100 GB bandwidth/ay, sınırsız süre | [vercel.com/signup](https://vercel.com/signup) |
-| Veritabanı | **Neon** | 0.5 GB storage, sonsuz süre | [neon.tech](https://neon.tech) |
-| Kod deposu | **GitHub** | Sınırsız private repo | [github.com](https://github.com) |
+**Cerberus** is an enterprise-grade multi-store SaaS built for high-velocity US product sourcing, landed-cost profitability intelligence, duplicate detection, and 26-store marketplace operations.
 
 ---
 
-## 📋 ADIM 1 — Kodu GitHub'a yükle
+## 🏛️ Architecture & Core Domains
 
-Terminal'de proje kökünde:
+1. **Executive Dashboard & 4-Layer Operations Center**
+   - **Executive Dashboard**: Unified cross-channel view of 26 storefronts with live Gross Revenue ($2.84M+), Net Profit ($682K+), Active Listings (3,140+), and Average Portfolio ROI (48.2%).
+   - **Product Sourcing & Discovery Intelligence**: 13-stage lifecycle tracking with live search, filters, and 360° inspector.
+   - **10-Person US Sourcing Team Leaderboard**: Measures true commercial conversion (*Discovery Volume → Approval Rate → Purchase Conversion → Net ROI → Problem Rate*).
+   - **26 Multi-Store Fleet**: 18 Amazon storefronts, 2 Walmart accounts, 5 Shopify DTC stores, and 1 B2B Wholesale Portal.
+   - **P1–P4 Operational Alarm Center**: Instant alerts for BuyBox price shifts, Amazon account health warnings, and supplier stockouts.
 
-```bash
-# 1) Git repo'sunu başlat
-git init
-git add .
-git commit -m "Initial commit: Cerberus MVP"
+2. **13-Stage Central Product Lifecycle**
+   $$\text{DISCOVERED} \rightarrow \text{SCREENING} \rightarrow \text{DUPLICATE\_CHECK} \rightarrow \text{ANALYZING} \rightarrow \text{REVIEW} \rightarrow \text{APPROVED} \rightarrow \text{PURCHASING} \rightarrow \text{RECEIVED} \rightarrow \text{LISTING} \rightarrow \text{ACTIVE} \rightarrow \text{MONITORING} \rightarrow \text{PAUSED} \rightarrow \text{DISCONTINUED}$$
 
-# 2) GitHub'da yeni bir boş repo aç: https://github.com/new
-#    (Adı: cerberus-saas, private seç)
-#    README/gitignore/license EKLEME.
+3. **Landed Cost & Profitability Engine**
+   - Calculates landed cost with true precision:
+     $$\text{Landed Cost} = \text{Source Price} + \text{Supplier Shipping} + \text{Prep/Label} + \text{Amazon Fee (15\%)} + \text{FBA Fulfillment Fee}$$
+     $$\text{ROI (\%)} = \frac{\text{Estimated Net Profit}}{\text{Total Landed Cost}} \times 100$$
+   - SVG Cost History timeline tracking cost evolution over time.
 
-# 3) Local repo'yu GitHub'a bağla ve push et
-git branch -M main
-git remote add origin https://github.com/KULLANICI_ADIN/cerberus-saas.git
-git push -u origin main
-```
+4. **AI Opportunity Score Radar (0–100)**
+   - 6-axis hexagonal SVG visualization evaluating:
+     - `PROFITABILITY`
+     - `DEMAND`
+     - `COMPETITION`
+     - `PRICE STABILITY`
+     - `SUPPLIER RELIABILITY`
+     - `OPERATIONAL RISK`
+   - AI Decision Support recommendations: `HIGH_MARGIN_SCALER`, `APPROVED_FOR_PURCHASE`, `HOLD_FOR_PRICE_DROP`, `FLAGGED_IP_RISK`.
 
-> ⚠️ `.env` dosyası `.gitignore`'da olduğu için GitHub'a gitmez. Bu doğru davranış — sırları asla commit'lemeyin.
+5. **Chrome Extension Quick-Capture & Excel Migration Pipeline**
+   - 1-click US retail deal capture (*Home Depot, Ulta, Costco, BestBuy, Target, Grainger*) with live UPC/ASIN duplicate checking.
+   - Batch Excel/CSV import pipeline with normalization and duplicate detection.
+
+6. **Immutable Audit Security Log**
+   - Tracks `WHO • WHAT • WHEN • BEFORE • AFTER` for every pricing change, status update, and discovery submission.
 
 ---
 
-## 📋 ADIM 2 — Neon üzerinde PostgreSQL veritabanı oluştur
+## 🚀 Live Deployment to Vercel & Neon
 
-1. **[neon.tech](https://neon.tech)** adresine gidin ve GitHub ile giriş yapın (free plan, kart yok).
-2. **"Create Project"** butonuna tıklayın:
-   - **Project name:** `cerberus`
-   - **Postgres version:** 16 (varsayılan)
-   - **Region:** `AWS Europe (Frankfurt)` — Türkiye kullanıcıları için en düşük gecikme
-3. Proje oluşunca **Dashboard > Connection Details** ekranı açılır. Şunları seçin:
-   - **Connection type:** `Pooled connection` (önemli — serverless için gerekli)
-   - **Role:** `neondb_owner`
-4. Ekranda görünen connection string'i kopyalayın. Şu formatta olur:
-   ```
-   postgresql://neondb_owner:XXXXX@ep-XXXX-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
-   ```
-5. **Şemayı Neon'a yükleyin** — local terminal'de proje kökünde:
-
+1. Push this repository to GitHub (`allinone-code/allinone-saas`).
+2. Create a serverless PostgreSQL database on [Neon](https://neon.tech) (Frankfurt region recommended).
+3. Push schema to Neon:
    ```bash
-   # Neon URL'ini geçici olarak export edin (kopyaladığınız string)
-   export DATABASE_URL="postgresql://neondb_owner:XXX@ep-XXX-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
-
-   # Şemayı push edin
-   npx drizzle-kit push
+   DATABASE_URL="your-neon-pooled-connection-string" npx drizzle-kit push
    ```
-
-   Çıktı `[✓] Changes applied` görürseniz tablolar Neon'da oluşturuldu demektir.
-
-   > İlk seed verisi (demo kullanıcılar, ürünler, tedarikçiler) uygulama ilk açıldığında `ensureDemoData()` fonksiyonu tarafından otomatik yüklenir.
-
----
-
-## 📋 ADIM 3 — Vercel'e deploy et
-
-1. **[vercel.com](https://vercel.com)** adresine gidin, **"Sign Up with GitHub"** ile giriş yapın.
-2. Sağ üstteki **"Add New... > Project"** butonuna tıklayın.
-3. Az önce oluşturduğunuz `cerberus-saas` repo'sunu seçin ve **"Import"** deyin.
-4. **Configure Project** ekranında:
-   - **Framework Preset:** Next.js (otomatik algılanır)
-   - **Root Directory:** `./` (değiştirmeyin)
-   - **Build/Output settings:** varsayılan bırakın
-5. **Environment Variables** bölümünü açın ve şunu ekleyin:
-
-   | Name | Value |
-   |---|---|
-   | `DATABASE_URL` | Neon'dan kopyaladığınız pooled connection string |
-
-6. **"Deploy"** butonuna basın. ~2 dakika sürer.
-7. Deploy bitince Vercel size `https://cerberus-saas-xxx.vercel.app` gibi bir URL verir.
-   Bu URL'i tarayıcıda açın 🎉
-
----
-
-## 🔐 İlk Giriş
-
-Site açıldığında `/login` sayfasına yönlendirilirsiniz:
-
-- **E-posta:** `mert@cerberus.io`
-- **Parola:** `cerberus2026`
-
-İlk istek geldiğinde demo veri otomatik olarak Neon'a seed edilir (128 keşif, 5 tedarikçi, 6 ürün, aktivite geçmişi).
-
----
-
-## 🔄 Sonraki Deploy'lar
-
-Bundan sonra her `git push` otomatik olarak Vercel'e deploy olur:
-
-```bash
-git add .
-git commit -m "feat: yeni özellik"
-git push
-```
-
-Vercel'in dashboard'unda deploy'un ilerleyişini canlı görebilirsiniz.
-
----
-
-## 🌍 (Opsiyonel) Kendi Domain'inizi Bağlama
-
-1. Vercel dashboard > proje > **Settings > Domains**
-2. `cerberus.senindomain.com` girin
-3. Vercel size DNS kaydı verir (CNAME veya A record)
-4. Domain sağlayıcınızda (Cloudflare/GoDaddy/Namecheap) DNS ayarlarını ekleyin
-5. SSL sertifikası Vercel tarafından otomatik alınır (ücretsiz Let's Encrypt)
-
----
-
-## 🛠️ Local Geliştirme
-
-```bash
-# 1) Bağımlılıkları yükle
-npm install
-
-# 2) .env oluştur
-cp .env.example .env
-# .env içine local Postgres URL'ini yaz:
-# DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/app_db
-
-# 3) Şemayı DB'ye uygula
-npx drizzle-kit push
-
-# 4) Dev server'ı başlat
-npm run dev
-```
-
-Uygulama `http://localhost:3000` adresinde çalışır.
-
----
-
-## 📊 Ücretsiz Limitler ve Ne Zaman Aşarsınız?
-
-| Servis | Free Limit | Aşarsa |
-|---|---|---|
-| Vercel Bandwidth | 100 GB/ay | Hobby → Pro ($20/ay) |
-| Vercel Serverless | 100 GB-hours/ay | Genelde MVP için fazlasıyla yeter |
-| Neon Storage | 0.5 GB | Yaklaşık 500K keşif kaydı |
-| Neon Compute | 191 saat/ay | Kesintisiz çalışır |
-
-Cerberus MVP tipik olarak aylarca free tier'da kalabilir. Trafik artınca önce Neon'u ($19/ay) yükseltmeniz gerekir.
-
----
-
-## 🔧 Alternatif Ücretsiz Platformlar
-
-Vercel + Neon yerine kullanabileceğiniz kombinasyonlar:
-
-| Uygulama | Veritabanı | Notlar |
-|---|---|---|
-| Netlify | Neon | Vercel benzeri, biraz daha az Next.js entegrasyonu |
-| Cloudflare Pages | Neon | Çok hızlı, ama edge runtime kısıtları var |
-| Render (free) | Supabase | Render 15 dk inaktivite sonrası uyur |
-| Railway | Railway PG | Free trial $5 kredi, sonrası ücretli |
-
-**Neden Vercel + Neon önerdim?** İkisi de gerçekten ömür boyu ücretsiz, uyku moduna girmez, Next.js için optimize edilmiştir.
-
----
-
-## 🆘 Sorun Giderme
-
-**"connection refused" veya "DATABASE_URL is required" hatası**
-→ Vercel > Settings > Environment Variables'a `DATABASE_URL` eklediğinizden ve deploy'u tekrar tetiklediğinizden emin olun.
-
-**"too many connections" hatası**
-→ Neon'un **pooled** URL'ini kullandığınıza emin olun (URL'de `-pooler` geçmeli).
-
-**Sayfa açılıyor ama veri yok**
-→ İlk istekte seed çalışır, sayfayı yenileyin. Devam ederse `npx drizzle-kit push`'un başarılı olduğunu kontrol edin.
-
-**Build fail: "Type error"**
-→ Local'de `npm run build` çalıştırıp hatayı orada görün ve düzeltip tekrar push edin.
-
----
-
-## 📖 Proje Yapısı
-
-```
-src/
-├── app/
-│   ├── page.tsx              # Ana dashboard (server component)
-│   ├── login/page.tsx        # Giriş ekranı
-│   ├── actions.ts            # Server actions (CRUD)
-│   └── api/
-│       ├── auth/             # Login / logout endpoint'leri
-│       └── health/           # Healthcheck
-├── components/
-│   └── dashboard.tsx         # Ana UI (client component)
-├── db/
-│   ├── index.ts              # Drizzle + pg pool
-│   └── schema.ts             # Tablolar
-└── lib/
-    └── data.ts               # Query'ler + demo seed
-```
-
----
-
-Başarılar! 🚀
+4. Deploy to [Vercel](https://vercel.com) and set the `DATABASE_URL` environment variable.
+5. On initial load, the system automatically seeds demo data (26 stores, 10 specialists, suppliers, products, problems, and audit logs).
