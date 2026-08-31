@@ -22,9 +22,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const insertedOrders = [];
+    // T2.7: Coklu INSERT tek transaction'da — kismi hata butun importu geri alir
+    const insertedOrders = await db.transaction(async (tx) => {
+      const accumulator: (typeof orders.$inferSelect)[] = [];
 
-    for (const r of rows) {
+      for (const r of rows) {
       const buyerStore = scopedStore !== "ALL" ? (r.buyerStore || scopedStore) : (r.buyerStore || "HRN");
       // STORE_USER her satırı kendi mağazasına kilitler
       const effectiveRowStore =
@@ -37,8 +39,8 @@ export async function POST(req: Request) {
       const correctedCost = String(r.correctedCost || totalCost).replace(",", ".");
       const refundAmount = String(r.refundAmount || "0").replace(",", ".");
 
-      const [inserted] = await db
-        .insert(orders)
+        const [inserted] = await tx
+          .insert(orders)
         .values({
           buyerStore: effectiveRowStore,
           orderDate: r.orderDate || new Date().toISOString().split("T")[0],
@@ -86,8 +88,11 @@ export async function POST(req: Request) {
         })
         .returning();
 
-      insertedOrders.push(inserted);
-    }
+        accumulator.push(inserted);
+      }
+
+      return accumulator;
+    });
 
     await db.insert(auditLogs).values({
       actorName,

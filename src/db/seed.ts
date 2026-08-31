@@ -16,7 +16,7 @@ import {
   INITIAL_BATCHES,
   INITIAL_RESEARCHERS,
   INITIAL_PRODUCT_MASTERS,
-} from "@/lib/mockData";
+} from "@fixtures/mockData";
 import { DEFAULT_SYSTEM_USERS, getBootstrapPassword } from "@/lib/auth";
 import { hashPassword } from "@/lib/passwords";
 

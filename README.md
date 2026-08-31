@@ -76,8 +76,16 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
 
 1. Ortam değişkenlerini tanımlayın (ZORUNLU — bk. `.env.example`): `DATABASE_URL`, `SESSION_SECRET` (min 32 kr.), `SEED_ADMIN_PASSWORD`, `SEED_STORE_PASSWORD` (min 12 kr.)
 2. Projeyi GitHub'a pushlayın (`allinone-code/allinone-saas`).
-3. Neon veritabanında şemayı güncelleyin:
+3. Neon veritabanında şemayı kurun ve başlangıç verisini yükleyin (T2.1/T2.4):
    ```bash
-   DATABASE_URL="your-neon-pooled-connection-string" npx drizzle-kit push
+   export DATABASE_URL="your-neon-pooled-connection-string"
+   npm run db:migrate   # versiyonlu migration'lar (drizzle/ klasörü)
+   npm run db:seed      # tek seferlik kullanıcı + referans verisi
    ```
+   > Not: `db:push` yalnızca lokal geliştirme ve mevcut kurulumlarda TEK SEFERLİK
+   > şema eşitlemesi içindir; yeni değişiklikler `npm run db:generate` ile
+   > migration olarak üretilir ve commit edilir.
+   > Mevcut Neon kurulumlarında FK/unique eklerken hata alırsanız önce mükerrer
+   > kontrolü yapın:
+   > `SELECT order_number, buyer_store, count(*) FROM orders GROUP BY 1,2 HAVING count(*)>1;`
 4. Vercel'de **Redeploy** çalıştırın.

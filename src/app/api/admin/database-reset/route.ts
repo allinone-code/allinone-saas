@@ -11,7 +11,6 @@ import {
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
 import { eq, ne } from "drizzle-orm";
-import { ALL_38_XLS_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
 
 export async function POST(req: Request) {
   // T0.2: Bu yıkıcı araç üretim ortamında tamamen devre dışıdır.
@@ -24,6 +23,9 @@ export async function POST(req: Request) {
     const gate = await requireRole("ADMIN");
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
+
+    // T2.5: Demo/fixture verisi yalnızca bu dev-only araç içinde, ihtiyaç anında yüklenir
+    const { ALL_38_XLS_ORDERS, INITIAL_STORES, INITIAL_BATCHES } = await import("@fixtures/mockData");
 
     const { actionType, confirmationCode } = await req.json();
 

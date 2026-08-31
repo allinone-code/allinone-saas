@@ -7,7 +7,6 @@ import {
   auditLogs,
   orders,
 } from "@/db/schema";
-import { ensureCerberusSeeded } from "@/db/seed";
 import { desc, eq } from "drizzle-orm";
 import { requireUser, isDenied } from "@/lib/guards";
 
@@ -98,8 +97,6 @@ export async function GET() {
   try {
     const gate = await requireUser();
     if (isDenied(gate)) return gate.response;
-
-    await ensureCerberusSeeded();
 
     const [masters, team, sessions, allOrders] = await Promise.all([
       db.select().from(productMasters).orderBy(desc(productMasters.discoveredAt)),
