@@ -66,7 +66,7 @@ export function AdminDashboard({
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState("STORE_USER");
   const [newUserStore, setNewUserStore] = useState("HRN");
-  const [newUserPass, setNewUserPass] = useState("store2026");
+  const [newUserPass, setNewUserPass] = useState("");
   const [savingUser, setSavingUser] = useState(false);
 
   // Database Reset confirmation state

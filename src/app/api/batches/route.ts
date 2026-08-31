@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { pshBatches, orders, auditLogs } from "@/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 
 export async function GET(req: Request) {
   try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const { searchParams } = new URL(req.url);
-    const storeCode = searchParams.get("storeCode");
+    const storeCode = resolveStoreScope(currentUser, searchParams.get("storeCode"));
 
     const allBatches = storeCode && storeCode !== "ALL"
       ? await db.select().from(pshBatches).where(eq(pshBatches.storeCode, storeCode)).orderBy(desc(pshBatches.createdAt))
@@ -20,15 +25,21 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const body = await req.json();
     const {
       batchNumber,
-      storeCode = "HRN",
       title,
       orderIds = [],
       notes = "",
-      actorName = "Operasyon Sorumlusu",
     } = body;
+
+    // Mağaza kapsamı ve aktör oturumdan zorlanır (F-11, audit spoofing engeli)
+    const storeCode = resolveStoreScope(currentUser, body.storeCode || "HRN");
+    const actorName = currentUser.name;
 
     if (!batchNumber || !title) {
       return NextResponse.json({ error: "Batch no ve başlık zorunludur" }, { status: 400 });

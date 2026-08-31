@@ -2,25 +2,26 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { ensureCerberusSeeded } from "@/db/seed";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { desc, eq, and, inArray } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
+    // Kimlik doğrulama zorunlu (F-02/F-05): anonim istek 401 alır.
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     await ensureCerberusSeeded();
-    const currentUser = await getCurrentUser();
 
     const { searchParams } = new URL(req.url);
     const requestedStore = searchParams.get("storeCode") || "ALL";
     const cargoStatus = searchParams.get("cargoStatus");
     const pshBatchNo = searchParams.get("pshBatchNo");
 
-    // Enforce Store Isolation:
-    // If user is STORE_USER, lock to their assigned storeCode!
-    let effectiveStore = requestedStore;
-    if (currentUser && currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL") {
-      effectiveStore = currentUser.storeCode;
-    }
+    // Mağaza izolasyonu sunucuda, oturum claim'inden zorlanır (F-11):
+    // istemciden gelen storeCode parametresi STORE_USER için yok sayılır.
+    const effectiveStore = resolveStoreScope(currentUser, requestedStore);
 
     const conditions = [];
     if (effectiveStore && effectiveStore !== "ALL") {
@@ -51,7 +52,18 @@ export async function GET(req: Request) {
         ? db.select().from(pshBatches).where(eq(pshBatches.storeCode, effectiveStore)).orderBy(desc(pshBatches.createdAt))
         : db.select().from(pshBatches).orderBy(desc(pshBatches.createdAt)),
       db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(40),
-      db.select().from(users),
+      // password_hash asla istemciye taşınmaz — yalnızca güvenli alanlar seçilir
+      db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+          storeCode: users.storeCode,
+          avatar: users.avatar,
+          createdAt: users.createdAt,
+        })
+        .from(users),
     ]);
 
     // Calculate aggregated operational KPIs for current view
@@ -82,11 +94,8 @@ export async function GET(req: Request) {
       batches: allBatches,
       auditLogs: allAuditLogs,
       users: allUsers,
-      currentUser: currentUser || {
-        name: "Ahmet Erdem",
-        role: "ADMIN",
-        storeCode: "ALL",
-      },
+      // Anonim fallback kaldırıldı: oturum bu noktada garanti edilir (F-02/F-05)
+      currentUser,
       kpis: {
         totalOrdersCount,
         totalUnits,
@@ -111,14 +120,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const body = await req.json();
 
-    // If store user, enforce their store
-    let targetStore = body.buyerStore || "HRN";
-    if (currentUser && currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL") {
-      targetStore = currentUser.storeCode;
-    }
+    // Mağaza kapsamı oturumdan zorlanır (F-11): STORE_USER başka mağazaya yazamaz
+    const targetStore = resolveStoreScope(currentUser, body.buyerStore || "HRN");
 
     const {
       orderDate = new Date().toISOString().split("T")[0],
@@ -162,8 +171,10 @@ export async function POST(req: Request) {
       pshBatchNo = "",
       pshStatus = "BEKLIYOR",
       inventoryLabStatus = "GIRILMEDI",
-      actorName = currentUser?.name || "Store User",
     } = body;
+
+    // Aktör adı istemciden değil oturumdan alınır (audit spoofing engeli)
+    const actorName = currentUser.name;
 
     if (!productTitle || !asin || !orderNumber) {
       return NextResponse.json(

@@ -3,131 +3,139 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ensureCerberusSeeded } from "@/db/seed";
-import { DEFAULT_SYSTEM_USERS } from "@/lib/auth";
+import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken } from "@/lib/session";
+import { hashPassword, isRevokedLegacyPassword, verifyPassword } from "@/lib/passwords";
+import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip") || "unknown";
+}
 
 export async function POST(req: Request) {
   try {
-    await ensureCerberusSeeded();
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const cleanEmail = String(body.email || "").trim().toLowerCase();
+    const cleanPassword = String(body.password ?? "").trim();
 
-    if (!email) {
+    if (!cleanEmail) {
       return NextResponse.json({ error: "E-posta adresi gereklidir" }, { status: 400 });
     }
+    // Boş parola artık asla kabul edilmez (F-04)
+    if (!cleanPassword) {
+      return NextResponse.json({ error: "Parola gereklidir" }, { status: 400 });
+    }
 
-    const cleanEmail = email.trim().toLowerCase();
+    // Brute-force koruması (F-07): IP+hesap 5/15dk, IP geneli 30/15dk
+    const ip = getClientIp(req);
+    const accountKey = `login:${ip}:${cleanEmail}`;
+    const ipKey = `login-ip:${ip}`;
+    const accountLimit = checkRateLimit(accountKey, 5, 15 * 60_000);
+    const ipLimit = checkRateLimit(ipKey, 30, 15 * 60_000);
+    if (!accountLimit.allowed || !ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla başarısız deneme. Lütfen bir süre sonra tekrar deneyin." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.max(accountLimit.retryAfterSec, ipLimit.retryAfterSec)),
+          },
+        }
+      );
+    }
 
-    // 1. Query user from database
-    let matched = await db
+    await ensureCerberusSeeded();
+
+    const matched = await db
       .select()
       .from(users)
       .where(eq(users.email, cleanEmail))
       .limit(1);
 
-    // 2. If not found in database, check against DEFAULT_SYSTEM_USERS and insert on the fly
+    // Kullanıcı sayımını (enumeration) önlemek için tek generic mesaj
+    const genericFailure = NextResponse.json(
+      { error: "E-posta veya parola hatalı." },
+      { status: 401 }
+    );
+
     if (!matched.length) {
-      const defaultMatch = DEFAULT_SYSTEM_USERS.find(
-        (u) => u.email.toLowerCase() === cleanEmail
-      );
-
-      if (defaultMatch) {
-        try {
-          const [inserted] = await db
-            .insert(users)
-            .values({
-              name: defaultMatch.name,
-              email: defaultMatch.email.toLowerCase(),
-              passwordHash: defaultMatch.passwordHash,
-              role: defaultMatch.role,
-              storeCode: defaultMatch.storeCode,
-              avatar: defaultMatch.avatar,
-            })
-            .returning();
-          if (inserted) {
-            matched = [inserted];
-          }
-        } catch (insertErr) {
-          console.warn("User auto-insert warning:", insertErr);
-          // Query again in case inserted concurrently
-          matched = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, cleanEmail))
-            .limit(1);
-
-          // If still not queryable (e.g. temporary DB lock), construct session object directly
-          if (!matched.length) {
-            matched = [
-              {
-                id: 1,
-                name: defaultMatch.name,
-                email: defaultMatch.email.toLowerCase(),
-                passwordHash: defaultMatch.passwordHash,
-                role: defaultMatch.role,
-                storeCode: defaultMatch.storeCode,
-                avatar: defaultMatch.avatar,
-                createdAt: new Date(),
-              } as any,
-            ];
-          }
-        }
-      }
+      return genericFailure;
     }
 
-    if (!matched.length) {
+    const user = matched[0];
+
+    // Repoda yayınlanmış eski demo parolaları kalıcı olarak iptal (F-04)
+    if (isRevokedLegacyPassword(cleanPassword)) {
       return NextResponse.json(
         {
           error:
-            "Kullanıcı bulunamadı. Lütfen e-posta adresinizi kontrol edin veya aşağıdaki 1-Tıkla Test Giriş butonlarını kullanın.",
+            "Bu parola güvenlik gerekçesiyle iptal edilmiştir. Lütfen sistem yöneticinizden yeni bir parola isteyin.",
         },
         { status: 401 }
       );
     }
 
-    const user = matched[0];
-
-    // Password verification: accept their passwordHash or master demo passwords
-    const cleanPassword = (password || "").trim();
-    const isValidPassword =
-      !cleanPassword ||
-      cleanPassword === user.passwordHash ||
-      cleanPassword === "admin2026" ||
-      cleanPassword === "store2026" ||
-      cleanPassword === "cerberus2026";
-
-    if (!isValidPassword) {
-      return NextResponse.json({ error: "Hatalı parola girdiniz" }, { status: 401 });
+    const verification = await verifyPassword(cleanPassword, user.passwordHash);
+    if (!verification.ok) {
+      return genericFailure;
     }
 
-    // Prepare session payload
-    const sessionData = {
+    // Geçiş penceresi (F-03): düz metin kayıt başarılı giriş anında bcrypt'e yükseltilir
+    if (verification.needsUpgrade) {
+      try {
+        await db
+          .update(users)
+          .set({ passwordHash: await hashPassword(cleanPassword) })
+          .where(eq(users.id, user.id));
+      } catch (upgradeErr) {
+        console.warn("Password upgrade warning:", upgradeErr);
+      }
+    }
+
+    clearRateLimit(accountKey);
+
+    const token = await createSessionToken({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role as "ADMIN" | "MANAGER" | "STORE_USER",
       storeCode: user.storeCode || "HRN",
       avatar: user.avatar,
-    };
+    });
 
-    const sessionString = Buffer.from(JSON.stringify(sessionData)).toString("base64");
+    if (!token) {
+      return NextResponse.json(
+        { error: "Oturum altyapısı yapılandırılamadı (SESSION_SECRET). Yöneticiyle iletişime geçin." },
+        { status: 500 }
+      );
+    }
 
+    // Yanıtta kritik alan yok; id/name/role UI için yeterli
     const res = NextResponse.json({
       success: true,
-      user: sessionData,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        storeCode: user.storeCode || "HRN",
+        avatar: user.avatar,
+      },
       message: `${user.name} olarak başarıyla giriş yapıldı.`,
     });
 
-    // Set HTTP-only cookie
-    res.cookies.set("cerberus_session", sessionString, {
+    res.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: SESSION_TTL_SECONDS,
       path: "/",
     });
 
     return res;
   } catch (error: any) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: error.message || "Giriş başarısız oldu" }, { status: 500 });
+    return NextResponse.json({ error: "Giriş sırasında bir hata oluştu" }, { status: 500 });
   }
 }

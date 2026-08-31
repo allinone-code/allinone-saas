@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { productMasters, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireRole, isDenied } from "@/lib/guards";
 
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Karar motoru override'ı yönetici işlemidir (Approval Matrix)
+    const gate = await requireRole("ADMIN", "MANAGER");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const { id } = await context.params;
     const body = await req.json();
 
@@ -59,7 +65,7 @@ export async function PATCH(
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: body.actorName || "Yönetici (Approval Matrix)",
+      actorName: currentUser.name,
       storeCode: "HRN",
       actionType: "DECISION_OVERRIDE",
       targetEntity: `${current.productCode} (${current.title.slice(0, 32)})`,

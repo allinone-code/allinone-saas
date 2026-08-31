@@ -7,8 +7,10 @@ export async function GET() {
     await db.execute(sql`SELECT 1`);
     return NextResponse.json({ status: "healthy", timestamp: new Date().toISOString() });
   } catch (error: any) {
+    // F-32: ham hata detayı istemciye sızdırılmaz, yalnızca sunucu loguna yazılır
+    console.error("Health check failed:", error);
     return NextResponse.json(
-      { status: "unhealthy", error: error?.message || "Database unreachable" },
+      { status: "unhealthy" },
       { status: 500 }
     );
   }

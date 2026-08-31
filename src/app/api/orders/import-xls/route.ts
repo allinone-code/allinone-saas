@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, auditLogs } from "@/db/schema";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 
 export async function POST(req: Request) {
   try {
-    const { rows = [], defaultStore = "HRN", actorName = "Harun" } = await req.json();
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
+    const { rows = [], defaultStore = "HRN" } = await req.json();
+
+    // Mağaza kapsamı ve aktör oturumdan zorlanır (F-11, audit spoofing engeli)
+    const scopedStore = resolveStoreScope(currentUser, defaultStore);
+    const actorName = currentUser.name;
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
@@ -16,7 +25,12 @@ export async function POST(req: Request) {
     const insertedOrders = [];
 
     for (const r of rows) {
-      const buyerStore = r.buyerStore || defaultStore || "HRN";
+      const buyerStore = scopedStore !== "ALL" ? (r.buyerStore || scopedStore) : (r.buyerStore || "HRN");
+      // STORE_USER her satırı kendi mağazasına kilitler
+      const effectiveRowStore =
+        currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL"
+          ? currentUser.storeCode
+          : buyerStore;
       const unitCost = String(r.unitCost || "0").replace(",", ".");
       const sellingPrice = String(r.sellingPrice || "0").replace(",", ".");
       const totalCost = String(r.totalCost || "0").replace(",", ".");
@@ -26,7 +40,7 @@ export async function POST(req: Request) {
       const [inserted] = await db
         .insert(orders)
         .values({
-          buyerStore,
+          buyerStore: effectiveRowStore,
           orderDate: r.orderDate || new Date().toISOString().split("T")[0],
           imageUrl: r.imageUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80",
           fulfillmentType: r.fulfillmentType || "FBA",
@@ -77,7 +91,7 @@ export async function POST(req: Request) {
 
     await db.insert(auditLogs).values({
       actorName,
-      storeCode: defaultStore,
+      storeCode: scopedStore === "ALL" ? "HRN" : scopedStore,
       actionType: "XLS_BATCH_IMPORT",
       targetEntity: `Google Drive XLS (${insertedOrders.length} Sipariş)`,
       beforeState: "EXCEL_TABLOSU",

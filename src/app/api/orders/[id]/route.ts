@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireUser, requireRole, isDenied, canAccessStore } from "@/lib/guards";
 
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const { id } = await context.params;
     const body = await req.json();
 
@@ -19,6 +24,14 @@ export async function PATCH(
 
     if (!existing.length) {
       return NextResponse.json({ error: "Sipariş bulunamadı" }, { status: 404 });
+    }
+
+    // Mağaza izolasyonu: STORE_USER yalnızca kendi mağazasının siparişini düzenleyebilir
+    if (!canAccessStore(currentUser, existing[0].buyerStore)) {
+      return NextResponse.json(
+        { error: "Bu sipariş sizin mağaza kapsamınızda değil." },
+        { status: 403 }
+      );
     }
 
     const current = existing[0];
@@ -66,7 +79,7 @@ export async function PATCH(
     // Log action if significant change
     if (body.cargoStatus || body.pshStatus || body.problemAction) {
       await db.insert(auditLogs).values({
-        actorName: body.actorName || "Operasyon Sorumlusu",
+        actorName: currentUser.name,
         storeCode: current.buyerStore,
         actionType: "ORDER_UPDATED",
         targetEntity: `${current.orderNumber} - ${current.productTitle.slice(0, 28)}`,
@@ -94,6 +107,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Satır silme yıkıcıdır: yalnızca ADMIN/MANAGER (önceden herkese açıktı — F-02)
+    const gate = await requireRole("ADMIN", "MANAGER");
+    if (isDenied(gate)) return gate.response;
+
     const { id } = await context.params;
     const existing = await db
       .select()

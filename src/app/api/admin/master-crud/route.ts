@@ -6,20 +6,15 @@ import {
   stores,
   pshBatches,
   productMasters,
-  auditLogs,
 } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireRole, isDenied } from "@/lib/guards";
 import { eq } from "drizzle-orm";
 
 export async function DELETE(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN" && currentUser.role !== "MANAGER") {
-      return NextResponse.json(
-        { error: "Bu işlemi yapmak için yönetici yetkisi gerekir." },
-        { status: 403 }
-      );
-    }
+    // Oturum yoksa 401, rol uymazsa 403 — anonim geçiş kapatıldı (F-02)
+    const gate = await requireRole("ADMIN", "MANAGER");
+    if (isDenied(gate)) return gate.response;
 
     const { tableName, id, storeCodeFilter } = await req.json();
 
@@ -47,7 +42,11 @@ export async function DELETE(req: Request) {
     } else if (tableName === "productMasters") {
       await db.delete(productMasters).where(eq(productMasters.id, numId));
     } else if (tableName === "auditLogs") {
-      await db.delete(auditLogs).where(eq(auditLogs.id, numId));
+      // F-09: Denetim izi değiştirilemez — silme API üzerinden asla yapılamaz
+      return NextResponse.json(
+        { error: "Denetim izi (audit log) kayıtları güvenlik gerekçesiyle silinemez." },
+        { status: 403 }
+      );
     } else {
       return NextResponse.json({ error: "Desteklenmeyen tablo." }, { status: 400 });
     }

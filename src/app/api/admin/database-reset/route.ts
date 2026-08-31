@@ -9,19 +9,21 @@ import {
   users,
   stores,
 } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireRole, isDenied } from "@/lib/guards";
 import { eq, ne } from "drizzle-orm";
 import { ALL_38_XLS_ORDERS, INITIAL_STORES, INITIAL_BATCHES } from "@/lib/mockData";
 
 export async function POST(req: Request) {
+  // T0.2: Bu yıkıcı araç üretim ortamında tamamen devre dışıdır.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
+  }
+
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim. Veritabanı sıfırlama işlemi yalnızca SİSTEM YÖNETİCİSİ (ADMIN) tarafından yapılabilir." },
-        { status: 403 }
-      );
-    }
+    // Anonim geçiş kapatıldı (F-02): oturum yoksa 401, ADMIN değilse 403
+    const gate = await requireRole("ADMIN");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
     const { actionType, confirmationCode } = await req.json();
 
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
       await db.delete(pshBatches);
 
       await db.insert(auditLogs).values({
-        actorName: currentUser?.name || "Ahmet Erdem (ADMIN)",
+        actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_CLEAN_ORDERS",
         targetEntity: "orders & psh_batches",
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
       );
 
       await db.insert(auditLogs).values({
-        actorName: currentUser?.name || "Ahmet Erdem (ADMIN)",
+        actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_RESTORE_XLS",
         targetEntity: `38 Gerçek Sipariş`,
@@ -104,7 +106,7 @@ export async function POST(req: Request) {
       await db.delete(users).where(ne(users.role, "ADMIN"));
 
       await db.insert(auditLogs).values({
-        actorName: currentUser?.name || "Ahmet Erdem (ADMIN)",
+        actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_FACTORY_RESET",
         targetEntity: "Tüm Tablolar",
