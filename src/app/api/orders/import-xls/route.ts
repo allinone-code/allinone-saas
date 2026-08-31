@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, auditLogs } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { parseBody, importXlsSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 export async function POST(req: Request) {
   try {
@@ -9,18 +11,19 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const { rows = [], defaultStore = "HRN" } = await req.json();
+    // Zod doğrulama (T3.1) + 15 MB gövde üst sınırı (T3.4, toplu import hacmi için)
+    const parsed = await parseBody(req, importXlsSchema, 15 * 1024 * 1024);
+    if ("response" in parsed) return parsed.response;
+    // Şema satır "varlığını/boyutunu" kilitler; alan tipleri aşağıda
+    // String()/Number() ile normalize edildiği için satırı any gevşekliğinde okuruz
+    const { rows, defaultStore = "HRN" } = parsed.data as {
+      rows: Record<string, any>[];
+      defaultStore?: string;
+    };
 
     // Mağaza kapsamı ve aktör oturumdan zorlanır (F-11, audit spoofing engeli)
     const scopedStore = resolveStoreScope(currentUser, defaultStore);
     const actorName = currentUser.name;
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return NextResponse.json(
-        { error: "İçe aktarılacak satır bulunamadı" },
-        { status: 400 }
-      );
-    }
 
     // T2.7: Coklu INSERT tek transaction'da — kismi hata butun importu geri alir
     const insertedOrders = await db.transaction(async (tx) => {
@@ -108,8 +111,7 @@ export async function POST(req: Request) {
       message: `${insertedOrders.length} adet sipariş başarıyla veritabanına aktarıldı.`,
       importedCount: insertedOrders.length,
     });
-  } catch (error: any) {
-    console.error("POST /api/orders/import-xls error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/orders/import-xls", error);
   }
 }

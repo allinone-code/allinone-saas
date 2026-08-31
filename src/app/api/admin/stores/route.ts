@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stores, auditLogs, orders } from "@/db/schema";
 import { requireUser, requireRole, isDenied } from "@/lib/guards";
+import { parseBody, storeCreateSchema, storeUpdateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 import { desc, eq, count, sum } from "drizzle-orm";
 
 export async function GET() {
@@ -35,8 +37,8 @@ export async function GET() {
     );
 
     return NextResponse.json({ stores: storeStats });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/stores", error);
   }
 }
 
@@ -46,7 +48,9 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, storeCreateSchema);
+    if ("response" in parsed) return parsed.response;
     const {
       storeCode,
       storeName,
@@ -56,11 +60,7 @@ export async function POST(req: Request) {
       defaultCard = "1753",
       defaultEmail = "",
       notes = "",
-    } = body;
-
-    if (!storeCode || !storeName) {
-      return NextResponse.json({ error: "Mağaza kodu ve adı zorunludur" }, { status: 400 });
-    }
+    } = parsed.data;
 
     const cleanCode = storeCode.trim().toUpperCase();
 
@@ -106,9 +106,8 @@ export async function POST(req: Request) {
       message: `${cleanCode} mağazası başarıyla oluşturuldu.`,
       store: created,
     });
-  } catch (error: any) {
-    console.error("POST /api/admin/stores error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/stores", error);
   }
 }
 
@@ -118,12 +117,10 @@ export async function PATCH(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
-    const { id, storeName, buyerName, status, defaultCard, defaultEmail, notes } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "Mağaza ID zorunludur" }, { status: 400 });
-    }
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, storeUpdateSchema);
+    if ("response" in parsed) return parsed.response;
+    const { id, storeName, buyerName, status, defaultCard, defaultEmail, notes } = parsed.data;
 
     const existing = await db
       .select()
@@ -163,7 +160,7 @@ export async function PATCH(req: Request) {
       message: "Mağaza güncellendi",
       store: updated,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/stores", error);
   }
 }

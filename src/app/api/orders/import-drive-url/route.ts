@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { parseBody, driveUrlSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 function extractSpreadsheetId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
@@ -16,15 +18,11 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const { driveUrl, defaultStore: requestedStore = "HRN" } = await req.json();
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, driveUrlSchema);
+    if ("response" in parsed) return parsed.response;
+    const { driveUrl, defaultStore: requestedStore = "HRN" } = parsed.data;
     const defaultStore = resolveStoreScope(currentUser, requestedStore);
-
-    if (!driveUrl) {
-      return NextResponse.json(
-        { error: "Lütfen bir Google Drive / Google Sheets linki girin." },
-        { status: 400 }
-      );
-    }
 
     const sheetId = extractSpreadsheetId(driveUrl);
     if (!sheetId) {
@@ -39,10 +37,12 @@ export async function POST(req: Request) {
 
     const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
 
+    // T3.4: 15 sn timeout + 20 MB içerik üst sınırı
     const fetchResponse = await fetch(exportUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Cerberus Commerce Intelligence Bot)",
       },
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!fetchResponse.ok) {
@@ -52,6 +52,14 @@ export async function POST(req: Request) {
             "Google Drive tablosuna erişilemedi. Lütfen tablonun paylaşım ayarlarından 'Bağlantıya sahip olan herkes görüntüleyebilir' seçili olduğuna emin olun.",
         },
         { status: 403 }
+      );
+    }
+
+    const contentLength = Number(fetchResponse.headers.get("content-length") || "0");
+    if (contentLength > 20 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Google E-Tablo dosyası çok büyük (üst sınır 20 MB)." },
+        { status: 413 }
       );
     }
 
@@ -133,11 +141,7 @@ export async function POST(req: Request) {
       headers,
       rows: parsedRows,
     });
-  } catch (error: any) {
-    console.error("POST /api/orders/import-drive-url error:", error);
-    return NextResponse.json(
-      { error: error.message || "Google Drive linki okunamadı" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/orders/import-drive-url", error);
   }
 }

@@ -8,6 +8,8 @@ import {
   productMasters,
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
+import { parseBody, masterCrudDeleteSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 import { eq } from "drizzle-orm";
 
 export async function DELETE(req: Request) {
@@ -16,7 +18,10 @@ export async function DELETE(req: Request) {
     const gate = await requireRole("ADMIN", "MANAGER");
     if (isDenied(gate)) return gate.response;
 
-    const { tableName, id, storeCodeFilter } = await req.json();
+    // Zod doğrulama (T3.1): tablo beyaz listesi şemada; auditLogs burada da engellenir
+    const parsed = await parseBody(req, masterCrudDeleteSchema);
+    if ("response" in parsed) return parsed.response;
+    const { tableName, id, storeCodeFilter } = parsed.data;
 
     if (storeCodeFilter && tableName === "orders") {
       await db.delete(orders).where(eq(orders.buyerStore, storeCodeFilter));
@@ -25,8 +30,8 @@ export async function DELETE(req: Request) {
       });
     }
 
-    if (!id || !tableName) {
-      return NextResponse.json({ error: "Tablo adı ve ID zorunludur." }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "Kayıt ID'si zorunludur." }, { status: 400 });
     }
 
     const numId = Number(id);
@@ -55,8 +60,7 @@ export async function DELETE(req: Request) {
       success: true,
       message: `Kayıt (${tableName} #${id}) başarıyla silindi.`,
     });
-  } catch (error: any) {
-    console.error("DELETE /api/admin/master-crud error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("DELETE /api/admin/master-crud", error);
   }
 }

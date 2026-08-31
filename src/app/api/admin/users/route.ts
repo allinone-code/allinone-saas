@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { users, auditLogs } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
 import { hashPassword } from "@/lib/passwords";
+import { parseBody, userCreateSchema, userUpdateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
@@ -22,8 +24,8 @@ export async function GET() {
       createdAt: u.createdAt,
     }));
     return NextResponse.json({ users: safeUsers });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/users", error);
   }
 }
 
@@ -33,22 +35,12 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
-    const { name, email, role = "STORE_USER", storeCode = "HRN", password } = body;
+    // Zod doğrulama (T3.1): isim/e-posta/rol + parola politikası (min 12) şemada
+    const parsed = await parseBody(req, userCreateSchema);
+    if ("response" in parsed) return parsed.response;
+    const { name, email, role = "STORE_USER", storeCode = "HRN", password } = parsed.data;
 
-    if (!name || !email) {
-      return NextResponse.json({ error: "İsim ve e-posta zorunludur" }, { status: 400 });
-    }
-
-    // Parola politikası (T1.6): zorunlu ve en az 12 karakter — varsayılan parola yok
-    if (!password || String(password).length < 12) {
-      return NextResponse.json(
-        { error: "Parola zorunludur ve en az 12 karakter olmalıdır." },
-        { status: 400 }
-      );
-    }
-
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = email; // zod: trim + lowercase + email formatı zaten doğrulandı
 
     // Check duplicate email
     const existing = await db
@@ -101,8 +93,8 @@ export async function POST(req: Request) {
         storeCode: created.storeCode,
       },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/users", error);
   }
 }
 
@@ -112,12 +104,10 @@ export async function PATCH(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
-    const { id, name, role, storeCode, password } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "Kullanıcı ID zorunludur" }, { status: 400 });
-    }
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, userUpdateSchema);
+    if ("response" in parsed) return parsed.response;
+    const { id, name, role, storeCode, password } = parsed.data;
 
     const existing = await db
       .select()
@@ -140,14 +130,8 @@ export async function PATCH(req: Request) {
       updateData.storeCode = storeCode;
     }
     if (password) {
-      if (String(password).length < 12) {
-        return NextResponse.json(
-          { error: "Yeni parola en az 12 karakter olmalıdır." },
-          { status: 400 }
-        );
-      }
-      // Yeni parola bcrypt ile saklanır (F-03)
-      updateData.passwordHash = await hashPassword(String(password));
+      // Yeni parola bcrypt ile saklanır (F-03); min uzunluk şemada doğrulandı
+      updateData.passwordHash = await hashPassword(password);
     }
 
     const [updated] = await db
@@ -176,7 +160,7 @@ export async function PATCH(req: Request) {
         storeCode: updated.storeCode,
       },
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("admin/users", error);
   }
 }

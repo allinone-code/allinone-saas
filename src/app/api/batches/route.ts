@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { pshBatches, orders, auditLogs } from "@/db/schema";
 import { desc, eq, inArray } from "drizzle-orm";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { parseBody, batchCreateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 export async function GET(req: Request) {
   try {
@@ -18,8 +20,8 @@ export async function GET(req: Request) {
       : await db.select().from(pshBatches).orderBy(desc(pshBatches.createdAt));
 
     return NextResponse.json({ batches: allBatches });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("GET /api/batches", error);
   }
 }
 
@@ -29,7 +31,10 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, batchCreateSchema);
+    if ("response" in parsed) return parsed.response;
+    const body = parsed.data;
     const {
       batchNumber,
       title,
@@ -41,9 +46,6 @@ export async function POST(req: Request) {
     const storeCode = resolveStoreScope(currentUser, body.storeCode || "HRN");
     const actorName = currentUser.name;
 
-    if (!batchNumber || !title) {
-      return NextResponse.json({ error: "Batch no ve başlık zorunludur" }, { status: 400 });
-    }
 
     const [created] = await db
       .insert(pshBatches)
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
       message: "PSH Envanter Batch başarıyla oluşturuldu",
       batch: created,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/batches", error);
   }
 }
