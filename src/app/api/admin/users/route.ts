@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, auditLogs } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireRole, isDenied } from "@/lib/guards";
+import { hashPassword } from "@/lib/passwords";
 import { ensureCerberusSeeded } from "@/db/seed";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
   try {
+    const gate = await requireRole("ADMIN");
+    if (isDenied(gate)) return gate.response;
+
     await ensureCerberusSeeded();
     const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
     // Sanitize password_hash before returning
@@ -27,16 +31,23 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz işlem. Yalnızca Admin kullanıcı ekleyebilir." }, { status: 403 });
-    }
+    const gate = await requireRole("ADMIN");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
     const body = await req.json();
-    const { name, email, role = "STORE_USER", storeCode = "HRN", password = "store2026" } = body;
+    const { name, email, role = "STORE_USER", storeCode = "HRN", password } = body;
 
     if (!name || !email) {
       return NextResponse.json({ error: "İsim ve e-posta zorunludur" }, { status: 400 });
+    }
+
+    // Parola politikası (T1.6): zorunlu ve en az 12 karakter — varsayılan parola yok
+    if (!password || String(password).length < 12) {
+      return NextResponse.json(
+        { error: "Parola zorunludur ve en az 12 karakter olmalıdır." },
+        { status: 400 }
+      );
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -64,7 +75,8 @@ export async function POST(req: Request) {
       .values({
         name: name.trim(),
         email: cleanEmail,
-        passwordHash: password,
+        // Parola her zaman bcrypt ile saklanır (F-03)
+        passwordHash: await hashPassword(String(password)),
         role: role as any,
         storeCode: role === "ADMIN" ? "ALL" : storeCode,
         avatar,
@@ -72,7 +84,7 @@ export async function POST(req: Request) {
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: currentUser?.name || "Admin",
+      actorName: currentUser.name,
       storeCode: storeCode || "ALL",
       actionType: "USER_CREATED",
       targetEntity: `${created.name} (${cleanEmail})`,
@@ -98,10 +110,9 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz işlem. Yalnızca Admin kullanıcı düzenleyebilir." }, { status: 403 });
-    }
+    const gate = await requireRole("ADMIN");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
     const body = await req.json();
     const { id, name, role, storeCode, password } = body;
@@ -130,7 +141,16 @@ export async function PATCH(req: Request) {
     if (storeCode !== undefined && role !== "ADMIN") {
       updateData.storeCode = storeCode;
     }
-    if (password) updateData.passwordHash = password;
+    if (password) {
+      if (String(password).length < 12) {
+        return NextResponse.json(
+          { error: "Yeni parola en az 12 karakter olmalıdır." },
+          { status: 400 }
+        );
+      }
+      // Yeni parola bcrypt ile saklanır (F-03)
+      updateData.passwordHash = await hashPassword(String(password));
+    }
 
     const [updated] = await db
       .update(users)
@@ -139,7 +159,7 @@ export async function PATCH(req: Request) {
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: currentUser?.name || "Admin",
+      actorName: currentUser.name,
       storeCode: updated.storeCode || "ALL",
       actionType: "USER_UPDATED",
       targetEntity: `${updated.name} (${updated.email})`,

@@ -14,7 +14,8 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull().default("store2026"),
+  // Varsayılan parola kaldırıldı (F-03/F-04): her kayıt açıkça bcrypt hash'iyle yazılmalı
+  passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("STORE_USER"), // 'ADMIN' | 'MANAGER' | 'STORE_USER'
   storeCode: text("store_code").notNull().default("HRN"), // e.g. 'HRN', 'ALL' for admin
   avatar: text("avatar"),

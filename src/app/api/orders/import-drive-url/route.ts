@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 
 function extractSpreadsheetId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
@@ -11,7 +12,12 @@ function extractSpreadsheetId(url: string): string | null {
 
 export async function POST(req: Request) {
   try {
-    const { driveUrl, defaultStore = "HRN" } = await req.json();
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
+    const { driveUrl, defaultStore: requestedStore = "HRN" } = await req.json();
+    const defaultStore = resolveStoreScope(currentUser, requestedStore);
 
     if (!driveUrl) {
       return NextResponse.json(

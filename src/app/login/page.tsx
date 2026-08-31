@@ -22,7 +22,6 @@ const DEMO_ACCOUNTS = [
     name: "Ahmet Erdem",
     roleLabel: "SİSTEM YÖNETİCİSİ (ADMIN)",
     email: "ahmet@cerberus-commerce.io",
-    password: "admin2026",
     storeCode: "TÜM MAĞAZALAR (ALL)",
     badgeColor: "bg-indigo-500/15 text-indigo-300 border-indigo-500/40",
     desc: "Tüm 26 mağazayı denetler, yeni mağaza/kullanıcı açar, SP-API token'larını ve denetim loglarını yönetir.",
@@ -31,7 +30,6 @@ const DEMO_ACCOUNTS = [
     name: "Harun",
     roleLabel: "MAĞAZA YÖNETİCİSİ (HRN STORE)",
     email: "harun@cerberus-commerce.io",
-    password: "store2026",
     storeCode: "HRN STORE",
     badgeColor: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
     desc: "Yalnızca HRN mağazasının 38 siparişini, Google Drive faturalarını ve PSH batch'lerini görür.",
@@ -40,7 +38,6 @@ const DEMO_ACCOUNTS = [
     name: "Selin Yılmaz",
     roleLabel: "MAĞAZA YÖNETİCİSİ (SEL STORE)",
     email: "selin@cerberus-commerce.io",
-    password: "store2026",
     storeCode: "SEL STORE",
     badgeColor: "bg-sky-500/15 text-sky-300 border-sky-500/40",
     desc: "Yalnızca SEL mağazasının ürünlerini, depo karşılama ve kârlılık süreçlerini yönetebilir.",
@@ -49,7 +46,6 @@ const DEMO_ACCOUNTS = [
     name: "Can Demir",
     roleLabel: "MAĞAZA YÖNETİCİSİ (MK STORE)",
     email: "can@cerberus-commerce.io",
-    password: "store2026",
     storeCode: "MK STORE",
     badgeColor: "bg-amber-500/15 text-amber-300 border-amber-500/40",
     desc: "Yalnızca MK mağazasına yetkilidir; diğer mağaza ciro ve siparişlerine erişemez.",
@@ -59,7 +55,7 @@ const DEMO_ACCOUNTS = [
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("ahmet@cerberus-commerce.io");
-  const [password, setPassword] = useState("admin2026");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -97,9 +93,10 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoSelect = (account: (typeof DEMO_ACCOUNTS)[0]) => {
+    // Güvenlik: hızlı seçim yalnızca e-postayı doldurur (F-04)
     setEmail(account.email);
-    setPassword(account.password);
-    handleLogin(undefined, account.email, account.password);
+    setPassword("");
+    setErrorMsg(null);
   };
 
   return (

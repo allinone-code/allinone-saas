@@ -9,10 +9,7 @@ import {
 } from "@/db/schema";
 import { ensureCerberusSeeded } from "@/db/seed";
 import { desc, eq } from "drizzle-orm";
-import {
-  INITIAL_PRODUCT_MASTERS,
-  INITIAL_RESEARCHERS,
-} from "@/lib/mockData";
+import { requireUser, isDenied } from "@/lib/guards";
 
 function calculateLandedCostAndProfit(
   sourcePrice: number,
@@ -99,6 +96,9 @@ function computeDecisionEngine(
 
 export async function GET() {
   try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+
     await ensureCerberusSeeded();
 
     const [masters, team, sessions, allOrders] = await Promise.all([
@@ -144,11 +144,13 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("GET /api/intelligence error:", error);
+    // Hata durumunda mock veri SIZDIRILMAZ (F-15): kullanıcı gerçek sanabilir
     return NextResponse.json(
       {
-        productMasters: INITIAL_PRODUCT_MASTERS,
-        researchers: INITIAL_RESEARCHERS,
+        productMasters: [],
+        researchers: [],
         researchSessions: [],
+        error: "Veri alınamadı",
       },
       { status: 500 }
     );
@@ -157,6 +159,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
+
     const body = await req.json();
     const {
       sourceUrl,
@@ -283,8 +289,8 @@ export async function POST(req: Request) {
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: researcherName,
-      storeCode: "HRN",
+      actorName: currentUser.name,
+      storeCode: currentUser.storeCode === "ALL" ? "HRN" : currentUser.storeCode,
       actionType: "DECISION_ENGINE_CAPTURE",
       targetEntity: `${productCode} (${title.slice(0, 32)})`,
       beforeState: "NEW_CAPTURE",

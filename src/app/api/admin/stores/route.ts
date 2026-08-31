@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { stores, auditLogs, orders } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser, requireRole, isDenied } from "@/lib/guards";
 import { desc, eq, count, sum } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    // Allow admin or store user to see store list (store user sees metadata, admin can manage)
+    // Giriş yapmış herkes mağaza listesini okuyabilir; yönetim yazma işlemleri ADMIN/MANAGER ister
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+
     const allStores = await db.select().from(stores).orderBy(stores.storeCode);
 
     // Compute live order count and spend for each store from orders table
@@ -40,10 +42,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN" && currentUser.role !== "MANAGER") {
-      return NextResponse.json({ error: "Yetkisiz işlem. Yalnızca Admin mağaza ekleyebilir." }, { status: 403 });
-    }
+    const gate = await requireRole("ADMIN", "MANAGER");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
     const body = await req.json();
     const {
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: currentUser?.name || "Admin",
+      actorName: currentUser.name,
       storeCode: cleanCode,
       actionType: "STORE_CREATED",
       targetEntity: `${cleanCode} - ${storeName}`,
@@ -113,10 +114,9 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.role !== "ADMIN" && currentUser.role !== "MANAGER") {
-      return NextResponse.json({ error: "Yetkisiz işlem. Yalnızca Admin mağaza düzenleyebilir." }, { status: 403 });
-    }
+    const gate = await requireRole("ADMIN", "MANAGER");
+    if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
     const body = await req.json();
     const { id, storeName, buyerName, status, defaultCard, defaultEmail, notes } = body;
@@ -150,7 +150,7 @@ export async function PATCH(req: Request) {
       .returning();
 
     await db.insert(auditLogs).values({
-      actorName: currentUser?.name || "Admin",
+      actorName: currentUser.name,
       storeCode: updated.storeCode,
       actionType: "STORE_UPDATED",
       targetEntity: `${updated.storeCode} - ${updated.storeName}`,

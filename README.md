@@ -41,34 +41,43 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
    - **Kullanıcı Yönetimi (Users & RBAC)**: Personel ekleme, şifre belirleme, mağaza izolasyon ataması.
    - **Siparişler Yönetimi & Satır Silme (Orders CRUD)**: Tüm mağazaların siparişlerini süzme ve tek tek silme.
    - **🧹 Veritabanı Temizleme & Sıfırlama Araçları (DANGER ZONE)**:
-     - `RESET-CERBERUS` güvenlik onayıyla çalışır.
+     - `RESET-CERBERUS` güvenlik onayıyla çalışır ve **yalnızca geliştirme ortamında** aktiftir (üretimde 404 döner, T0.2).
      - **1. Sadece Siparişleri Temizle (Kullanıcılar & Mağazalar Kalır):** Kendi gerçek Excel/Drive verilerinizi yüklemek için sipariş ve batch tablolarını sıfırlar; kullanıcı ve mağaza ayarlarını korur.
      - **2. 38 Gerçek XLS Siparişi Geri Yükle:** 40-kolonluk referans verisini dilediğinizde tek tıkla geri getirir.
      - **3. Fabrika Ayarlarına Dön:** Sadece Süper Admin hesabını bırakıp tüm tabloları boşaltır.
 
 ### 🧭 Admin Dashboard'a Giriş Yapmanın 3 Kolay Yolu:
-1. **Giriş Ekranından:** `/login` sayfasında **Ahmet Erdem (Sistem Yöneticisi)** butonuna tıklayın veya `ahmet@cerberus-commerce.io` / `admin2026` ile giriş yapın → Sistem sizi doğrudan Admin Dashboard'una açar.
+1. **Giriş Ekranından:** `/login` sayfasında **Ahmet Erdem (Sistem Yöneticisi)** butonuna tıklayın veya `ahmet@cerberus-commerce.io` ve size verilen parola ile giriş yapın → Sistem sizi doğrudan Admin Dashboard'una açar.
 2. **Üst Menüdeki Butondan:** Sayfanın en üstünde yer alan mor/indigo renkli **[ 🛡️ Admin Paneli ]** butonuna tıklayın.
 3. **Doğrudan URL ile:** Tarayıcı adres çubuğuna doğrudan `https://.../admin` yazın.
 
 ---
 
-## 🔐 1-Tıkla Test Giriş Hesapları
+## 🔐 Kimlik Doğrulama ve Güvenlik (2026-09 Güvenlik Sertleştirmesi)
 
-| Kullanıcı | E-posta | Parola | Rol | Mağaza Kapsamı |
-|---|---|---|---|---|
-| **Ahmet Erdem** | `ahmet@cerberus-commerce.io` | `admin2026` | `ADMIN` | **Tüm Mağazalar**: Yeni mağaza ve kullanıcı açabilir, SP-API ve denetim loglarını yönetir. |
-| **Harun** | `harun@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca HRN Mağazası**: Sadece HRN'in 38 siparişini ve verilerini görür. Başka mağazaya erişemez. |
-| **Selin Yılmaz** | `selin@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca SEL Mağazası** |
-| **Can Demir** | `can@cerberus-commerce.io` | `store2026` | `STORE_USER` | **Yalnızca MK Mağazası** |
+> Önceki sürümde README'de yayınlanan demo parolaları **kalıcı olarak iptal edilmiştir** (Audit F-03/F-04).
+
+- **Parolalar bcrypt ile saklanır** (`bcryptjs`, cost 12); düz metin parola kabul edilmez.
+- **Oturumlar imzalı JWT**'dir (`jose` HS256, 8 saat) — çerez kurcalanamaz.
+- **İlk kurulum parolaları** `SEED_ADMIN_PASSWORD` / `SEED_STORE_PASSWORD` ortam değişkenlerinden alınır (üretimde zorunlu, min 12 karakter). Tanımlanmazsa varsayılan hesaplar oluşturulmaz.
+- **Login hız sınırlama:** IP+hesap başına 5 deneme/15 dk.
+- Kullanıcı ekleme/parola sıfırlama Admin Paneli → Kullanıcı Yönetimi üzerinden yapılır (min 12 karakter).
+
+| Kullanıcı | E-posta | Rol | Mağaza Kapsamı |
+|---|---|---|---|
+| **Ahmet Erdem** | `ahmet@cerberus-commerce.io` | `ADMIN` | Tüm Mağazalar |
+| **Harun** | `harun@cerberus-commerce.io` | `STORE_USER` | Yalnızca HRN |
+| **Selin Yılmaz** | `selin@cerberus-commerce.io` | `STORE_USER` | Yalnızca SEL |
+| **Can Demir** | `can@cerberus-commerce.io` | `STORE_USER` | Yalnızca MK |
 
 ---
 
 ## ⚡ Canlıya Alma (Vercel + Neon)
 
-1. Projeyi GitHub'a pushlayın (`allinone-code/allinone-saas`).
-2. Neon veritabanında şemayı güncelleyin:
+1. Ortam değişkenlerini tanımlayın (ZORUNLU — bk. `.env.example`): `DATABASE_URL`, `SESSION_SECRET` (min 32 kr.), `SEED_ADMIN_PASSWORD`, `SEED_STORE_PASSWORD` (min 12 kr.)
+2. Projeyi GitHub'a pushlayın (`allinone-code/allinone-saas`).
+3. Neon veritabanında şemayı güncelleyin:
    ```bash
    DATABASE_URL="your-neon-pooled-connection-string" npx drizzle-kit push
    ```
-3. Vercel'de **Redeploy** çalıştırın.
+4. Vercel'de **Redeploy** çalıştırın.

@@ -17,10 +17,13 @@ import {
   INITIAL_RESEARCHERS,
   INITIAL_PRODUCT_MASTERS,
 } from "@/lib/mockData";
-import { DEFAULT_SYSTEM_USERS } from "@/lib/auth";
+import { DEFAULT_SYSTEM_USERS, getBootstrapPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/passwords";
 
 export async function ensureCerberusSeeded() {
   // 1. Ensure all default system users exist in PostgreSQL (Ahmet Erdem, Harun, Selin, Can, etc.)
+  //    Parolalar ASLA düz metin tutulmaz (F-03); bootstrap parolası env'den gelir,
+  //    üretimde env yoksa hesap seed edilmez (bilinen parolalı hesap açılmaz, F-04).
   for (const defaultUser of DEFAULT_SYSTEM_USERS) {
     try {
       const found = await db
@@ -30,10 +33,17 @@ export async function ensureCerberusSeeded() {
         .limit(1);
 
       if (found.length === 0) {
+        const bootstrapPassword = getBootstrapPassword(defaultUser.role);
+        if (!bootstrapPassword) {
+          console.warn(
+            `[CERBERUS] ${defaultUser.email} seed edilmedi: SEED_${defaultUser.role === "ADMIN" ? "ADMIN" : "STORE"}_PASSWORD tanımlı değil.`
+          );
+          continue;
+        }
         await db.insert(users).values({
           name: defaultUser.name,
           email: defaultUser.email.toLowerCase(),
-          passwordHash: defaultUser.passwordHash,
+          passwordHash: await hashPassword(bootstrapPassword),
           role: defaultUser.role,
           storeCode: defaultUser.storeCode,
           avatar: defaultUser.avatar,
