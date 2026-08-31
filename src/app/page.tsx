@@ -40,25 +40,19 @@ import { PshBatchModal } from "@/components/PshBatchModal";
 import { WarehouseReconciliationModal } from "@/components/WarehouseReconciliationModal";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
-import {
-  INITIAL_ORDERS,
-  INITIAL_STORES,
-  INITIAL_BATCHES,
-  INITIAL_PRODUCT_MASTERS,
-  INITIAL_RESEARCHERS,
-} from "@/lib/mockData";
 
 export default function CerberusApp() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // Core Data States
-  const [orders, setOrders] = useState<any[]>(INITIAL_ORDERS);
-  const [stores, setStores] = useState<any[]>(INITIAL_STORES);
-  const [batches, setBatches] = useState<any[]>(INITIAL_BATCHES);
-  const [productMasters, setProductMasters] = useState<any[]>(INITIAL_PRODUCT_MASTERS);
-  const [researchers, setResearchers] = useState<any[]>(INITIAL_RESEARCHERS);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [productMasters, setProductMasters] = useState<any[]>([]);
+  const [researchers, setResearchers] = useState<any[]>([]);
   const [morningBriefing, setMorningBriefing] = useState<any>({
     businessHealthScore: 89,
     whatChanged: [
@@ -114,14 +108,8 @@ export default function CerberusApp() {
             }
           }
         } else {
-          setCurrentUser({
-            id: 1,
-            name: "Ahmet Erdem",
-            email: "ahmet@cerberus-commerce.io",
-            role: "ADMIN",
-            storeCode: "ALL",
-            avatar: "AE",
-          });
+          // Oturum yoksa/gecersizse login'e yonlendir (sahte admin fallback'i kaldirildi)
+          router.push("/login");
         }
       } catch {
         // fallback demo
@@ -147,7 +135,7 @@ export default function CerberusApp() {
       const storeParam = params.get("store");
       if (storeParam) setSelectedStore(storeParam);
     }
-  }, []);
+  }, [router]);
 
   // 2. Fetch Orders and Intelligence for Selected Store
   const fetchAllData = async () => {
@@ -156,6 +144,11 @@ export default function CerberusApp() {
         fetch(`/api/orders?storeCode=${selectedStore}`, { cache: "no-store" }),
         fetch(`/api/intelligence`, { cache: "no-store" }),
       ]);
+      if (ordersRes.status === 401 || intelRes.status === 401) {
+        router.push("/login");
+        return;
+      }
+      setDataError(null);
       if (ordersRes.ok) {
         const json = await ordersRes.json();
         if (json.orders) setOrders(json.orders);
@@ -169,7 +162,8 @@ export default function CerberusApp() {
         if (json.morningBriefing) setMorningBriefing(json.morningBriefing);
       }
     } catch {
-      // offline memory
+      // Mock veriye SESSIZCE dusmek yok: kullanici gerçek sanabilir (F-15)
+      setDataError("Veriler yuklenemedi. Lutfen baglantinizi kontrol edip sayfayi yenileyin.");
     }
   };
 
@@ -407,6 +401,12 @@ export default function CerberusApp() {
 
   return (
     <div className="min-h-screen bg-[#080C14] bg-tactical-grid text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
+      {dataError && (
+        <div className="mx-6 mt-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {dataError}
+        </div>
+      )}
       {/* Top Refined Header Strip */}
       <header className="h-16 border-b border-slate-800/80 bg-[#0F1626]/95 backdrop-blur-md sticky top-0 z-30 px-5 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -1,4 +1,4 @@
-import { ALL_38_XLS_ORDERS } from "@/lib/xlsOrdersData";
+import { ALL_38_XLS_ORDERS } from "./xlsOrdersData";
 
 export { ALL_38_XLS_ORDERS };
 

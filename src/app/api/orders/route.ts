@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
-import { ensureCerberusSeeded } from "@/db/seed";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
-import { desc, eq, and, inArray } from "drizzle-orm";
+import { desc, eq, and, inArray, count, sql } from "drizzle-orm";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +11,6 @@ export async function GET(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    await ensureCerberusSeeded();
 
     const { searchParams } = new URL(req.url);
     const requestedStore = searchParams.get("storeCode") || "ALL";
@@ -46,7 +44,33 @@ export async function GET(req: Request) {
             .from(orders)
             .orderBy(desc(orders.orderDate), desc(orders.id));
 
-    const [allStores, allBatches, allAuditLogs, allUsers] = await Promise.all([
+    // KPI seçimi SQL tarafında aggregate ile hesaplanir (T2.6):
+    // bellekte tum tabloyu reduce etmek yok; sayfa boyutu buyurse bile sabit maliyet
+    const kpiSelect = {
+      totalOrdersCount: count(),
+      totalUnits: sql<string>`coalesce(sum(${orders.quantity}), 0)`,
+      totalSpend: sql<string>`coalesce(sum(${orders.totalCost}), 0)`,
+      totalShippedToAmazon: sql<string>`coalesce(sum(${orders.shippedToAmazon}), 0)`,
+      p1CancelTotal: sql<string>`coalesce(sum(${orders.p1CancelQty}), 0)`,
+      p2MissingTotal: sql<string>`coalesce(sum(${orders.p2MissingQty}), 0)`,
+      p3DefectiveTotal: sql<string>`coalesce(sum(${orders.p3DefectiveQty}), 0)`,
+      p4ExpiredTotal: sql<string>`coalesce(sum(${orders.p4ExpiredQty}), 0)`,
+      totalRefunds: sql<string>`coalesce(sum(${orders.refundAmount}), 0)`,
+      problemOrdersCount: sql<string>`count(*) filter (where
+        ${orders.cargoStatus} = 'İPTAL'
+        or ${orders.p1CancelQty} > 0
+        or ${orders.p2MissingQty} > 0
+        or ${orders.p3DefectiveQty} > 0
+        or ${orders.p4ExpiredQty} > 0
+        or ${orders.refundAmount} > 0)`,
+    };
+
+    const kpiBase = db.select(kpiSelect).from(orders);
+    const kpiQuery =
+      conditions.length > 0 ? kpiBase.where(and(...conditions)) : kpiBase;
+
+    const [[kpi], allStores, allBatches, allAuditLogs, allUsers] = await Promise.all([
+      kpiQuery,
       db.select().from(stores).orderBy(stores.storeCode),
       effectiveStore && effectiveStore !== "ALL"
         ? db.select().from(pshBatches).where(eq(pshBatches.storeCode, effectiveStore)).orderBy(desc(pshBatches.createdAt))
@@ -66,27 +90,16 @@ export async function GET(req: Request) {
         .from(users),
     ]);
 
-    // Calculate aggregated operational KPIs for current view
-    const totalOrdersCount = allOrders.length;
-    const totalUnits = allOrders.reduce((sum, o) => sum + Number(o.quantity || 0), 0);
-    const totalSpend = allOrders.reduce((sum, o) => sum + Number(o.totalCost || 0), 0);
-    const totalShippedToAmazon = allOrders.reduce((sum, o) => sum + Number(o.shippedToAmazon || 0), 0);
-
-    const p1CancelTotal = allOrders.reduce((sum, o) => sum + Number(o.p1CancelQty || 0), 0);
-    const p2MissingTotal = allOrders.reduce((sum, o) => sum + Number(o.p2MissingQty || 0), 0);
-    const p3DefectiveTotal = allOrders.reduce((sum, o) => sum + Number(o.p3DefectiveQty || 0), 0);
-    const p4ExpiredTotal = allOrders.reduce((sum, o) => sum + Number(o.p4ExpiredQty || 0), 0);
-    const totalRefunds = allOrders.reduce((sum, o) => sum + Number(o.refundAmount || 0), 0);
-
-    const problemOrdersCount = allOrders.filter(
-      (o) =>
-        o.cargoStatus === "İPTAL" ||
-        Number(o.p1CancelQty) > 0 ||
-        Number(o.p2MissingQty) > 0 ||
-        Number(o.p3DefectiveQty) > 0 ||
-        Number(o.p4ExpiredQty) > 0 ||
-        Number(o.refundAmount) > 0
-    ).length;
+    const totalOrdersCount = Number(kpi?.totalOrdersCount || 0);
+    const totalUnits = Number(kpi?.totalUnits || 0);
+    const totalSpend = Number(kpi?.totalSpend || 0);
+    const totalShippedToAmazon = Number(kpi?.totalShippedToAmazon || 0);
+    const p1CancelTotal = Number(kpi?.p1CancelTotal || 0);
+    const p2MissingTotal = Number(kpi?.p2MissingTotal || 0);
+    const p3DefectiveTotal = Number(kpi?.p3DefectiveTotal || 0);
+    const p4ExpiredTotal = Number(kpi?.p4ExpiredTotal || 0);
+    const totalRefunds = Number(kpi?.totalRefunds || 0);
+    const problemOrdersCount = Number(kpi?.problemOrdersCount || 0);
 
     return NextResponse.json({
       orders: allOrders,

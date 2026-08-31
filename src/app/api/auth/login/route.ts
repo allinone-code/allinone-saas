@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { ensureCerberusSeeded } from "@/db/seed";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken } from "@/lib/session";
 import { hashPassword, isRevokedLegacyPassword, verifyPassword } from "@/lib/passwords";
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
@@ -44,8 +43,6 @@ export async function POST(req: Request) {
         }
       );
     }
-
-    await ensureCerberusSeeded();
 
     const matched = await db
       .select()

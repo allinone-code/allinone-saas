@@ -7,6 +7,8 @@ import {
   boolean,
   timestamp,
   jsonb,
+  uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 // 1. Users table (Preserved users with password_hash, store assignment & role)
@@ -143,12 +145,18 @@ export const productMasters = pgTable("product_masters", {
 });
 
 // 6. Orders Master Table (Exact 40-Column Google Drive XLS Structure + PSH & Inventory Lab)
-export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
+export const orders = pgTable(
+  "orders",
+  {
+    id: serial("id").primaryKey(),
 
-  // Kolon 1-5: Temel & Amazon Kimlikleri
-  buyerStore: text("buyer_store").notNull().default("HRN"), // 1. Satın Alan (HRN vb.)
-  orderDate: text("order_date").notNull(), // 2. Tarih (YYYY-MM-DD)
+    // Kolon 1-5: Temel & Amazon Kimlikleri
+    // T2.2: Mağaza referansı artık FK ile DB seviyesinde zorlanır
+    buyerStore: text("buyer_store")
+      .notNull()
+      .default("HRN")
+      .references(() => stores.storeCode), // 1. Satın Alan (HRN vb.)
+    orderDate: text("order_date").notNull(), // 2. Tarih (YYYY-MM-DD)
   imageUrl: text("image_url"), // 3. Ürün resmi linki
   fulfillmentType: text("fulfillment_type").notNull().default("FBA"), // 4. FBM/FBA
   productTitle: text("product_title").notNull(), // 5. Ürün adı Amazon
@@ -203,13 +211,20 @@ export const orders = pgTable("orders", {
   correctedCost: numeric("corrected_cost", { precision: 12, scale: 2 }).notNull(), // 40. Düzeltilmiş maliyet
 
   // PSH & Envanter Takip Entegrasyon Alanları
-  pshBatchNo: text("psh_batch_no"), // PSH Batch Numarası (ör: BATCH-2026-01)
+  // T2.2: Batch referansı FK ile zorlanır (nullable — batch'e bağlanmamış sipariş olabilir)
+  pshBatchNo: text("psh_batch_no").references(() => pshBatches.batchNumber), // PSH Batch Numarası (ör: BATCH-2026-01)
   pshStatus: text("psh_status").notNull().default("BEKLIYOR"), // 'BEKLIYOR' | 'BATCH_OLUSTURULDU' | 'DEPO_SAYILDI' | 'AMAZONA_SEVK'
   inventoryLabStatus: text("inventory_lab_status").notNull().default("GIRILMEDI"), // 'GIRILMEDI' | 'GIRILDI' | 'AKTIF_SATISTA'
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+// T2.3: Sorgu desenlerine gore indexler + mukerrer import engeli
+(t) => [
+  uniqueIndex("orders_order_number_store_uq").on(t.orderNumber, t.buyerStore),
+  index("orders_buyer_store_date_idx").on(t.buyerStore, t.orderDate),
+  index("orders_asin_idx").on(t.asin),
+]);
 
 // 7. PSH Batch Master Table (PSH Programı Ön-Envanter Gruplama)
 export const pshBatches = pgTable("psh_batches", {

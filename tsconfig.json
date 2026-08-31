@@ -21,6 +21,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@fixtures/*": [
+        "./fixtures/*"
       ]
     },
     "plugins": [
