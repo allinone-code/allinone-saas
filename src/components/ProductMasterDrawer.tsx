@@ -64,13 +64,17 @@ export function ProductMasterDrawer({
                 UPC: {master.upc}
               </span>
               <span
+                title={master.freshness?.label}
                 className={`px-2.5 py-0.5 rounded text-xs font-mono-tech font-bold ${
                   master.dataFreshnessStatus === "FRESH"
                     ? "bg-positive/15 text-positive border border-positive/30"
-                    : "bg-caution/15 text-caution border border-caution/30"
+                    : master.dataFreshnessStatus === "AGING"
+                      ? "bg-caution/15 text-caution border border-caution/30"
+                      : "bg-danger/15 text-danger border border-danger/30"
                 }`}
               >
                 VERİ TAZELİĞİ: {master.dataFreshnessStatus}
+                {master.freshness?.label ? ` · ${master.freshness.label}` : ""}
               </span>
             </div>
             <h2 className="text-sm font-display font-bold text-ink leading-snug">
@@ -188,12 +192,42 @@ export function ProductMasterDrawer({
                     <span className="text-brand-soft font-semibold">TOPLAM LANDED COST:</span>
                     <span className="text-brand-soft font-bold">${master.landedCost}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 bg-positive/10 px-2.5 rounded-lg border border-positive/40">
-                    <span className="text-positive font-semibold">GERÇEKLEŞEN ROI:</span>
-                    <span className="text-positive font-bold">
-                      %{master.actualRoiPercent || master.roiPercent} (Sapma -1.8%)
-                    </span>
-                  </div>
+                  {/* Gerçekleşen ROI: siparişlerden hesaplanır. Ölçülemiyorsa
+                      tahmini gösterip "gerçek" demek yerine açıkça belirtilir. */}
+                  {master.actualRoiPercent != null ? (
+                    <div className="flex justify-between py-1.5 bg-positive/10 px-2.5 rounded-lg border border-positive/40">
+                      <span className="text-positive font-semibold">GERÇEKLEŞEN ROI:</span>
+                      <span className="text-positive font-bold">
+                        %{master.actualRoiPercent}
+                        {master.roiVariance?.variancePoints != null && (
+                          <span className="text-ink-muted font-normal">
+                            {" "}
+                            (sapma{" "}
+                            {master.roiVariance.variancePoints > 0 ? "-" : "+"}
+                            {Math.abs(master.roiVariance.variancePoints).toFixed(1)} puan)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between py-1.5 bg-surface-2 px-2.5 rounded-lg border border-line">
+                      <span className="text-ink-muted font-semibold">GERÇEKLEŞEN ROI:</span>
+                      <span className="text-ink-faint font-bold">
+                        {master.realizedRoi?.reason === "NOTHING_SHIPPED"
+                          ? "Sevkiyat bekleniyor"
+                          : "Henüz ölçülmedi"}
+                      </span>
+                    </div>
+                  )}
+
+                  {master.realizedRoi && master.realizedRoi.sampleSize > 0 && (
+                    <div className="mt-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-[10px] text-ink-muted">
+                      {master.realizedRoi.sampleSize} sipariş satırı ·{" "}
+                      {master.realizedRoi.realizedUnits} adet sevk ·{" "}
+                      {master.realizedRoi.lostUnits} adet fire ·{" "}
+                      ${master.realizedRoi.totalRefunds.toFixed(2)} iade
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -95,10 +95,18 @@ export function MorningBriefingPanel({
           <span className="text-[10px] text-ink-muted block group-hover:text-brand-soft">
             BUSINESS HEALTH SCORE — kırılımı gör
           </span>
-          <span className={`text-2xl font-display font-bold ${gradeColor(briefing.healthGrade)}`}>
-            {briefing.businessHealthScore} / 100
-            <span className="text-xs ml-2 uppercase">{briefing.healthGrade}</span>
-          </span>
+          {briefing.healthMeasurable === false ? (
+            // Boş sistemde skor uydurulmaz: "0 KRİTİK" yanıltıcı olurdu.
+            <span className="text-2xl font-display font-bold text-ink-faint">
+              —
+              <span className="ml-2 text-xs uppercase">Ölçülemedi · veri bekleniyor</span>
+            </span>
+          ) : (
+            <span className={`text-2xl font-display font-bold ${gradeColor(briefing.healthGrade)}`}>
+              {briefing.businessHealthScore} / 100
+              <span className="text-xs ml-2 uppercase">{briefing.healthGrade}</span>
+            </span>
+          )}
         </button>
       </div>
 

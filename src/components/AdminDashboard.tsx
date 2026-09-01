@@ -255,7 +255,11 @@ export function AdminDashboard({
 
   // Execute Database Reset or Restore action
   const handleExecuteDatabaseTool = async (
-    actionType: "CLEAN_ORDERS_ONLY" | "RESTORE_REAL_XLS" | "NUKE_ALL_KEEP_ADMIN"
+    actionType:
+      | "CLEAN_ORDERS_ONLY"
+      | "RESTORE_REAL_XLS"
+      | "NUKE_ALL_KEEP_ADMIN"
+      | "FRESH_START_REAL_DATA"
   ) => {
     if (confirmationInput !== "RESET-CERBERUS") {
       showFeedback("Lütfen kutuya tam olarak 'RESET-CERBERUS' yazın.", "error");
@@ -819,12 +823,43 @@ export function AdminDashboard({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {/* Tool 0: Gerçek Veriyle Başlangıç — canlıya geçiş için önerilen */}
+            <div className="flex flex-col justify-between space-y-4 rounded-2xl border-2 border-brand bg-surface-1 p-5 shadow-lg shadow-brand/10">
+              <div>
+                <span className="rounded bg-brand px-2.5 py-0.5 font-mono-tech text-[10px] font-bold text-ink">
+                  CANLIYA GEÇİŞ İÇİN ÖNERİLEN
+                </span>
+                <h4 className="mt-2 text-base font-bold text-ink">
+                  0. Gerçek Veriyle Başlangıç
+                </h4>
+                <p className="mt-2 font-mono-tech text-xs leading-relaxed text-ink-muted">
+                  Tüm demo operasyonel verisini siler: siparişler, PSH partileri,
+                  <strong className="text-ink"> ürün ana kayıtları</strong> ve araştırma oturumları.
+                  <strong className="mt-1 block text-brand-soft">
+                    ✓ Mağazalar, kullanıcı hesapları ve araştırmacı kadrosu KORUNUR.
+                  </strong>
+                  <span className="mt-1 block text-ink-faint">
+                    1. seçenekten farkı: demo ürün kayıtlarını da temizler; böylece
+                    gerçekleşen ROI ölçümü hayalet ürünlerle kirlenmez.
+                  </span>
+                </p>
+              </div>
+
+              <button
+                disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
+                onClick={() => handleExecuteDatabaseTool("FRESH_START_REAL_DATA")}
+                className="w-full rounded-xl bg-brand py-3 font-mono-tech text-xs font-bold uppercase tracking-wider text-ink shadow-lg shadow-brand/20 transition hover:bg-brand-soft disabled:opacity-40"
+              >
+                {resettingDb ? "Hazırlanıyor..." : "Gerçek Veriyle Başla"}
+              </button>
+            </div>
+
             {/* Tool 1: Clean Orders Only (Keep Users & Stores) */}
             <div className="bg-surface-1 border border-positive/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
               <div>
                 <span className="px-2.5 py-0.5 rounded bg-positive/20 text-positive font-mono-tech text-[10px] font-bold">
-                  EN ÇOK ÖNERİLEN (TEMİZ BAŞLANGIÇ)
+                  SADECE SİPARİŞLERİ TEMİZLE
                 </span>
                 <h4 className="text-base font-bold text-ink mt-2">
                   1. Sadece Siparişleri Temizle

@@ -108,11 +108,17 @@ export function KpiStrip({
       />
       <Card
         label="İş sağlığı"
-        value={briefing ? `${briefing.businessHealthScore}` : "—"}
-        hint={briefing ? briefing.healthGrade : "Veri bekleniyor"}
+        value={briefing && briefing.healthMeasurable !== false ? `${briefing.businessHealthScore}` : "—"}
+        hint={
+          !briefing
+            ? "Veri bekleniyor"
+            : briefing.healthMeasurable === false
+              ? "Ölçmek için veri yükleyin"
+              : briefing.healthGrade
+        }
         icon={Activity}
         tone={
-          !briefing
+          !briefing || briefing.healthMeasurable === false
             ? "neutral"
             : briefing.businessHealthScore >= 70
             ? "positive"

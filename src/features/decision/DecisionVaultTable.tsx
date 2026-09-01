@@ -98,14 +98,23 @@ export function DecisionVaultTable({
                       </button>
                     </td>
                     <td className="p-3.5 whitespace-nowrap">
+                      {/* Tazelik dört kademeli ve observedAt'ten hesaplanır */}
                       <span
+                        title={m.freshness?.label}
                         className={`px-2 py-0.5 rounded text-[10px] font-bold block w-fit ${
                           m.dataFreshnessStatus === "FRESH"
                             ? "bg-positive/15 text-positive border border-positive/30"
-                            : "bg-caution/15 text-caution border border-caution/30"
+                            : m.dataFreshnessStatus === "AGING"
+                              ? "bg-caution/15 text-caution border border-caution/30"
+                              : m.dataFreshnessStatus === "STALE"
+                                ? "bg-danger/15 text-danger border border-danger/30"
+                                : "bg-danger/25 text-danger border border-danger/50"
                         }`}
                       >
                         {m.dataFreshnessStatus}
+                        {m.freshness != null && Number.isFinite(m.freshness.ageInDays) && (
+                          <span className="font-normal"> · {m.freshness.ageInDays}g</span>
+                        )}
                       </span>
                       <span className="text-[10px] text-ink-muted block mt-1">
                         Kalite: {m.dataQualityStatus}
@@ -115,14 +124,57 @@ export function DecisionVaultTable({
                     <td className="p-3.5 text-right font-bold text-ink">${m.sellingPrice}</td>
                     <td className="p-3.5 text-right">
                       <span className="text-positive font-bold block">%{m.roiPercent} tahmini</span>
-                      <span className="text-[10px] text-ink-muted block">
-                        Gerçek: %{m.actualRoiPercent ?? "—"}
-                      </span>
+                      {m.actualRoiPercent != null ? (
+                        <span className="text-[10px] block text-ink-muted">
+                          Gerçek: %{m.actualRoiPercent}
+                          {m.roiVariance?.variancePoints != null && (
+                            <span
+                              className={
+                                m.roiVariance.status === "ON_TARGET"
+                                  ? " text-positive"
+                                  : m.roiVariance.status === "OPTIMISTIC"
+                                    ? " text-danger"
+                                    : " text-info"
+                              }
+                            >
+                              {" "}
+                              ({m.roiVariance.variancePoints > 0 ? "-" : "+"}
+                              {Math.abs(m.roiVariance.variancePoints).toFixed(1)} puan)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        // Uydurma sayı yok: ölçülmediyse ölçülmedi denir.
+                        <span className="text-[10px] block text-ink-faint" title={
+                          m.realizedRoi?.reason === "NOTHING_SHIPPED"
+                            ? "Henüz Amazon'a sevkiyat yapılmadı"
+                            : "Bu ürüne ait kapanmış sipariş yok"
+                        }>
+                          Gerçek: henüz ölçülmedi
+                        </span>
+                      )}
                     </td>
                     <td className="p-3.5 text-center">
                       <span className="text-base font-display font-bold text-brand-soft">
                         {m.opportunityScore}/100
                       </span>
+                      {/* Skorun ne kadarı gerçek ölçüme dayanıyor? Sabit
+                          varsayımlar açıkça bildirilir — sahte kesinlik yok. */}
+                      {m.evidenceCoverage != null && (
+                        <span
+                          className="mt-0.5 block text-[9px] text-ink-faint"
+                          title={
+                            m.assumedAxes && m.assumedAxes.length > 0
+                              ? `Sabit varsayıma dayanan eksenler: ${m.assumedAxes.join(", ")}`
+                              : "Tüm eksenler ölçüme dayanıyor"
+                          }
+                        >
+                          %{m.evidenceCoverage} ölçüm
+                          {m.assumedAxes && m.assumedAxes.length > 0
+                            ? ` · ${m.assumedAxes.length} eksen tahmini`
+                            : ""}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3.5 whitespace-nowrap">
                       <span

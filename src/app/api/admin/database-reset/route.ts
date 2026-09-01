@@ -97,6 +97,38 @@ export async function POST(req: Request) {
       });
     }
 
+    if (actionType === "FRESH_START_REAL_DATA") {
+      // 4. GERÇEK VERİYLE BAŞLANGIÇ
+      // Tüm demo/fixture operasyonel verisini siler ama kurumsal yapıyı
+      // (mağazalar, kullanıcılar, araştırmacı kadrosu) korur.
+      //
+      // CLEAN_ORDERS_ONLY'den farkı: ürün ana kayıtlarını (productMasters) da
+      // temizler. Aksi halde demo ürünler kalır ve gerçek siparişlerle
+      // eşleşmediği için gerçekleşen ROI ölçümü kirlenir — sabah brifingi
+      // olmayan ürünler üzerinden skor üretir.
+      await db.delete(orders);
+      await db.delete(pshBatches);
+      await db.delete(productMasters);
+      await db.delete(researchSessions);
+
+      await db.insert(auditLogs).values({
+        actorName: currentUser.name,
+        storeCode: "ALL",
+        actionType: "DATABASE_FRESH_START",
+        targetEntity: "orders, psh_batches, product_masters, research_sessions",
+        beforeState: "DEMO_VERISI",
+        afterState: "GERCEK_VERI_ICIN_HAZIR",
+        details:
+          "Tüm demo operasyonel verisi temizlendi. Mağazalar, kullanıcılar ve araştırmacı kadrosu korundu. Sistem gerçek Excel/Drive verisi için hazır.",
+      });
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Sistem gerçek veriyle başlangıç için hazırlandı. Siparişler, PSH partileri, ürün ana kayıtları ve araştırma oturumları silindi. Mağazalarınız, kullanıcı hesaplarınız ve araştırmacı kadronuz korundu. Artık kendi XLS/Drive verinizi yükleyebilirsiniz.",
+      });
+    }
+
     if (actionType === "NUKE_ALL_KEEP_ADMIN") {
       // 3. Admin Hariç Tüm Tabloları Temizle
       await db.delete(orders);

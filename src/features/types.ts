@@ -94,10 +94,43 @@ export interface ProductMasterView {
   landedCost: string;
   sellingPrice: string;
   roiPercent: string;
+  /** Gerçekleşen ROI. null = henüz ölçülecek satış yok (uydurulmaz). */
   actualRoiPercent?: string | null;
   opportunityScore: number;
   decisionAction: string;
   confidenceScore: number;
+
+  /** Gerçekleşen ROI'nin ham dökümü — sunucuda siparişlerden hesaplanır */
+  realizedRoi?: {
+    realizedRoiPercent: number | null;
+    realizedUnits: number;
+    realizedRevenue: number;
+    realizedCost: number;
+    realizedNetProfit: number;
+    lostUnits: number;
+    totalRefunds: number;
+    sampleSize: number;
+    reason?: "NO_ORDERS" | "NOTHING_SHIPPED" | "ZERO_COST";
+  } | null;
+
+  /** Tahmin ile gerçekleşen arasındaki sapma */
+  roiVariance?: {
+    variancePoints: number | null;
+    status: "ON_TARGET" | "OPTIMISTIC" | "PESSIMISTIC" | "UNMEASURED";
+  } | null;
+
+  /** Fırsat skorunun yüzde kaçı gerçek ölçüme dayanıyor (0-100) */
+  evidenceCoverage?: number;
+  /** Sabit varsayıma dayanan eksenlerin adları */
+  assumedAxes?: string[];
+
+  /** observedAt'ten hesaplanan tazelik */
+  freshness?: {
+    status: "FRESH" | "AGING" | "STALE" | "EXPIRED";
+    ageInDays: number;
+    score: number;
+    label: string;
+  } | null;
 }
 
 export interface ResearcherView {
@@ -130,6 +163,8 @@ export interface HealthBreakdownView {
 
 export interface MorningBriefingView {
   businessHealthScore: number;
+  /** false ise skor anlamlı değildir; arayüz "veri bekleniyor" gösterir */
+  healthMeasurable?: boolean;
   healthGrade: string;
   healthBreakdown: HealthBreakdownView[];
   whatChanged: BriefingItemView[];

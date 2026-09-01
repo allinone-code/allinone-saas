@@ -56,12 +56,16 @@ export interface HealthBreakdownItem {
 
 export interface BusinessHealth {
   score: number;
-  grade: "KRİTİK" | "ZAYIF" | "İZLEMEDE" | "İYİ" | "GÜÇLÜ";
+  grade: "KRİTİK" | "ZAYIF" | "İZLEMEDE" | "İYİ" | "GÜÇLÜ" | "ÖLÇÜLEMEDİ";
   breakdown: HealthBreakdownItem[];
+  /** Hiç veri yoksa false — arayüz skor yerine "veri bekleniyor" gösterir */
+  measurable: boolean;
 }
 
 export interface MorningBriefing {
   businessHealthScore: number;
+  /** Skor gerçekten ölçülebildi mi? Boş sistemde false. */
+  healthMeasurable: boolean;
   healthGrade: BusinessHealth["grade"];
   healthBreakdown: HealthBreakdownItem[];
   whatChanged: BriefingItem[];
@@ -150,10 +154,28 @@ export function computeBusinessHealth(
     breakdown.reduce((sum, item) => sum + item.score * item.weight, 0)
   );
 
+  // Hiç sipariş ve hiç ürün yoksa iş sağlığı KÖTÜ değildir — ÖLÇÜLEMEZ.
+  // Yeni kurulan ya da sıfırlanmış bir sistemde "33 KRİTİK" göstermek
+  // yanıltıcıdır: yönetici olmayan bir problemi kovalamaya başlar.
+  const measurable = orders.totalOrders > 0 || masters.totalMasters > 0;
+
+  if (!measurable) {
+    return {
+      score: 0,
+      grade: "ÖLÇÜLEMEDİ",
+      breakdown: breakdown.map((b) => ({
+        ...b,
+        score: 0,
+        detail: "Henüz veri yok",
+      })),
+      measurable: false,
+    };
+  }
+
   const grade: BusinessHealth["grade"] =
     score >= 85 ? "GÜÇLÜ" : score >= 70 ? "İYİ" : score >= 55 ? "İZLEMEDE" : score >= 40 ? "ZAYIF" : "KRİTİK";
 
-  return { score, grade, breakdown };
+  return { score, grade, breakdown, measurable: true };
 }
 
 /** WHAT CHANGED? — dönemin ölçülebilir hareketleri */
@@ -318,6 +340,7 @@ export function buildMorningBriefing(
   const health = computeBusinessHealth(orders, masters);
   return {
     businessHealthScore: health.score,
+    healthMeasurable: health.measurable,
     healthGrade: health.grade,
     healthBreakdown: health.breakdown,
     whatChanged: buildWhatChanged(orders, masters),

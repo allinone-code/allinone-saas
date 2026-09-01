@@ -78,8 +78,20 @@ describe("computeBusinessHealth", () => {
 
   it("veri yokken skoru uydurmaz (0'a yakın, KRİTİK)", () => {
     const health = computeBusinessHealth(emptyOrders, emptyMasters);
-    expect(health.score).toBeLessThan(40);
-    expect(health.grade).toBe("KRİTİK");
+    // Veri yokken iş sağlığı KÖTÜ değil, ÖLÇÜLEMEZ. Sıfırlanmış bir sistemde
+    // "KRİTİK" göstermek yöneticiyi olmayan bir problemi kovalamaya iterdi.
+    expect(health.measurable).toBe(false);
+    expect(health.grade).toBe("ÖLÇÜLEMEDİ");
+    expect(health.score).toBe(0);
+  });
+
+  it("tek bir kayıt bile varsa skor ölçülebilir hale gelir", () => {
+    const health = computeBusinessHealth(emptyOrders, {
+      ...emptyMasters,
+      totalMasters: 1,
+    });
+    expect(health.measurable).toBe(true);
+    expect(health.grade).not.toBe("ÖLÇÜLEMEDİ");
   });
 
   it("skor her zaman 0-100 aralığında kalır", () => {
