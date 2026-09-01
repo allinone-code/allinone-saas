@@ -476,3 +476,87 @@ imkânsız** hale gelir.
 
 Aşama 2 (purchase_orders/order_items ayrımı) ve Aşama 3
 (inventory_movements) raporun 5. bölümündeki sırayla ele alınmalıdır.
+
+---
+
+## EK — AŞAMA 1.2 UYGULANDI (2026-09-02)
+
+### Kapatılan bulgu: B-03 (ürünsüz sipariş)
+
+Aşama 1'de `orders.product_id` eklenmişti ama **nullable**'dı: yani şema ürünü
+öneriyordu, zorunlu kılmıyordu. Bu, mimarinin en kırılgan noktasıydı — tek bir
+unutulmuş `insert(orders)` çağrısı katalogun dışında sipariş yaratıp tüm ürün
+merkezli raporlamayı sessizce yanlışlardı.
+
+Aşama 1.2 bu boşluğu kapattı: **`product_id` artık `NOT NULL`.**
+
+```
+  product_id nullable: NO
+  yetim sipariş sayısı: 0
+  ürünsüz sipariş denemesi: REDDEDİLDİ (23502 not_null_violation)
+```
+
+### Nasıl güvenli hale getirildi
+
+**1. Tek giriş kapısı — `src/db/resolveProduct.ts`**
+
+Sipariş yazan beş yolun tamamı artık aynı `resolveProduct()` çözümleyicisinden
+geçiyor. Dağınık mantık yerine tek bir "get-or-create" noktası:
+
+| Yazma yolu | Durum |
+|---|---|
+| `api/orders/import-xls` (toplu import) | ✅ bağlandı |
+| `api/orders` (manuel sipariş) | ✅ bağlandı |
+| `api/admin/database-reset` | ✅ bağlandı |
+| `db/seed.ts` | ✅ bağlandı |
+| entegrasyon testleri | ✅ fixture ürün |
+
+Çözümleyici her siparişte üç şey yapar: ürünü bulur ya da yaratır, tedarikçi
+fiyatını **gözlem** olarak kaydeder, yeni üründe ilk **yaşam döngüsü olayını**
+yazar. Yani her sipariş Cerberus'un hafızasını büyütür.
+
+**2. Göç güvenlik kontrolü**
+
+`drizzle/0003_concerned_luke_cage.sql` doğrudan `SET NOT NULL` yapmıyor. Önce
+yetim satır sayıyor ve varsa anlaşılır bir Türkçe mesajla duruyor:
+
+> `Gecis durduruldu: N adet siparis henuz bir urune bagli degil. Once "npx tsx scripts/backfill-products.ts" calistirin.`
+
+Aksi halde göç üretimde ham bir Postgres hatasıyla yarıda kalırdı.
+
+**3. Sıfırlama yolları düzeltildi**
+
+`database-reset` yeni tabloları temizlemiyordu; siparişler silinince ürünler
+yetim kalıp katalogu kirletiyordu. Artık:
+- `FRESH_START` / `NUKE` → ürün çekirdeği tamamen sıfırlanır
+- `CLEAN_ORDERS_ONLY` → **ürün kataloğu korunur** (keşif bilgisi siparişten
+  bağımsız bir varlıktır), yalnızca siparişlerden türeyen fiyat gözlemleri gider
+
+### Yakalanan gerçek hata: sessiz veri kaybı
+
+Toplu yükleyicinin ilk hali ASIN'siz satırı `continue` ile **sessizce
+atlıyordu**. 24 satır gönderip 23'ünün yazıldığını kimse fark etmezdi. Test
+bunu yakaladı; artık satır numarası ve sipariş numarasıyla hata fırlatıp
+transaction'ı geri alıyor.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Test paketi | **186/186 geçti** (171'den +15) |
+| `resolveProduct` entegrasyon testleri | 15 yeni test, gerçek migration üzerinde |
+| `eslint` | temiz |
+| `next build` | başarılı |
+| Sıfırdan seed (backfill'siz) | 24 sipariş → **12 ürün, 16 gözlem, 12 olay**, 0 yetim |
+| Canlı manuel sipariş (ASIN'siz) | HTTP 422 reddedildi |
+| Canlı manuel sipariş (yeni ASIN) | HTTP 200 → ürün + gözlem + olay otomatik oluştu |
+
+Seed'in backfill çalıştırmadan ürettiği sayılar (12/16/12), geri doldurmanın
+ürettiği sayılarla **birebir aynı** — iki yol aynı katalogda buluşuyor.
+
+### Sırada ne var
+
+Veri katmanı artık ürün merkezli ve kısıtlarla kilitli. Bundan sonrası
+**Aşama 2 — ürün yolculuğunun arayüzü**: ürün detay sayfası (tek ürünün tüm
+hikâyesi: fiyat serisi, operasyon, P&L, olay defteri) ve durak geçişlerini
+kullanıcının yönetebileceği ekranlar.

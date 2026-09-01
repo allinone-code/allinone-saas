@@ -27,9 +27,24 @@ async function expectPgError(
   throw new Error("Beklenen kısıt hatası fırlatılmadı!");
 }
 
+/**
+ * Aşama 1.2 sonrası: orders.product_id NOT NULL. Her test siparişinin bir
+ * ürüne bağlı olması ZORUNLU. Testlerin asıl konusu (CHECK/FK/unique) ürün
+ * bağlama değil, bu yüzden ortak bir fixture ürün kullanıyoruz.
+ */
+let fixtureProductId = 0;
+
 async function applyMigrations() {
   await migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
+  const [p] = await db
+    .insert(products)
+    .values({ asin: "B0FIXTURE0", title: "Fixture Ürün" })
+    .returning();
+  fixtureProductId = p.id;
 }
+
+/** ORDER_BASE + zorunlu ürün bağı. Çağrı anında okunur (fixture hazır olsun diye). */
+const orderBase = () => ({ ...ORDER_BASE, productId: fixtureProductId });
 
 async function insertStore(code: string) {
   await db.insert(stores).values({ storeCode: code, storeName: `${code} Store` });
@@ -62,25 +77,25 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
   });
 
   it("FK: var olmayan mağazaya (buyer_store) sipariş yazılamaz", async () => {
-    await expectPgError(db.insert(orders).values({ ...ORDER_BASE, buyerStore: "YOKEDKC" }), "23503");
+    await expectPgError(db.insert(orders).values({ ...orderBase(), buyerStore: "YOKEDKC" }), "23503");
   });
 
   it("FK + insert birlikte çalışır: var olan mağaza başarılı", async () => {
     const [row] = await db
       .insert(orders)
-      .values({ ...ORDER_BASE, buyerStore: "HRN" })
+      .values({ ...orderBase(), buyerStore: "HRN" })
       .returning();
     expect(row.buyerStore).toBe("HRN");
   });
 
   it("UNIQUE(orders.order_number, buyer_store): mükerrer import engellenir", async () => {
-    await expectPgError(db.insert(orders).values({ ...ORDER_BASE, buyerStore: "HRN" }), "23505");
+    await expectPgError(db.insert(orders).values({ ...orderBase(), buyerStore: "HRN" }), "23505");
 
     // aynı orderNumber farklı mağazada sorun değil
     await insertStore("SEL");
     const [row] = await db
       .insert(orders)
-      .values({ ...ORDER_BASE, buyerStore: "SEL" })
+      .values({ ...orderBase(), buyerStore: "SEL" })
       .returning();
     expect(row.buyerStore).toBe("SEL");
   });
@@ -88,7 +103,7 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
   it("FK(psh_batch_no): var olmayan batch reddedilir", async () => {
     await expectPgError(
       db.insert(orders).values({
-        ...ORDER_BASE,
+        ...orderBase(),
         buyerStore: "SEL",
         orderNumber: "WO-TEST-002",
         pshBatchNo: "PSH-OLMAYAN",
@@ -108,7 +123,7 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
     const [row] = await db
       .insert(orders)
       .values({
-        ...ORDER_BASE,
+        ...orderBase(),
         buyerStore: "BTS",
         orderNumber: "WO-TEST-004",
         pshBatchNo: "PSH-TEST-1",
@@ -120,7 +135,7 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
   it("psh_batch_no NULL kabul edilir (batch'e bağlanmamış sipariş)", async () => {
     const [row] = await db
       .insert(orders)
-      .values({ ...ORDER_BASE, buyerStore: "SEL", orderNumber: "WO-TEST-003" })
+      .values({ ...orderBase(), buyerStore: "SEL", orderNumber: "WO-TEST-003" })
       .returning();
     expect(row.pshBatchNo).toBeNull();
   });
@@ -151,7 +166,7 @@ describe("CHECK kısıtları — fiziksel olarak imkânsız veri reddedilir", ()
   });
 
   const base = (over: Record<string, unknown>) => ({
-    ...ORDER_BASE,
+    ...orderBase(),
     buyerStore: "CHK",
     orderNumber: `WO-CHK-${Math.random().toString(36).slice(2, 10)}`,
     ...over,
@@ -246,7 +261,7 @@ describe("Ürün merkezli çekirdek (Aşama 1)", () => {
   it("FK: var olmayan ürüne sipariş bağlanamaz (B-03)", async () => {
     await expectPgError(
       db.insert(orders).values({
-        ...ORDER_BASE,
+        ...orderBase(),
         buyerStore: "PRD",
         orderNumber: "WO-PRD-FK",
         productId: 999999,
@@ -264,7 +279,7 @@ describe("Ürün merkezli çekirdek (Aşama 1)", () => {
     const [o] = await db
       .insert(orders)
       .values({
-        ...ORDER_BASE,
+        ...orderBase(),
         buyerStore: "PRD",
         orderNumber: "WO-PRD-LINK",
         productId: p.id,
@@ -358,7 +373,7 @@ describe("Ürün merkezli çekirdek (Aşama 1)", () => {
       .returning();
 
     await db.insert(orders).values({
-      ...ORDER_BASE,
+      ...orderBase(),
       buyerStore: "PRD",
       orderNumber: "WO-PRD-RESTRICT",
       productId: p.id,

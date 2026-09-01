@@ -409,12 +409,13 @@ export const orders = pgTable(
    * etmemişti — çünkü veritabanı bunu engelleyecek bir kısıt tanımıyordu.
    * Gerçekleşen ROI motorunun uydurma sayı üretmesinin kök nedeni buydu.
    *
-   * Şimdi: FK garantisi. Geçiş sırasında nullable; geri doldurma
-   * tamamlandıktan sonra NOT NULL yapılacak (Aşama 1.2).
+   * Şimdi: FK garantisi + NOT NULL (Aşama 1.2 tamamlandı). Ürüne
+   * bağlanmamış sipariş yazmak artık FİZİKSEL OLARAK İMKÂNSIZ.
+   * Tüm yazma yolları `resolveProduct` üzerinden geçer.
    */
-  productId: integer("product_id").references(() => products.id, {
-    onDelete: "restrict",
-  }),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "restrict" }),
 
   pshBatchNo: text("psh_batch_no").references(() => pshBatches.batchNumber), // PSH Batch Numarası (ör: BATCH-2026-01)
   pshStatus: text("psh_status").notNull().default("BEKLIYOR"), // 'BEKLIYOR' | 'BATCH_OLUSTURULDU' | 'DEPO_SAYILDI' | 'AMAZONA_SEVK'

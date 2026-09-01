@@ -5,12 +5,16 @@ import {
   pshBatches,
   auditLogs,
   productMasters,
+  products,
+  supplierOffers,
+  productLifecycleEvents,
   researchSessions,
   users,
   stores,
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
+import { insertOrdersWithProducts } from "@/db/resolveProduct";
 import { eq, ne } from "drizzle-orm";
 
 export async function POST(req: Request) {
@@ -39,8 +43,12 @@ export async function POST(req: Request) {
 
     if (actionType === "CLEAN_ORDERS_ONLY") {
       // 1. Sadece Siparişleri ve PSH Partilerini Temizle (Kullanıcılar & Mağazalar Kalır)
+      // Ürün kataloğu KORUNUR: keşfedilmiş ürün bilgisi siparişten bağımsız
+      // bir varlıktır. Ama fiyat gözlemleri siparişlerden türediği için
+      // onlarla birlikte gider.
       await db.delete(orders);
       await db.delete(pshBatches);
+      await db.delete(supplierOffers);
 
       await db.insert(auditLogs).values({
         actorName: currentUser.name,
@@ -61,7 +69,11 @@ export async function POST(req: Request) {
     if (actionType === "RESTORE_REAL_XLS") {
       // 2. The Vitamin Shoppe 38 Gerçek Siparişini Geri Yükle
       await db.delete(orders);
-      await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
+      await db.delete(supplierOffers);
+      // Ürün kataloğunu da besleyerek yükler (Aşama 1.2)
+      await db.transaction(async (tx) => {
+        await insertOrdersWithProducts(tx, orders, ALL_38_XLS_ORDERS as any[]);
+      });
 
       // PSH Batch'lerini de kontrol et
       await db.delete(pshBatches);
@@ -109,6 +121,11 @@ export async function POST(req: Request) {
       await db.delete(orders);
       await db.delete(pshBatches);
       await db.delete(productMasters);
+      // Ürün merkezli çekirdek de sıfırlanır: demo ürünler kalırsa gerçek
+      // siparişlerle eşleşmeyip katalogu ve ROI ölçümünü kirletir.
+      await db.delete(supplierOffers);
+      await db.delete(productLifecycleEvents);
+      await db.delete(products);
       await db.delete(researchSessions);
 
       await db.insert(auditLogs).values({
@@ -134,6 +151,11 @@ export async function POST(req: Request) {
       await db.delete(orders);
       await db.delete(pshBatches);
       await db.delete(productMasters);
+      // Ürün merkezli çekirdek de sıfırlanır: demo ürünler kalırsa gerçek
+      // siparişlerle eşleşmeyip katalogu ve ROI ölçümünü kirletir.
+      await db.delete(supplierOffers);
+      await db.delete(productLifecycleEvents);
+      await db.delete(products);
       await db.delete(researchSessions);
       await db.delete(auditLogs);
 

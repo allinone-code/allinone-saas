@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, auditLogs } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { resolveProduct, normalizeAsin } from "@/db/resolveProduct";
 import { parseBody, importXlsSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
 
@@ -31,6 +32,15 @@ export async function POST(req: Request) {
 
       for (const r of rows) {
       const buyerStore = scopedStore !== "ALL" ? (r.buyerStore || scopedStore) : (r.buyerStore || "HRN");
+
+      // AŞAMA 1.2: Her sipariş bir ürüne bağlanır. ASIN'siz satır sessizce
+      // yutulmaz — katalogda karşılığı olmayan sipariş kabul edilmez.
+      const rowAsin = normalizeAsin(r.asin);
+      if (!rowAsin) {
+        throw new Error(
+          `Satır ${rows.indexOf(r) + 1}: ASIN boş. Her sipariş bir ürüne bağlanmalıdır.`
+        );
+      }
       // STORE_USER her satırı kendi mağazasına kilitler
       const effectiveRowStore =
         currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL"
@@ -42,15 +52,35 @@ export async function POST(req: Request) {
       const correctedCost = String(r.correctedCost || totalCost).replace(",", ".");
       const refundAmount = String(r.refundAmount || "0").replace(",", ".");
 
+        const { productId } = await resolveProduct(tx, {
+          asin: rowAsin,
+          productTitle: r.productTitle,
+          brandName: r.brandName,
+          imageUrl: r.imageUrl,
+          amazonUrl: r.amazonUrl,
+          packCount: Number(r.packCount) || 1,
+          isFragile: r.isFragile,
+          isMultiPack: r.isMultiPack,
+          isBundle: r.isBundle,
+          countPerBundle: Number(r.countPerBundle) || null,
+          supplierName: r.supplierName,
+          supplierCode: r.supplierCode,
+          supplierUrl: r.supplierUrl,
+          unitCost,
+          observedAt: r.orderDate,
+          sourceType: "XLS_IMPORT",
+        });
+
         const [inserted] = await tx
           .insert(orders)
         .values({
+          productId,
           buyerStore: effectiveRowStore,
           orderDate: r.orderDate || new Date().toISOString().split("T")[0],
           imageUrl: r.imageUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80",
           fulfillmentType: r.fulfillmentType || "FBA",
           productTitle: r.productTitle || "Amazon Ürünü",
-          asin: (r.asin || "").trim().toUpperCase(),
+          asin: rowAsin,
           msku: (r.msku || "").trim() || `${buyerStore}-${r.asin}`,
           supplierName: r.supplierName || "THE VITAMINSHOPPE",
           supplierCode: r.supplierCode || "A198",
