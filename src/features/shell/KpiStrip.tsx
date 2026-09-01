@@ -1,56 +1,62 @@
 "use client";
 
+import {
+  Activity,
+  AlertTriangle,
+  DollarSign,
+  Package,
+  ShoppingCart,
+  TrendingUp,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { MorningBriefingView, OrderKpis } from "../types";
+
+type Tone = "neutral" | "brand" | "positive" | "caution" | "danger" | "info";
+
+const TONE: Record<Tone, { icon: string; value: string }> = {
+  neutral: { icon: "bg-surface-3 text-ink-muted", value: "text-ink" },
+  brand: { icon: "bg-brand/15 text-brand-soft", value: "text-ink" },
+  positive: { icon: "bg-positive/15 text-positive", value: "text-positive" },
+  caution: { icon: "bg-caution/15 text-caution", value: "text-caution" },
+  danger: { icon: "bg-danger/15 text-danger", value: "text-danger" },
+  info: { icon: "bg-info/15 text-info", value: "text-info" },
+};
 
 function Card({
   label,
   value,
   hint,
-  badge,
-  tone = "slate",
+  icon: Icon,
+  tone = "neutral",
 }: {
   label: string;
   value: string;
   hint: string;
-  badge?: string;
-  tone?: "slate" | "indigo" | "amber" | "emerald" | "rose";
+  icon: LucideIcon;
+  tone?: Tone;
 }) {
-  const border = {
-    slate: "border-slate-800/90",
-    indigo: "border-indigo-500/35",
-    amber: "border-amber-500/35",
-    emerald: "border-emerald-500/35",
-    rose: "border-rose-500/35",
-  }[tone];
-
-  const valueColor = {
-    slate: "text-white",
-    indigo: "text-indigo-300",
-    amber: "text-amber-300",
-    emerald: "text-emerald-400",
-    rose: "text-rose-300",
-  }[tone];
-
+  const t = TONE[tone];
   return (
-    <div className={`bg-[#0F1626] border ${border} rounded-2xl p-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono-tech uppercase text-slate-400 truncate">{label}</span>
-        {badge && (
-          <span className="text-[10px] font-mono-tech text-slate-300 font-bold bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
-            {badge}
-          </span>
-        )}
+    <div className="rounded-2xl border border-line bg-surface-1 p-4 transition hover:border-line-strong">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+          {label}
+        </span>
+        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${t.icon}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
       </div>
-      <div className={`text-xl font-display font-bold mt-1 ${valueColor}`}>{value}</div>
-      <span className="text-[10px] font-mono-tech text-slate-500">{hint}</span>
+      <div className={`mt-2 font-display text-[22px] font-bold leading-none tabular ${t.value}`}>
+        {value}
+      </div>
+      <div className="mt-1.5 truncate font-mono-tech text-[10px] text-ink-faint">{hint}</div>
     </div>
   );
 }
 
 /**
  * KPI şeridi — tüm değerler görüntülenen veriden hesaplanır.
- * Önceki sürümdeki sabit "+14.2%" ve "The Vitamin Shoppe US" gibi
- * uydurma rozetler kaldırıldı (F-15/F-23).
+ * Sabit "+14.2%" gibi uydurma rozetler tasarımdan kaldırıldı (F-15/F-23).
  */
 export function KpiStrip({
   kpis,
@@ -61,55 +67,60 @@ export function KpiStrip({
   briefing: MorningBriefingView | null;
   storeScope: string;
 }) {
+  const net = Number(kpis.grossNetEst);
+
   return (
-    <section className="border-b border-slate-800/80 bg-[#0F1626]/50 px-5 sm:px-6 py-3.5">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card
-          label={`Sipariş sayısı (${storeScope})`}
-          value={`${kpis.totalOrders}`}
-          hint="Görüntülenen filtredeki kayıt"
-        />
-        <Card
-          label="Toplam adet"
-          value={`${kpis.totalUnits}`}
-          hint={`FBA sevk: ${kpis.totalShipped} adet`}
-          badge={`%${kpis.fulfillmentRate} sevk`}
-          tone="emerald"
-        />
-        <Card
-          label="Toplam tedarik maliyeti"
-          value={`$${Number(kpis.totalSpend).toLocaleString()}`}
-          hint="Tedarikçi fatura bedeli"
-          badge={kpis.avgRoi === "—" ? "ROI —" : `ROI %${kpis.avgRoi}`}
-          tone="indigo"
-        />
-        <Card
-          label="Tahmini Amazon cirosu"
-          value={`$${Number(kpis.totalRevenueEst).toLocaleString()}`}
-          hint={`Tahmini net: $${Number(kpis.grossNetEst).toLocaleString()}`}
-          tone={Number(kpis.grossNetEst) >= 0 ? "emerald" : "rose"}
-        />
-        <Card
-          label="P1–P4 fire / problem"
-          value={`${kpis.problemCount}`}
-          hint={`Refund toplamı: $${kpis.totalRefunds}`}
-          tone="amber"
-        />
-        <Card
-          label="İş sağlığı skoru"
-          value={briefing ? `${briefing.businessHealthScore}/100` : "—"}
-          hint={briefing ? `Durum: ${briefing.healthGrade}` : "Veri bekleniyor"}
-          tone={
-            !briefing
-              ? "slate"
-              : briefing.businessHealthScore >= 70
-              ? "emerald"
-              : briefing.businessHealthScore >= 55
-              ? "amber"
-              : "rose"
-          }
-        />
-      </div>
+    <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <Card
+        label={`Sipariş • ${storeScope}`}
+        value={`${kpis.totalOrders}`}
+        hint="Görüntülenen kayıt"
+        icon={ShoppingCart}
+        tone="brand"
+      />
+      <Card
+        label="Toplam adet"
+        value={`${kpis.totalUnits}`}
+        hint={`FBA sevk: ${kpis.totalShipped} • %${kpis.fulfillmentRate}`}
+        icon={Package}
+        tone="info"
+      />
+      <Card
+        label="Tedarik maliyeti"
+        value={`$${Number(kpis.totalSpend).toLocaleString("en-US")}`}
+        hint={kpis.avgRoi === "—" ? "ROI hesaplanamıyor" : `Ortalama ROI %${kpis.avgRoi}`}
+        icon={DollarSign}
+        tone="caution"
+      />
+      <Card
+        label="Tahmini ciro"
+        value={`$${Number(kpis.totalRevenueEst).toLocaleString("en-US")}`}
+        hint={`Net marj: $${net.toLocaleString("en-US")}`}
+        icon={TrendingUp}
+        tone={net >= 0 ? "positive" : "danger"}
+      />
+      <Card
+        label="Fire & problem"
+        value={`${kpis.problemCount}`}
+        hint={`Refund: $${kpis.totalRefunds}`}
+        icon={AlertTriangle}
+        tone={kpis.problemCount > 0 ? "danger" : "positive"}
+      />
+      <Card
+        label="İş sağlığı"
+        value={briefing ? `${briefing.businessHealthScore}` : "—"}
+        hint={briefing ? briefing.healthGrade : "Veri bekleniyor"}
+        icon={Activity}
+        tone={
+          !briefing
+            ? "neutral"
+            : briefing.businessHealthScore >= 70
+            ? "positive"
+            : briefing.businessHealthScore >= 55
+            ? "caution"
+            : "danger"
+        }
+      />
     </section>
   );
 }

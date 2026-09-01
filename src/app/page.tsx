@@ -1,16 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  Building2,
-  FileSpreadsheet,
-  PackageCheck,
-  ShieldCheck,
-  Sun,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import React, { useCallback, useMemo, useState } from "react";
+import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
 import { NewOrderModal } from "@/components/NewOrderModal";
@@ -21,7 +12,9 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
 
 import { useCerberusData } from "@/features/useCerberusData";
-import { AppHeader } from "@/features/shell/AppHeader";
+import { Sidebar, buildNavGroups } from "@/features/shell/Sidebar";
+import { Topbar } from "@/features/shell/Topbar";
+import { useNavPreference } from "@/features/shell/useNavPreference";
 import { KpiStrip } from "@/features/shell/KpiStrip";
 import { MorningBriefingPanel } from "@/features/briefing/MorningBriefingPanel";
 import { DecisionVaultTable } from "@/features/decision/DecisionVaultTable";
@@ -37,6 +30,42 @@ import { computeOrderKpis, downloadOrdersCsv, filterOrders } from "@/features/or
 import { clientLog } from "@/lib/clientLogger";
 import type { OrderView, ProductMasterView, TabId } from "@/features/types";
 import { isProblemOrder } from "@/features/types";
+
+/** Her sekmenin üst çubukta gösterilecek başlık ve açıklaması */
+const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
+  BRIEFING_DECISION: {
+    title: "Sabah Brifingi & Karar Kasası",
+    subtitle: "Ne değişti, ne önemli, ne yapmalıyım — canlı veriden hesaplanır",
+  },
+  RESEARCHERS: {
+    title: "ABD Sourcing Ekibi",
+    subtitle: "Kalite düzeltilmiş araştırmacı performans karnesi",
+  },
+  XLS_MASTER: {
+    title: "Siparişler",
+    subtitle: "40 kolonluk Google Drive XLS ana tablosu",
+  },
+  PSH_BATCHES: {
+    title: "PSH Envanter Partileri",
+    subtitle: "Sevkiyat öncesi batch hazırlığı ve takibi",
+  },
+  WAREHOUSE: {
+    title: "Depo Karşılama & Sayım",
+    subtitle: "Order No eşleştirme, eksik ve defolu adet kaydı",
+  },
+  INVENTORY_LAB: {
+    title: "Inventory Lab & Muhasebe",
+    subtitle: "Birim maliyet, satış fiyatı ve net marj dökümü",
+  },
+  PROBLEMS: {
+    title: "Fire & Problem Yönetimi",
+    subtitle: "P1 iptal, P2 eksik, P3 defolu, P4 tarihi geçmiş ve refund",
+  },
+  ADMIN: {
+    title: "Admin Komuta Merkezi",
+    subtitle: "Mağaza, kullanıcı, yetki ve denetim kayıtları",
+  },
+};
 
 export default function CerberusApp() {
   const {
@@ -60,6 +89,9 @@ export default function CerberusApp() {
   } = useCerberusData();
 
   const [activeTab, setActiveTab] = useState<TabId>("BRIEFING_DECISION");
+  const [navCollapsed, toggleCollapse] = useNavPreference();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [cargoFilter, setCargoFilter] = useState("ALL");
   const [batchFilter, setBatchFilter] = useState("ALL");
@@ -83,6 +115,26 @@ export default function CerberusApp() {
   );
 
   const kpis = useMemo(() => computeOrderKpis(filteredOrders), [filteredOrders]);
+  const problemCount = useMemo(() => orders.filter(isProblemOrder).length, [orders]);
+
+  const navGroups = useMemo(
+    () =>
+      buildNavGroups({
+        masters: productMasters.length,
+        researchers: researchers.length,
+        orders: orders.length,
+        batches: batches.length,
+        problems: problemCount,
+        stores: stores.length,
+        isAdmin: Boolean(isAdmin),
+      }),
+    [productMasters.length, researchers.length, orders.length, batches.length, problemCount, stores.length, isAdmin]
+  );
+
+  const navigate = useCallback((id: TabId) => {
+    setActiveTab(id);
+    setMobileNavOpen(false);
+  }, []);
 
   const handleUpdateOrder = useCallback(
     async (id: number, updates: Partial<OrderView>) => {
@@ -94,7 +146,6 @@ export default function CerberusApp() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
         });
-        // Sunucu reddederse iyimser güncellemeyi geri al: ekran gerçeği göstersin
         if (!res.ok) await refresh();
       } catch (err) {
         clientLog.error("orders/update", "Sipariş güncelleme başarısız", { err: String(err) });
@@ -130,211 +181,149 @@ export default function CerberusApp() {
     downloadOrdersCsv(filteredOrders, selectedStore);
   }, [filteredOrders, selectedStore]);
 
-  const tabs = useMemo(
-    () =>
-      [
-        {
-          id: "BRIEFING_DECISION" as const,
-          label: "Sabah Brifingi & Karar Kasası",
-          badge: `${productMasters.length} ürün`,
-          icon: Sun,
-        },
-        {
-          id: "RESEARCHERS" as const,
-          label: "ABD Sourcing Ekibi",
-          badge: `${researchers.length} uzman`,
-          icon: Users,
-        },
-        {
-          id: "XLS_MASTER" as const,
-          label: "40-Kolon XLS Siparişleri",
-          badge: `${filteredOrders.length} satır`,
-          icon: FileSpreadsheet,
-        },
-        {
-          id: "PSH_BATCHES" as const,
-          label: "PSH Envanter & Batch",
-          badge: `${batches.length} parti`,
-          icon: Building2,
-        },
-        {
-          id: "WAREHOUSE" as const,
-          label: "Depo Karşılama & Sayım",
-          badge: "Order No eşleştir",
-          icon: PackageCheck,
-        },
-        {
-          id: "INVENTORY_LAB" as const,
-          label: "Inventory Lab & Muhasebe",
-          badge: "Maliyet vs satış",
-          icon: TrendingUp,
-        },
-        {
-          id: "PROBLEMS" as const,
-          label: "P1–P4 Fire & Problem",
-          badge: `${orders.filter(isProblemOrder).length} kayıt`,
-          icon: AlertTriangle,
-        },
-        ...(isAdmin
-          ? [
-              {
-                id: "ADMIN" as const,
-                label: "Admin Komuta Merkezi",
-                badge: `${stores.length} mağaza`,
-                icon: ShieldCheck,
-              },
-            ]
-          : []),
-      ],
-    [productMasters.length, researchers.length, filteredOrders.length, batches.length, orders, isAdmin, stores.length]
-  );
-
   if (checkingAuth) {
     return (
-      <div className="min-h-screen bg-[#080C14] flex items-center justify-center">
+      <div className="grid min-h-screen place-items-center bg-surface-base">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 mx-auto mb-3 animate-pulse" />
-          <p className="text-xs font-mono-tech text-slate-400">Oturum doğrulanıyor…</p>
+          <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-brand-soft" />
+          <p className="font-mono-tech text-[11px] text-ink-faint">Oturum doğrulanıyor…</p>
         </div>
       </div>
     );
   }
 
+  const meta = PAGE_META[activeTab];
+
   return (
-    <div className="min-h-screen bg-[#080C14] bg-tactical-grid text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30">
-      <AppHeader
+    <div
+      className="min-h-screen bg-surface-base bg-tactical-grid"
+      style={
+        {
+          "--shell-pad": navCollapsed
+            ? "var(--sidebar-w-collapsed)"
+            : "var(--sidebar-w)",
+        } as React.CSSProperties
+      }
+    >
+      <a href="#main-content" className="sr-only skip-link">
+        İçeriğe atla
+      </a>
+
+      <Sidebar
+        groups={navGroups}
+        activeTab={activeTab}
+        onNavigate={navigate}
+        collapsed={navCollapsed}
+        onToggleCollapse={toggleCollapse}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
         currentUser={currentUser}
-        stores={stores}
-        selectedStore={selectedStore}
-        onStoreChange={setSelectedStore}
-        storeLocked={isStoreLocked}
-        isAdmin={Boolean(isAdmin)}
-        adminActive={activeTab === "ADMIN"}
-        onOpenAdmin={() => setActiveTab("ADMIN")}
-        onExportCsv={handleExportCsv}
-        onOpenImport={() => setIsXlsImportOpen(true)}
-        onOpenNewOrder={() => setIsNewOrderOpen(true)}
         onLogout={logout}
       />
 
-      {dataError && (
-        <div className="mx-5 sm:mx-6 mt-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          {dataError}
-          <button
-            onClick={() => refresh()}
-            className="ml-auto px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-xs font-bold"
-          >
-            Tekrar dene
-          </button>
-        </div>
-      )}
+      {/* Sağ çalışma alanı — masaüstünde sol menü genişliği kadar içeri alınır,
+          mobilde menü katman olarak açıldığı için tam genişlik kullanılır. */}
+      <div className="lg:pl-[var(--shell-pad)] transition-[padding] duration-200">
+        <Topbar
+          title={meta.title}
+          subtitle={meta.subtitle}
+          stores={stores}
+          selectedStore={selectedStore}
+          onStoreChange={setSelectedStore}
+          storeLocked={isStoreLocked}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+          onExportCsv={handleExportCsv}
+          onOpenImport={() => setIsXlsImportOpen(true)}
+          onOpenNewOrder={() => setIsNewOrderOpen(true)}
+          onRefresh={refresh}
+          refreshing={loading}
+        />
 
-      <KpiStrip kpis={kpis} briefing={briefing} storeScope={selectedStore} />
-
-      <div className="px-5 sm:px-6 border-b border-slate-800 bg-[#0F1626] overflow-x-auto">
-        <nav className="flex items-center gap-5 sm:gap-6">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
+        <main id="main-content" className="mx-auto w-full max-w-[1600px] space-y-5 p-4 sm:p-6">
+          {dataError && (
+            <div
+              role="alert"
+              className="flex items-center gap-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-[13px] text-danger"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="flex-1">{dataError}</span>
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                aria-current={active ? "page" : undefined}
-                className={`py-3.5 text-xs font-mono-tech uppercase font-bold tracking-wider flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
-                  active
-                    ? "border-indigo-500 text-indigo-300"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
+                onClick={refresh}
+                className="flex items-center gap-1.5 rounded-lg bg-danger/20 px-3 py-1.5 text-[11px] font-bold transition hover:bg-danger/30"
               >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] ${
-                    active
-                      ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                      : "bg-slate-800 text-slate-400"
-                  }`}
-                >
-                  {tab.badge}
-                </span>
+                <RefreshCw className="h-3 w-3" /> Tekrar dene
               </button>
-            );
-          })}
-        </nav>
-      </div>
+            </div>
+          )}
 
-      <main className="flex-1 p-5 sm:p-6 max-w-[1700px] w-full mx-auto space-y-5">
-        {loading && (
-          <div className="text-[11px] font-mono-tech text-slate-500">Veriler güncelleniyor…</div>
-        )}
+          <KpiStrip kpis={kpis} briefing={briefing} storeScope={selectedStore} />
 
-        {activeTab === "BRIEFING_DECISION" && (
-          <div className="space-y-6">
-            <MorningBriefingPanel briefing={briefing} storeScope={selectedStore} />
-            <DecisionVaultTable
-              masters={productMasters}
-              decisionFilter={decisionFilter}
-              onDecisionFilterChange={setDecisionFilter}
-              onSelect={setSelectedMaster}
+          {activeTab === "BRIEFING_DECISION" && (
+            <div className="space-y-5">
+              <MorningBriefingPanel briefing={briefing} storeScope={selectedStore} />
+              <DecisionVaultTable
+                masters={productMasters}
+                decisionFilter={decisionFilter}
+                onDecisionFilterChange={setDecisionFilter}
+                onSelect={setSelectedMaster}
+              />
+            </div>
+          )}
+
+          {activeTab === "RESEARCHERS" && <ResearcherBoard researchers={researchers} />}
+
+          {activeTab === "XLS_MASTER" && (
+            <OrdersTable
+              orders={filteredOrders}
+              batches={batches}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              cargoFilter={cargoFilter}
+              onCargoFilterChange={setCargoFilter}
+              batchFilter={batchFilter}
+              onBatchFilterChange={setBatchFilter}
+              onExportCsv={handleExportCsv}
+              onOpenWarehouse={() => setIsWarehouseReconOpen(true)}
+              onSelect={setSelectedOrder}
             />
-          </div>
-        )}
+          )}
 
-        {activeTab === "RESEARCHERS" && <ResearcherBoard researchers={researchers} />}
+          {activeTab === "PSH_BATCHES" && (
+            <PshBatchPanel
+              batches={batches}
+              orders={orders}
+              onCreate={() => setIsPshBatchOpen(true)}
+            />
+          )}
 
-        {activeTab === "XLS_MASTER" && (
-          <OrdersTable
-            orders={filteredOrders}
-            batches={batches}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            cargoFilter={cargoFilter}
-            onCargoFilterChange={setCargoFilter}
-            batchFilter={batchFilter}
-            onBatchFilterChange={setBatchFilter}
-            onExportCsv={handleExportCsv}
-            onOpenWarehouse={() => setIsWarehouseReconOpen(true)}
-            onSelect={setSelectedOrder}
-          />
-        )}
+          {activeTab === "WAREHOUSE" && (
+            <WarehousePanel
+              orders={filteredOrders}
+              onStartCount={() => setIsWarehouseReconOpen(true)}
+              onSelect={setSelectedOrder}
+            />
+          )}
 
-        {activeTab === "PSH_BATCHES" && (
-          <PshBatchPanel
-            batches={batches}
-            orders={orders}
-            onCreate={() => setIsPshBatchOpen(true)}
-          />
-        )}
+          {activeTab === "INVENTORY_LAB" && (
+            <InventoryLabPanel orders={filteredOrders} kpis={kpis} />
+          )}
 
-        {activeTab === "WAREHOUSE" && (
-          <WarehousePanel
-            orders={filteredOrders}
-            onStartCount={() => setIsWarehouseReconOpen(true)}
-            onSelect={setSelectedOrder}
-          />
-        )}
+          {activeTab === "PROBLEMS" && (
+            <ProblemsPanel orders={filteredOrders} onSelect={setSelectedOrder} />
+          )}
 
-        {activeTab === "INVENTORY_LAB" && (
-          <InventoryLabPanel orders={filteredOrders} kpis={kpis} />
-        )}
-
-        {activeTab === "PROBLEMS" && (
-          <ProblemsPanel orders={filteredOrders} onSelect={setSelectedOrder} />
-        )}
-
-        {activeTab === "ADMIN" && isAdmin && (
-          <AdminDashboard
-            currentUser={currentUser}
-            onStoreSelected={(storeCode: string) => {
-              setSelectedStore(storeCode);
-              setActiveTab("XLS_MASTER");
-            }}
-            onDataRefresh={refresh}
-          />
-        )}
-      </main>
+          {activeTab === "ADMIN" && isAdmin && (
+            <AdminDashboard
+              currentUser={currentUser}
+              onStoreSelected={(storeCode: string) => {
+                setSelectedStore(storeCode);
+                setActiveTab("XLS_MASTER");
+              }}
+              onDataRefresh={refresh}
+            />
+          )}
+        </main>
+      </div>
 
       <ProductMasterDrawer
         master={selectedMaster}
