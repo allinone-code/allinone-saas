@@ -267,7 +267,7 @@ export default function LoginPage() {
             <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-mono-tech text-slate-300 flex items-start gap-2.5">
               <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
               <span>
-                <strong className="text-white">Çoklu Mağaza Veri Güvencesi:</strong> Bir mağaza sorumlusu (örneğin Harun veya Selin) giriş yaptığında, sunucu API'si tüm siparişleri ve PSH partilerini kullanıcının kimlik token'ındaki <code>storeCode</code> ile filtreler.
+                <strong className="text-white">Çoklu Mağaza Veri Güvencesi:</strong> Bir mağaza sorumlusu (örneğin Harun veya Selin) giriş yaptığında, sunucu API&rsquo;si tüm siparişleri ve PSH partilerini kullanıcının kimlik token&rsquo;ındaki <code>storeCode</code> ile filtreler.
               </span>
             </div>
           </div>

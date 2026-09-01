@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Store,
@@ -138,7 +138,7 @@ export default function CerberusApp() {
   }, [router]);
 
   // 2. Fetch Orders and Intelligence for Selected Store
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       const [ordersRes, intelRes] = await Promise.all([
         fetch(`/api/orders?storeCode=${selectedStore}`, { cache: "no-store" }),
@@ -165,11 +165,11 @@ export default function CerberusApp() {
       // Mock veriye SESSIZCE dusmek yok: kullanici gerçek sanabilir (F-15)
       setDataError("Veriler yuklenemedi. Lutfen baglantinizi kontrol edip sayfayi yenileyin.");
     }
-  };
+  }, [selectedStore, router]);
 
   useEffect(() => {
     fetchAllData();
-  }, [selectedStore]);
+  }, [fetchAllData]);
 
   const handleLogout = async () => {
     try {
@@ -1045,7 +1045,7 @@ export default function CerberusApp() {
                   onChange={(e) => setBatchFilter(e.target.value)}
                   className="bg-[#080C14] border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-mono-tech text-slate-200"
                 >
-                  <option value="ALL">TÜM PSH BATCH'LERİ</option>
+                  <option value="ALL">TÜM PSH BATCH&rsquo;LERİ</option>
                   {batches.map((b) => (
                     <option key={b.batchNumber} value={b.batchNumber}>
                       {b.batchNumber}
@@ -1095,7 +1095,7 @@ export default function CerberusApp() {
                     {filteredOrders.length === 0 ? (
                       <tr>
                         <td colSpan={14} className="p-8 text-center text-slate-500 font-mono-tech">
-                          Bu mağaza için henüz sipariş kaydı bulunmuyor. Yukarıdaki "Yeni Sipariş Gir" veya "Drive XLS'den Yapıştır" butonuyla sipariş ekleyebilirsiniz.
+                          Bu mağaza için henüz sipariş kaydı bulunmuyor. Yukarıdaki &quot;Yeni Sipariş Gir&quot; veya &quot;Drive XLS&rsquo;den Yapıştır&quot; butonuyla sipariş ekleyebilirsiniz.
                         </td>
                       </tr>
                     ) : (
@@ -1267,7 +1267,7 @@ export default function CerberusApp() {
                   PSH Envanter Programı Ön-Parti (Batch) Yönetimi
                 </h2>
                 <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
-                  Ürünler depoya varmadan önce açılan sevkiyat batch'leri ve envanter hazırlığı
+                  Ürünler depoya varmadan önce açılan sevkiyat batch&rsquo;leri ve envanter hazırlığı
                 </p>
               </div>
               <button
@@ -1422,7 +1422,7 @@ export default function CerberusApp() {
                   Inventory Lab &amp; Amazon Satış / Kârlılık Muhasebesi
                 </h2>
                 <p className="text-xs text-slate-400 font-mono-tech mt-0.5">
-                  PSH'ta hazırlanan batch'lerin Amazon satış fiyatı, maliyet ve tahmini net marj dökümü
+                  PSH&rsquo;ta hazırlanan batch&rsquo;lerin Amazon satış fiyatı, maliyet ve tahmini net marj dökümü
                 </p>
               </div>
 

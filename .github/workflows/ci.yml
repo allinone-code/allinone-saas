@@ -1,0 +1,39 @@
+name: CI — Kalite Kapısı (T5.4)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bağımlılıklar (kilit dosyasından)
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript tipleri
+        run: npm run typecheck
+
+      - name: Birim + entegrasyon testleri (Vitest + PGlite)
+        run: npm test
+
+      - name: Güvenlik taraması (yüksek zaafiyet build'i kırar — T4.3)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Üretim derlemesi
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/ci_placeholder
+          SESSION_SECRET: ci-only-build-secret-min-32-characters!!

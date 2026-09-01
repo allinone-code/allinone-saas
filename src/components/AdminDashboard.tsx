@@ -868,7 +868,7 @@ export function AdminDashboard({
                   3. Fabrika Ayarlarına Dön
                 </h4>
                 <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
-                  Tüm siparişleri, batch'leri, mağaza kullanıcılarını (`STORE_USER`) ve denetim kayıtlarını siler. Sadece Sistem Yöneticisi (`Ahmet Erdem`) kalır.
+                  Tüm siparişleri, batch&rsquo;leri, mağaza kullanıcılarını (`STORE_USER`) ve denetim kayıtlarını siler. Sadece Sistem Yöneticisi (`Ahmet Erdem`) kalır.
                 </p>
               </div>
 

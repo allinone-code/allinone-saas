@@ -80,7 +80,7 @@ export default function AdminPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-mono-tech text-slate-200 border border-slate-700 transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Ana Dashboard'a Dön</span>
+            <span>Ana Dashboard&rsquo;a Dön</span>
           </Link>
 
           <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-800">
