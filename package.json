@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push   # YALNIZ lokal geliştirme; prod eşitlemesi için tek seferlik",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "audit:checkpoint": "tsx scripts/audit-checkpoint.ts"
+    "audit:checkpoint": "tsx scripts/audit-checkpoint.ts",
+    "retention:report": "tsx scripts/retention-report.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",

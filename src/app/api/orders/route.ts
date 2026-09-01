@@ -4,6 +4,7 @@ import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { parseBody, orderCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { maskOrderForRole, minimizeUsersForRole } from "@/lib/privacy";
 import { desc, eq, and, inArray, count, sql } from "drizzle-orm";
 
 export async function GET(req: Request) {
@@ -108,11 +109,13 @@ export async function GET(req: Request) {
     const problemOrdersCount = Number(kpi?.problemOrdersCount || 0);
 
     return NextResponse.json({
-      orders: allOrders,
+      // T7.2 (KVKK): yanıt role göre minimize edilir — kart son-4 ve alıcı e-postası
+      // ADMIN dışında maskelenir; kullanıcı listesi yalnız ADMIN'e tam döner
+      orders: allOrders.map((o) => maskOrderForRole(o, currentUser)),
       stores: allStores,
       batches: allBatches,
       auditLogs: allAuditLogs,
-      users: allUsers,
+      users: minimizeUsersForRole(allUsers, currentUser),
       // Anonim fallback kaldırıldı: oturum bu noktada garanti edilir (F-02/F-05)
       currentUser,
       pagination: {
