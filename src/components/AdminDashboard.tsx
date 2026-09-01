@@ -1,5 +1,6 @@
 "use client";
 
+import { clientLog } from "@/lib/clientLogger";
 import React, { useState, useEffect } from "react";
 import {
   Store,
@@ -106,7 +107,7 @@ export function AdminDashboard({
         setOrders(data.orders || []);
       }
     } catch (err) {
-      console.error("Admin data fetch error:", err);
+      clientLog.error("admin/fetch", "Admin verisi alınamadı", { err: String(err) });
     } finally {
       setLoading(false);
     }

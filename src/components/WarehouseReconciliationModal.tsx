@@ -1,5 +1,6 @@
 "use client";
 
+import { clientLog } from "@/lib/clientLogger";
 import React, { useState } from "react";
 import { X, PackageCheck, AlertTriangle, CheckCircle2, Search } from "lucide-react";
 
@@ -82,7 +83,7 @@ export function WarehouseReconciliationModal({
         onClose();
       }
     } catch (err) {
-      console.error("Depo karşılama kaydı hatası:", err);
+      clientLog.error("warehouse/reconcile", "Depo karşılama kaydı yapılamadı", { err: String(err) });
     } finally {
       setSubmitting(false);
     }

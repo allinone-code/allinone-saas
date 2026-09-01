@@ -19,6 +19,7 @@ import {
 } from "@fixtures/mockData";
 import { DEFAULT_SYSTEM_USERS, getBootstrapPassword } from "@/lib/auth";
 import { hashPassword } from "@/lib/passwords";
+import { log } from "@/lib/logger";
 
 export async function ensureCerberusSeeded() {
   // 1. Ensure all default system users exist in PostgreSQL (Ahmet Erdem, Harun, Selin, Can, etc.)
@@ -35,9 +36,9 @@ export async function ensureCerberusSeeded() {
       if (found.length === 0) {
         const bootstrapPassword = getBootstrapPassword(defaultUser.role);
         if (!bootstrapPassword) {
-          console.warn(
-            `[CERBERUS] ${defaultUser.email} seed edilmedi: SEED_${defaultUser.role === "ADMIN" ? "ADMIN" : "STORE"}_PASSWORD tanımlı değil.`
-          );
+          log.warn("db/seed", `Varsayılan hesap seed edilmedi: SEED_${defaultUser.role === "ADMIN" ? "ADMIN" : "STORE"}_PASSWORD tanımlı değil`, {
+            email: defaultUser.email,
+          });
           continue;
         }
         await db.insert(users).values({
@@ -50,7 +51,7 @@ export async function ensureCerberusSeeded() {
         });
       }
     } catch (userSeedErr) {
-      console.warn(`User seed warning for ${defaultUser.email}:`, userSeedErr);
+      log.warn("db/seed", "Kullanıcı seed uyarısı", { email: defaultUser.email, err: String(userSeedErr) });
     }
   }
 

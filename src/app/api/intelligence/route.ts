@@ -12,6 +12,7 @@ import { requireUser, isDenied } from "@/lib/guards";
 import { calculateLandedCostAndProfit, computeDecisionEngine } from "@/domain/decisionEngine";
 import { parseBody, intelligenceCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { log } from "@/lib/logger";
 
 
 export async function GET() {
@@ -61,7 +62,7 @@ export async function GET() {
       morningBriefing,
     });
   } catch (error: any) {
-    console.error("GET /api/intelligence error:", error);
+    log.error("GET /api/intelligence", "Zeka verisi okunamadı", error);
     // Hata durumunda mock veri SIZDIRILMAZ (F-15): kullanıcı gerçek sanabilir
     return NextResponse.json(
       {

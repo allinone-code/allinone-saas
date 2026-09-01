@@ -7,6 +7,7 @@ import { hashPassword, isRevokedLegacyPassword, verifyPassword } from "@/lib/pas
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 import { parseBody, loginSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { log } from "@/lib/logger";
 
 function getClientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
           .set({ passwordHash: await hashPassword(cleanPassword) })
           .where(eq(users.id, user.id));
       } catch (upgradeErr) {
-        console.warn("Password upgrade warning:", upgradeErr);
+        log.warn("auth/login", "Legacy parola hash yükseltmesi başarısız (ertelendi)", { err: String(upgradeErr) });
       }
     }
 

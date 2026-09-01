@@ -1,5 +1,6 @@
 "use client";
 
+import { clientLog } from "@/lib/clientLogger";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -196,7 +197,7 @@ export default function CerberusApp() {
         body: JSON.stringify(updates),
       });
     } catch (err) {
-      console.error("Order update failed:", err);
+      clientLog.error("orders/update", "Sipariş güncelleme başarısız", { err: String(err) });
     }
   };
 
@@ -227,7 +228,7 @@ export default function CerberusApp() {
         body: JSON.stringify({ decisionAction, sellingPrice }),
       });
     } catch (err) {
-      console.error("Master update failed:", err);
+      clientLog.error("intelligence/update", "Karar güncelleme başarısız", { err: String(err) });
     }
   };
 

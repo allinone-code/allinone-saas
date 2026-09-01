@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 /**
  * Merkezi hata sarmalayıcı (T3.3).
@@ -10,16 +11,7 @@ export function handleRouteError(scope: string, error: unknown): NextResponse {
   const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
 
-  console.error(
-    JSON.stringify({
-      level: "error",
-      scope,
-      correlationId,
-      message,
-      stack,
-      at: new Date().toISOString(),
-    })
-  );
+  logger.error({ scope, correlationId, err: { message, stack } }, "Route hatası");
 
   return NextResponse.json(
     {
