@@ -56,25 +56,25 @@ export function AiOpportunityRadar({
 
   const decisionBadgeColor =
     decisionAction === "BUY"
-      ? "text-emerald-300 bg-emerald-500/15 border-emerald-500/40"
+      ? "text-positive bg-positive/15 border-positive/40"
       : decisionAction === "TEST"
-      ? "text-sky-300 bg-sky-500/15 border-sky-500/40"
+      ? "text-info bg-info/15 border-info/40"
       : decisionAction === "WAIT"
-      ? "text-amber-300 bg-amber-500/15 border-amber-500/40"
-      : "text-rose-300 bg-rose-500/15 border-rose-500/40";
+      ? "text-caution bg-caution/15 border-caution/40"
+      : "text-danger bg-danger/15 border-danger/40";
 
   return (
-    <div className="bg-[#080C14] border border-slate-800/80 rounded-2xl p-4 flex flex-col items-center">
+    <div className="bg-surface-base border border-line rounded-2xl p-4 flex flex-col items-center">
       <div className="w-full flex items-center justify-between mb-2">
         <div>
-          <span className="text-[10px] font-mono-tech uppercase tracking-wider text-slate-400">
+          <span className="text-[10px] font-mono-tech uppercase tracking-wider text-ink-muted">
             6-Eksenli AI Fırsat Radarı
           </span>
           <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-2xl font-display font-bold text-indigo-300">
+            <span className="text-2xl font-display font-bold text-brand-soft">
               {opportunityScore}
             </span>
-            <span className="text-xs text-slate-500 font-mono-tech">/ 100 SKOR</span>
+            <span className="text-xs text-ink-faint font-mono-tech">/ 100 SKOR</span>
           </div>
         </div>
         <span
@@ -135,14 +135,14 @@ export function AiOpportunityRadar({
                 cx={pt.x}
                 cy={pt.y}
                 r="3.5"
-                className="fill-indigo-400 stroke-[#080C14] stroke-2"
+                className="fill-brand-soft stroke-surface-base stroke-2"
               />
               <text
                 x={labelPt.x}
                 y={labelPt.y}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="text-[9px] fill-slate-400 font-mono-tech font-medium tracking-tight"
+                className="text-[9px] fill-ink-muted font-mono-tech font-medium tracking-tight"
               >
                 {axis.label} ({axis.value})
               </text>
@@ -151,19 +151,19 @@ export function AiOpportunityRadar({
         })}
       </svg>
 
-      <div className="w-full grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2 border-t border-slate-800/80 pt-2.5">
+      <div className="w-full grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2 border-t border-line pt-2.5">
         {axes.map((axis) => (
           <div key={axis.label} className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 text-[10px] font-mono-tech">
+            <span className="text-ink-muted text-[10px] font-mono-tech">
               {axis.label}
             </span>
             <span
               className={`font-mono-tech font-semibold ${
                 axis.value >= 85
-                  ? "text-emerald-400"
+                  ? "text-positive"
                   : axis.value >= 70
-                  ? "text-indigo-300"
-                  : "text-amber-400"
+                  ? "text-brand-soft"
+                  : "text-caution"
               }`}
             >
               {axis.value}

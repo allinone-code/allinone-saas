@@ -195,16 +195,7 @@ export default function CerberusApp() {
   const meta = PAGE_META[activeTab];
 
   return (
-    <div
-      className="min-h-screen bg-surface-base bg-tactical-grid"
-      style={
-        {
-          "--shell-pad": navCollapsed
-            ? "var(--sidebar-w-collapsed)"
-            : "var(--sidebar-w)",
-        } as React.CSSProperties
-      }
-    >
+    <div className="flex min-h-screen bg-surface-base bg-tactical-grid">
       <a href="#main-content" className="sr-only skip-link">
         İçeriğe atla
       </a>
@@ -221,9 +212,11 @@ export default function CerberusApp() {
         onLogout={logout}
       />
 
-      {/* Sağ çalışma alanı — masaüstünde sol menü genişliği kadar içeri alınır,
-          mobilde menü katman olarak açıldığı için tam genişlik kullanılır. */}
-      <div className="lg:pl-[var(--shell-pad)] transition-[padding] duration-200">
+      {/* Sağ çalışma alanı.
+          `min-w-0` kritik: flex çocuğunun varsayılan `min-width:auto` değeri,
+          içindeki geniş tabloların kapsayıcıyı esnetip sol menünün altına
+          taşmasına yol açıyordu. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           title={meta.title}
           subtitle={meta.subtitle}

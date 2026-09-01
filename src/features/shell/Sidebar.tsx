@@ -170,10 +170,16 @@ export function Sidebar({
         />
       )}
 
+      {/*
+        Masaüstü (lg+): `shrink-0` ile normal flex akışında yer tutar; içerik
+        onun yanına dizilir, üstüne binemez.
+        Mobil: akıştan çıkıp (`fixed`) kayan katman olur.
+      */}
       <aside
         style={{ width }}
         className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-line bg-surface-1
-          transition-transform duration-200 lg:translate-x-0
+          transition-transform duration-200
+          lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
         aria-label="Ana gezinme"
       >

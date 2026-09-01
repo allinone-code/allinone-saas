@@ -49,41 +49,41 @@ export function ProductMasterDrawer({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end">
-      <div className="bg-[#0F1626] border-l border-slate-700/80 w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+      <div className="bg-surface-1 border-l border-line w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-start justify-between bg-[#080C14]">
+        <div className="px-6 py-4 border-b border-line flex items-start justify-between bg-surface-base">
           <div className="pr-4">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="px-2.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono-tech text-xs font-bold">
+              <span className="px-2.5 py-0.5 rounded bg-brand/15 border border-brand/30 text-brand-soft font-mono-tech text-xs font-bold">
                 {master.productCode}
               </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-tech text-xs">
+              <span className="px-2 py-0.5 rounded bg-surface-3 text-ink-muted font-mono-tech text-xs">
                 ASIN: {master.asin}
               </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono-tech text-xs">
+              <span className="px-2 py-0.5 rounded bg-surface-3 text-ink-muted font-mono-tech text-xs">
                 UPC: {master.upc}
               </span>
               <span
                 className={`px-2.5 py-0.5 rounded text-xs font-mono-tech font-bold ${
                   master.dataFreshnessStatus === "FRESH"
-                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                    : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                    ? "bg-positive/15 text-positive border border-positive/30"
+                    : "bg-caution/15 text-caution border border-caution/30"
                 }`}
               >
                 VERİ TAZELİĞİ: {master.dataFreshnessStatus}
               </span>
             </div>
-            <h2 className="text-sm font-display font-bold text-white leading-snug">
+            <h2 className="text-sm font-display font-bold text-ink leading-snug">
               {master.title}
             </h2>
-            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 font-mono-tech">
-              <span>Keşfeden: <strong className="text-white">{master.researcherName}</strong></span>
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-ink-muted font-mono-tech">
+              <span>Keşfeden: <strong className="text-ink">{master.researcherName}</strong></span>
               <span>•</span>
               <a
                 href={master.sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-indigo-400 hover:underline flex items-center gap-1"
+                className="text-brand-soft hover:underline flex items-center gap-1"
               >
                 {master.sourceDomain} <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -91,7 +91,7 @@ export function ProductMasterDrawer({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-3 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -100,18 +100,18 @@ export function ProductMasterDrawer({
         {/* Scrollable Main Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Decision Engine Approval Matrix Bar */}
-          <div className="bg-[#080C14] border border-indigo-500/40 rounded-2xl p-4">
+          <div className="bg-surface-base border border-brand/40 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <span className="text-[10px] font-mono-tech uppercase tracking-wider text-indigo-400 font-bold block">
+                <span className="text-[10px] font-mono-tech uppercase tracking-wider text-brand-soft font-bold block">
                   COMMERCIAL DECISION ENGINE (ONAY MATRİSİ)
                 </span>
-                <span className="text-xs text-slate-300 font-mono-tech">
+                <span className="text-xs text-ink-muted font-mono-tech">
                   Güven Skoru: <strong>%{master.confidenceScore}</strong> • Risk:{" "}
-                  <strong className="text-amber-400">{master.riskLevel}</strong>
+                  <strong className="text-caution">{master.riskLevel}</strong>
                 </span>
               </div>
-              <span className="text-xs font-mono-tech text-emerald-400 font-bold">
+              <span className="text-xs font-mono-tech text-positive font-bold">
                 {master.policyStatus}
               </span>
             </div>
@@ -126,13 +126,13 @@ export function ProductMasterDrawer({
                     className={`py-2 rounded-xl text-xs font-mono-tech uppercase font-bold transition border ${
                       isActive
                         ? act === "BUY"
-                          ? "bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20"
+                          ? "bg-emerald-500 text-surface-base border-emerald-400 shadow-lg shadow-emerald-500/20"
                           : act === "TEST"
-                          ? "bg-sky-500 text-slate-950 border-sky-400"
+                          ? "bg-sky-500 text-surface-base border-sky-400"
                           : act === "WAIT"
-                          ? "bg-amber-500 text-slate-950 border-amber-400"
-                          : "bg-rose-500 text-white border-rose-400"
-                        : "bg-[#0F1626] text-slate-400 border-slate-800 hover:text-white"
+                          ? "bg-amber-500 text-surface-base border-amber-400"
+                          : "bg-rose-500 text-ink border-rose-400"
+                        : "bg-surface-1 text-ink-muted border-line hover:text-ink"
                     }`}
                   >
                     {act}
@@ -156,41 +156,41 @@ export function ProductMasterDrawer({
             />
 
             {/* Landed Cost & Actual vs Estimated Engine (Gap Phase 16) */}
-            <div className="bg-[#080C14] border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
+            <div className="bg-surface-base border border-line rounded-2xl p-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-mono-tech uppercase text-slate-400 font-bold">
+                  <span className="text-[10px] font-mono-tech uppercase text-ink-muted font-bold">
                     TAHMİNİ VS GERÇEKLEŞEN ROI
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-mono-tech font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-mono-tech font-bold bg-positive/15 text-positive border border-positive/30">
                     TAHMİN: %{master.roiPercent}
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs font-mono-tech">
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-400">US Alış Maliyeti:</span>
-                    <span className="text-amber-300 font-bold">${master.sourcePrice}</span>
+                  <div className="flex justify-between py-1 border-b border-line">
+                    <span className="text-ink-muted">US Alış Maliyeti:</span>
+                    <span className="text-caution font-bold">${master.sourcePrice}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-400">Prep &amp; FBA Etiket:</span>
-                    <span className="text-slate-300">+${master.prepCost}</span>
+                  <div className="flex justify-between py-1 border-b border-line">
+                    <span className="text-ink-muted">Prep &amp; FBA Etiket:</span>
+                    <span className="text-ink-muted">+${master.prepCost}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-400">AMZ Ref (%15):</span>
-                    <span className="text-slate-300">+${master.marketplaceFee}</span>
+                  <div className="flex justify-between py-1 border-b border-line">
+                    <span className="text-ink-muted">AMZ Ref (%15):</span>
+                    <span className="text-ink-muted">+${master.marketplaceFee}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-800/60">
-                    <span className="text-slate-400">FBA Fulfillment:</span>
-                    <span className="text-slate-300">+${master.fulfillmentFee}</span>
+                  <div className="flex justify-between py-1 border-b border-line">
+                    <span className="text-ink-muted">FBA Fulfillment:</span>
+                    <span className="text-ink-muted">+${master.fulfillmentFee}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 bg-[#0F1626] px-2.5 rounded-lg border border-indigo-500/30">
-                    <span className="text-indigo-400 font-semibold">TOPLAM LANDED COST:</span>
-                    <span className="text-indigo-300 font-bold">${master.landedCost}</span>
+                  <div className="flex justify-between py-1.5 bg-surface-1 px-2.5 rounded-lg border border-brand/30">
+                    <span className="text-brand-soft font-semibold">TOPLAM LANDED COST:</span>
+                    <span className="text-brand-soft font-bold">${master.landedCost}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 bg-emerald-500/10 px-2.5 rounded-lg border border-emerald-500/40">
-                    <span className="text-emerald-400 font-semibold">GERÇEKLEŞEN ROI:</span>
-                    <span className="text-emerald-400 font-bold">
+                  <div className="flex justify-between py-1.5 bg-positive/10 px-2.5 rounded-lg border border-positive/40">
+                    <span className="text-positive font-semibold">GERÇEKLEŞEN ROI:</span>
+                    <span className="text-positive font-bold">
                       %{master.actualRoiPercent || master.roiPercent} (Sapma -1.8%)
                     </span>
                   </div>
@@ -198,19 +198,19 @@ export function ProductMasterDrawer({
               </div>
 
               {/* Reprice Selling Price Input */}
-              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center gap-2">
+              <div className="mt-3 pt-3 border-t border-line flex items-center gap-2">
                 <input
                   type="number"
                   step="0.01"
                   value={sellingPriceInput}
                   onChange={(e) => setSellingPriceInput(e.target.value)}
                   placeholder={`Reprice (Curr $${master.sellingPrice})`}
-                  className="w-full px-2.5 py-1.5 bg-[#0F1626] border border-slate-700/80 rounded-xl text-xs font-mono-tech text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full px-2.5 py-1.5 bg-surface-1 border border-line rounded-xl text-xs font-mono-tech text-ink focus:outline-none focus:border-brand"
                 />
                 <button
                   disabled={updating || !sellingPriceInput}
                   onClick={() => handleDecisionClick(master.decisionAction)}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-mono-tech font-bold uppercase shrink-0 transition"
+                  className="px-3 py-1.5 bg-brand hover:bg-brand-soft disabled:opacity-50 text-ink rounded-xl text-xs font-mono-tech font-bold uppercase shrink-0 transition"
                 >
                   Fiyatı Güncelle
                 </button>
@@ -219,38 +219,38 @@ export function ProductMasterDrawer({
           </div>
 
           {/* AI Evidence Chain (Phase 30) */}
-          <div className="bg-[#080C14] border border-slate-800/80 rounded-2xl p-4 space-y-2.5">
+          <div className="bg-surface-base border border-line rounded-2xl p-4 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono-tech text-indigo-400 font-bold flex items-center gap-1.5">
+              <span className="text-xs font-mono-tech text-brand-soft font-bold flex items-center gap-1.5">
                 <Cpu className="w-4 h-4" /> AI KANIT ZİNCİRİ (EVIDENCE CHAIN)
               </span>
-              <span className="text-[10px] font-mono-tech text-slate-400">
+              <span className="text-[10px] font-mono-tech text-ink-muted">
                 {evidenceChain.length} Doğrulanmış Veri Kaynağı
               </span>
             </div>
             {evidenceChain.map((ev: any, idx: number) => (
               <div
                 key={idx}
-                className="p-3 rounded-xl bg-[#0F1626] border border-slate-800 text-xs font-mono-tech space-y-1"
+                className="p-3 rounded-xl bg-surface-1 border border-line text-xs font-mono-tech space-y-1"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-emerald-400 font-bold">{ev.source}</span>
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px]">
+                  <span className="text-positive font-bold">{ev.source}</span>
+                  <span className="px-2 py-0.5 rounded bg-positive/15 text-positive text-[10px]">
                     Güven: {ev.confidence}
                   </span>
                 </div>
-                <p className="text-slate-200">{ev.claim}</p>
+                <p className="text-ink">{ev.claim}</p>
               </div>
             ))}
           </div>
 
           {/* Multi-Store Channel Listings (Product ≠ Listing) */}
-          <div className="bg-[#080C14] border border-slate-800/80 rounded-2xl p-4">
+          <div className="bg-surface-base border border-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-mono-tech uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-mono-tech uppercase tracking-wider text-ink-muted">
                 Çoklu Mağaza Kanal Listeleme Dağılımı ({listings.length} Mağaza)
               </span>
-              <span className="text-xs font-mono-tech text-slate-400">
+              <span className="text-xs font-mono-tech text-ink-muted">
                 MSKU: {master.msku}
               </span>
             </div>
@@ -258,17 +258,17 @@ export function ProductMasterDrawer({
               {listings.map((l: any, idx: number) => (
                 <div
                   key={idx}
-                  className="p-3 rounded-xl bg-[#0F1626] border border-slate-800 flex items-center justify-between text-xs font-mono-tech"
+                  className="p-3 rounded-xl bg-surface-1 border border-line flex items-center justify-between text-xs font-mono-tech"
                 >
                   <div>
-                    <span className="text-indigo-400 font-bold">{l.storeCode}</span>
-                    <p className="text-[11px] text-slate-400 truncate max-w-[150px]">
+                    <span className="text-brand-soft font-bold">{l.storeCode}</span>
+                    <p className="text-[11px] text-ink-muted truncate max-w-[150px]">
                       {l.storeName}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-emerald-400 font-bold">${Number(l.price).toFixed(2)}</span>
-                    <span className="block text-[10px] text-slate-500">
+                    <span className="text-positive font-bold">${Number(l.price).toFixed(2)}</span>
+                    <span className="block text-[10px] text-ink-faint">
                       {l.stock} adet • {l.status}
                     </span>
                   </div>
@@ -279,13 +279,13 @@ export function ProductMasterDrawer({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-[#080C14] flex items-center justify-between">
-          <span className="text-xs text-slate-400 font-mono-tech">
+        <div className="px-6 py-4 border-t border-line bg-surface-base flex items-center justify-between">
+          <span className="text-xs text-ink-muted font-mono-tech">
             Keşif Tarihi: {new Date(master.discoveredAt).toLocaleDateString()}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-mono-tech text-white transition"
+            className="px-4 py-2 rounded-xl bg-surface-3 hover:bg-surface-3 text-xs font-mono-tech text-ink transition"
           >
             Müfettişi Kapat
           </button>

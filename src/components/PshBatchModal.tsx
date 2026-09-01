@@ -70,24 +70,24 @@ export function PshBatchModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-slate-700/80 rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+      <div className="bg-[#161C28] border border-line rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-line">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+            <div className="p-2 rounded-lg bg-positive/10 border border-positive/30 text-positive">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-display font-bold text-white">
+              <h2 className="text-base font-display font-bold text-ink">
                 PSH Envanter Programı Ön-Batch Oluştur
               </h2>
-              <p className="text-xs text-slate-400 font-mono-tech">
+              <p className="text-xs text-ink-muted font-mono-tech">
                 Ürünler depoya varmadan önce PSH programında parti numarası tanımlayın
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-3 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -96,7 +96,7 @@ export function PshBatchModal({
         <form onSubmit={handleSubmit} className="my-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 PSH Batch No
               </label>
               <input
@@ -104,24 +104,24 @@ export function PshBatchModal({
                 required
                 value={batchNumber}
                 onChange={(e) => setBatchNumber(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Mağaza
               </label>
               <input
                 type="text"
                 disabled
                 value={store}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-emerald-400 font-bold"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-positive font-bold"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+            <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
               Batch Başlığı / Açıklaması
             </label>
             <input
@@ -129,53 +129,53 @@ export function PshBatchModal({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs text-white"
+              className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs text-ink"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono-tech text-slate-400 mb-1.5">
+            <label className="block text-[11px] font-mono-tech text-ink-muted mb-1.5">
               Bu Batch&rsquo;e Eklenecek Siparişler ({selectedIds.length} adet seçili):
             </label>
-            <div className="max-h-48 overflow-y-auto border border-slate-800 rounded-xl bg-[#0B0F17] p-2 space-y-1.5">
+            <div className="max-h-48 overflow-y-auto border border-line rounded-xl bg-surface-base p-2 space-y-1.5">
               {unbatchedOrders.length === 0 ? (
-                <p className="text-xs font-mono-tech text-slate-500 p-2">
+                <p className="text-xs font-mono-tech text-ink-faint p-2">
                   Atanmamış sipariş bulunamadı.
                 </p>
               ) : (
                 unbatchedOrders.map((o) => (
                   <label
                     key={o.id}
-                    className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer text-xs font-mono-tech"
+                    className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-surface-2 cursor-pointer text-xs font-mono-tech"
                   >
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(o.id)}
                       onChange={() => toggleSelect(o.id)}
-                      className="rounded border-slate-700 text-sky-500 focus:ring-0"
+                      className="rounded border-line text-sky-500 focus:ring-0"
                     />
-                    <span className="text-sky-400 font-bold">{o.orderNumber}</span>
-                    <span className="text-slate-300 truncate flex-1">{o.productTitle}</span>
-                    <span className="text-slate-400">{o.quantity} Adet</span>
-                    <span className="text-amber-400">${o.totalCost}</span>
+                    <span className="text-info font-bold">{o.orderNumber}</span>
+                    <span className="text-ink-muted truncate flex-1">{o.productTitle}</span>
+                    <span className="text-ink-muted">{o.quantity} Adet</span>
+                    <span className="text-caution">${o.totalCost}</span>
                   </label>
                 ))
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-xs font-mono-tech text-slate-400 hover:text-white transition"
+              className="px-4 py-2 rounded-lg text-xs font-mono-tech text-ink-muted hover:text-ink transition"
             >
               Vazgeç
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-mono-tech text-xs uppercase font-bold tracking-wider transition shadow-lg shadow-emerald-500/20"
+              className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-ink font-mono-tech text-xs uppercase font-bold tracking-wider transition shadow-lg shadow-emerald-500/20"
             >
               {submitting ? "Oluşturuluyor..." : "PSH Batch Oluştur"}
             </button>

@@ -46,12 +46,57 @@
   html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Tarayıcıya koyu tema olduğunu bildirir. Bu olmadan form kontrolleri,
+       kaydırma çubukları ve otomatik doldurma alanları beyaz render edilir —
+       "her şey beyaz görünüyor" şikâyetinin kök nedeni buydu. */
+    color-scheme: dark;
+    background: var(--color-surface-base);
   }
 
   body {
     background: var(--color-surface-base);
     color: var(--color-ink);
     font-family: var(--font-sans);
+  }
+
+
+  /* Form kontrolleri: tarayıcı varsayılanı (beyaz zemin/siyah metin) yerine
+     tasarım sistemine bağlanır. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-ink-faint);
+    opacity: 1;
+  }
+
+  /* Chrome/Safari otomatik doldurma beyaz zemini ezer */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--color-surface-2) inset;
+    caret-color: var(--color-ink);
+    transition: background-color 9999s ease-out 0s;
+  }
+
+  /* Tarih/sayı alanlarının tarayıcı ikonlarını koyu temada görünür kıl */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.6);
+    cursor: pointer;
+  }
+
+  /* Select açılır listesi bazı platformlarda ebeveyn rengini miras almaz */
+  select option {
+    background: var(--color-surface-2);
+    color: var(--color-ink);
   }
 
   /* Klavye kullanıcıları için görünür odak halkası (WCAG 2.4.7) */
