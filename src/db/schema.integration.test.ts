@@ -11,8 +11,11 @@ import path from "node:path";
 import { orders, stores, pshBatches } from "@/db/schema";
 
 const db = drizzle(new PGlite());
-/** PG hata kodları: 23503=FKey, 23505=Unique. Drizzle hatası cause zincirinde taşınır. */
-async function expectPgError(promise: Promise<unknown>, code: "23503" | "23505") {
+/** PG hata kodları: 23503=FKey, 23505=Unique, 23514=Check. Drizzle hatası cause zincirinde taşınır. */
+async function expectPgError(
+  promise: Promise<unknown>,
+  code: "23503" | "23505" | "23514"
+) {
   try {
     await promise;
   } catch (e: any) {
@@ -130,5 +133,91 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
     expect(names).toContain("orders_order_number_store_uq");
     expect(names).toContain("orders_buyer_store_date_idx");
     expect(names).toContain("orders_asin_idx");
+  });
+});
+
+/**
+ * Aşama 0 güvenlik ağı (denetim bulgusu B-04/B-05).
+ *
+ * Bu kuralların bir kısmı uygulama katmanında da var; buradaki testler
+ * veritabanının SON savunma hattı olarak davrandığını kanıtlar. Toplu import,
+ * manuel SQL veya ileride yazılacak bir servis uygulama kontrollerini
+ * atlayabilir — bu kısıtları atlayamaz.
+ */
+describe("CHECK kısıtları — fiziksel olarak imkânsız veri reddedilir", () => {
+  beforeAll(async () => {
+    await insertStore("CHK");
+  });
+
+  const base = (over: Record<string, unknown>) => ({
+    ...ORDER_BASE,
+    buyerStore: "CHK",
+    orderNumber: `WO-CHK-${Math.random().toString(36).slice(2, 10)}`,
+    ...over,
+  });
+
+  it("negatif adet reddedilir", async () => {
+    await expectPgError(db.insert(orders).values(base({ quantity: -5 })), "23514");
+  });
+
+  it("negatif birim maliyet reddedilir", async () => {
+    await expectPgError(db.insert(orders).values(base({ unitCost: "-10.00" })), "23514");
+  });
+
+  it("negatif iade tutarı reddedilir", async () => {
+    await expectPgError(db.insert(orders).values(base({ refundAmount: "-1.00" })), "23514");
+  });
+
+  it("sipariş edilenden fazla adet sevk edilemez", async () => {
+    await expectPgError(
+      db.insert(orders).values(base({ quantity: 3, shippedToAmazon: 99 })),
+      "23514"
+    );
+  });
+
+  it("var olandan fazla fire kaydedilemez", async () => {
+    await expectPgError(
+      db.insert(orders).values(base({ quantity: 2, p2MissingQty: 50 })),
+      "23514"
+    );
+  });
+
+  it("fire kalemlerinin TOPLAMI adedi aşamaz (tek tek geçerli olsa bile)", async () => {
+    await expectPgError(
+      db.insert(orders).values(
+        base({ quantity: 4, p1CancelQty: 2, p2MissingQty: 2, p3DefectiveQty: 2 })
+      ),
+      "23514"
+    );
+  });
+
+  it("tanımsız kargo durumu reddedilir (yazım hatasına karşı koruma)", async () => {
+    // "IPTAL" != "İPTAL" — Türkçe karakter farkı sessizce geçmemeli
+    await expectPgError(db.insert(orders).values(base({ cargoStatus: "IPTAL" })), "23514");
+  });
+
+  it("tanımsız PSH durumu reddedilir", async () => {
+    await expectPgError(db.insert(orders).values(base({ pshStatus: "HERHANGI" })), "23514");
+  });
+
+  it("tanımsız fulfillment tipi reddedilir", async () => {
+    await expectPgError(db.insert(orders).values(base({ fulfillmentType: "DHL" })), "23514");
+  });
+
+  it("sınır değerler kabul edilir: sevk + fire tam olarak adede eşit", async () => {
+    const [row] = await db
+      .insert(orders)
+      .values(base({ quantity: 5, shippedToAmazon: 3, p2MissingQty: 2 }))
+      .returning();
+    expect(row.quantity).toBe(5);
+    expect(row.shippedToAmazon).toBe(3);
+  });
+
+  it("geçerli kayıt normal şekilde yazılır", async () => {
+    const [row] = await db
+      .insert(orders)
+      .values(base({ quantity: 10, shippedToAmazon: 4, cargoStatus: "İPTAL" }))
+      .returning();
+    expect(row.cargoStatus).toBe("İPTAL");
   });
 });

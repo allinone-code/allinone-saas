@@ -9,7 +9,9 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // 1. Users table (Preserved users with password_hash, store assignment & role)
 export const users = pgTable("users", {
@@ -142,7 +144,38 @@ export const productMasters = pgTable("product_masters", {
   notes: text("notes"),
   discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+(t) => [
+  // ── Aşama 0: Karar kasası bütünlüğü (B-04, B-05) ──
+  index("product_masters_asin_idx").on(t.asin),
+
+  check("pm_prices_non_negative", sql`
+    ${t.sourcePrice} >= 0 and ${t.landedCost} >= 0 and ${t.sellingPrice} >= 0`),
+
+  // Skorlar 0-100 bandının dışına çıkamaz. Bir hesap hatası skoru 1000
+  // yaparsa fırsat sıralaması sessizce anlamsızlaşırdı.
+  check("pm_scores_in_range", sql`
+    ${t.confidenceScore} between 0 and 100
+    and ${t.opportunityScore} between 0 and 100
+    and ${t.profitabilityScore} between 0 and 100
+    and ${t.demandScore} between 0 and 100
+    and ${t.competitionScore} between 0 and 100
+    and ${t.priceStabilityScore} between 0 and 100
+    and ${t.supplierRiskScore} between 0 and 100
+    and ${t.operationalRiskScore} between 0 and 100`),
+  check("pm_duplicate_score_in_range", sql`${t.duplicateScore} between 0 and 100`),
+
+  check("pm_decision_action_enum", sql`${t.decisionAction} in
+    ('BUY', 'TEST', 'WAIT', 'REJECT', 'REPRICE', 'REORDER', 'PAUSE', 'LIQUIDATE')`),
+  check("pm_risk_level_enum", sql`${t.riskLevel} in
+    ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')`),
+  check("pm_policy_status_enum", sql`${t.policyStatus} in
+    ('APPROVED_BY_POLICY', 'REQUIRES_MANAGER_APPROVAL', 'FLAGGED_IP_RISK')`),
+  check("pm_freshness_enum", sql`${t.dataFreshnessStatus} in
+    ('FRESH', 'AGING', 'STALE', 'EXPIRED')`),
+  check("pm_quality_enum", sql`${t.dataQualityStatus} in
+    ('VALID', 'INVALID', 'MISSING', 'STALE', 'CONFLICTING')`),
+]);
 
 // 6. Orders Master Table (Exact 40-Column Google Drive XLS Structure + PSH & Inventory Lab)
 export const orders = pgTable(
@@ -224,6 +257,41 @@ export const orders = pgTable(
   uniqueIndex("orders_order_number_store_uq").on(t.orderNumber, t.buyerStore),
   index("orders_buyer_store_date_idx").on(t.buyerStore, t.orderDate),
   index("orders_asin_idx").on(t.asin),
+
+  // ── Aşama 0: Veri bütünlüğü güvenlik ağı (denetim bulgusu B-04) ──
+  // Veritabanı son savunma hattıdır. Bu kurallar uygulama katmanında da
+  // var, ama toplu import, manuel SQL veya ileride yazılacak bir servis
+  // onları atlayabilir. Buradan atlanamaz.
+  check("orders_quantity_positive", sql`${t.quantity} > 0`),
+  check("orders_pack_count_positive", sql`${t.packCount} > 0`),
+  check("orders_unit_cost_non_negative", sql`${t.unitCost} >= 0`),
+  check("orders_selling_price_non_negative", sql`${t.sellingPrice} >= 0`),
+  check("orders_total_cost_non_negative", sql`${t.totalCost} >= 0`),
+  check("orders_refund_non_negative", sql`${t.refundAmount} >= 0`),
+
+  // Fire adetleri negatif olamaz
+  check("orders_fire_qty_non_negative", sql`
+    ${t.p1CancelQty} >= 0 and ${t.p2MissingQty} >= 0
+    and ${t.p3DefectiveQty} >= 0 and ${t.p4ExpiredQty} >= 0`),
+  check("orders_shipped_non_negative", sql`${t.shippedToAmazon} >= 0`),
+
+  // Fiziksel imkânsızlık: var olandan fazlası sevk edilemez veya fire olamaz.
+  // Bu kural olmadan bir import hatası sessizce ROI'yi ve sağlık skorunu
+  // bozardı.
+  check("orders_shipped_within_quantity", sql`${t.shippedToAmazon} <= ${t.quantity}`),
+  check("orders_fire_within_quantity", sql`
+    ${t.p1CancelQty} + ${t.p2MissingQty} + ${t.p3DefectiveQty} + ${t.p4ExpiredQty}
+    <= ${t.quantity}`),
+
+  // Durum alanları serbest metin olmaktan çıkar (B-05). Türkçe karakterli
+  // string karşılaştırması artık yazım hatasına karşı korunur.
+  check("orders_cargo_status_enum", sql`${t.cargoStatus} in
+    ('Yolda', 'Tam Geldi', 'İPTAL', 'Kayıp Depoya gelmiş')`),
+  check("orders_psh_status_enum", sql`${t.pshStatus} in
+    ('BEKLIYOR', 'BATCH_OLUSTURULDU', 'DEPO_SAYILDI', 'AMAZONA_SEVK')`),
+  check("orders_inventory_lab_status_enum", sql`${t.inventoryLabStatus} in
+    ('GIRILMEDI', 'GIRILDI', 'AKTIF_SATISTA')`),
+  check("orders_fulfillment_type_enum", sql`${t.fulfillmentType} in ('FBA', 'FBM')`),
 ]);
 
 // 7. PSH Batch Master Table (PSH Programı Ön-Envanter Gruplama)
