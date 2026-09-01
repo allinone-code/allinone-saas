@@ -1,5 +1,48 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {};
+/**
+ * T6.2 — Güvenlik başlıkları (tüm rotalar).
+ * next.config.ts artık boş değil; header politikası burada yaşar.
+ */
+const securityHeaders = [
+  // Clickjacking engeli
+  { key: "X-Frame-Options", value: "DENY" },
+  // MIME sniffing engeli
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // Referrer minimizasyonu (bağlantılarımızda tedarikçi ROI verisi sızmasın)
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // Tarayıcı özellikleri kapat
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // HTTPS zorlaması (üretim TLS arkasında)
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  {
+    // CSP: Next.js inline script/style gerektirir; harici kaynaklar ürün görselleri
+    // (Amazon/Unsplash CDN) için https img-src'te açık. Eval: yalnız geliştirme.
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests",
+    ].join("; "),
+  },
+];
+
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
+      },
+    ];
+  },
+};
 
 export default nextConfig;

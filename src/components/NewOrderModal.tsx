@@ -1,5 +1,6 @@
 "use client";
 
+import { clientLog } from "@/lib/clientLogger";
 import React, { useState } from "react";
 import { X, Plus, DollarSign, Package, Truck, ExternalLink, ShieldCheck } from "lucide-react";
 
@@ -82,7 +83,7 @@ export function NewOrderModal({
         onClose();
       }
     } catch (err) {
-      console.error("Failed adding order:", err);
+      clientLog.error("orders/create", "Sipariş eklenemedi", { err: String(err) });
     } finally {
       setSubmitting(false);
     }

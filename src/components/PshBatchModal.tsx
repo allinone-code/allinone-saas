@@ -1,5 +1,6 @@
 "use client";
 
+import { clientLog } from "@/lib/clientLogger";
 import React, { useState } from "react";
 import { X, Building2, CheckCircle2 } from "lucide-react";
 
@@ -61,7 +62,7 @@ export function PshBatchModal({
         onClose();
       }
     } catch (err) {
-      console.error("PSH Batch hatası:", err);
+      clientLog.error("batches/create", "PSH batch oluşturulamadı", { err: String(err) });
     } finally {
       setSubmitting(false);
     }

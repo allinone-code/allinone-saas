@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { logger } from "@/lib/logger";
 
 export interface SessionUser {
   id: number;
@@ -24,9 +25,8 @@ function getSecretKey(): Uint8Array | null {
     return new TextEncoder().encode(secret);
   }
   if (process.env.NODE_ENV === "production") {
-    console.error(
-      "[CERBERUS][SECURITY] SESSION_SECRET eksik veya 32 karakterden kısa. " +
-        "Üretimde bu değişken zorunludur; tüm oturumlar reddedilecek (fail-closed)."
+    logger.error(
+      "[CERBERUS][SECURITY] SESSION_SECRET eksik veya 32 karakterden kısa. Üretimde zorunlu; tüm oturumlar reddedilecek (fail-closed)."
     );
     return null;
   }
