@@ -5,6 +5,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { parseBody, batchCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function GET(req: Request) {
   try {
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
         .where(inArray(orders.id, orderIds));
     }
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName,
       storeCode,
       actionType: "PSH_BATCH_CREATED",

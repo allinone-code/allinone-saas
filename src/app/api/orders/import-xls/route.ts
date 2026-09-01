@@ -4,6 +4,7 @@ import { orders, auditLogs } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { parseBody, importXlsSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function POST(req: Request) {
   try {
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
       return accumulator;
     });
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName,
       storeCode: scopedStore === "ALL" ? "HRN" : scopedStore,
       actionType: "XLS_BATCH_IMPORT",

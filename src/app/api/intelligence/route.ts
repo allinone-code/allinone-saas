@@ -6,12 +6,15 @@ import {
   researchSessions,
   auditLogs,
   orders,
+  stores,
 } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { requireUser, isDenied } from "@/lib/guards";
 import { calculateLandedCostAndProfit, computeDecisionEngine } from "@/domain/decisionEngine";
+import { buildMorningBriefing } from "@/domain/morningBriefing";
 import { parseBody, intelligenceCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { log } from "@/lib/logger";
 
 
@@ -20,40 +23,22 @@ export async function GET() {
     const gate = await requireUser();
     if (isDenied(gate)) return gate.response;
 
-    const [masters, team, sessions, allOrders] = await Promise.all([
+    const [masters, team, sessions, allOrders, allStores] = await Promise.all([
       db.select().from(productMasters).orderBy(desc(productMasters.discoveredAt)),
       db.select().from(researchers).orderBy(desc(researchers.researcherScore)),
       db.select().from(researchSessions).orderBy(desc(researchSessions.startedAt)),
       db.select().from(orders),
+      db.select().from(stores),
     ]);
 
-    // Calculate Business Health Score (0-100) and Morning Briefing
-    const totalOrders = allOrders.length;
-    const problemOrders = allOrders.filter((o) => o.cargoStatus === "İPTAL" || Number(o.p2MissingQty) > 0).length;
-    const avgRoi = masters.reduce((s, m) => s + Number(m.roiPercent || 0), 0) / (masters.length || 1);
-    const businessHealthScore = Math.min(
-      99,
-      Math.max(65, Math.round(75 + avgRoi * 0.25 - problemOrders * 1.5))
-    );
-
-    const morningBriefing = {
-      businessHealthScore,
-      whatChanged: [
-        `26 Mağaza Konsolide Ciro: $${allOrders.reduce((s, o) => s + Number(o.sellingPrice) * Number(o.quantity), 0).toFixed(2)} (+%14.2 artış)`,
-        `Ortalama Landed-Cost Ayarlı ROI: %${avgRoi.toFixed(1)} (Hedef >%30.0)`,
-        `FBA Sevk Oranı: %94.2 (Amazon NJ Prep Merkezi entegre)`,
-      ],
-      whatMatters: [
-        `2 kritik depo sayım uyarısı (P2 Eksik Teslimat takipte)`,
-        `10 ABD Sourcing Uzmanı aktif (${masters.length} onaylı ürün kasası)`,
-        `Dyson V15 Detect (B09ZVDL7D4) ROI <%25 Policy Engine tarafından otomatik DURDURULDU`,
-      ],
-      whatShouldIDo: [
-        `1. DeWalt 20V MAX XR (B0183RLW8A) için 65 adet FBA sevk emrini onayla (%53.2 ROI)`,
-        `2. Ninja CREAMi (B08QX6L29W) %96 Duplicate Alarmını Selin'in kaydıyla birleştir`,
-        `3. WO310759607 numaralı siparişin Narvar kargo tazminat dosyasını kontrol et`,
-      ],
-    };
+    // T8.3: brifing SABİT metinlerden arındırıldı — tümü gerçek veriden türetilir
+    // (saf alan mantığı src/domain/morningBriefing.ts içinde, birim testli)
+    const morningBriefing = buildMorningBriefing({
+      orders: allOrders,
+      masters,
+      researcherCount: team.length,
+      storeCount: allStores.length,
+    });
 
     return NextResponse.json({
       productMasters: masters,
@@ -210,7 +195,7 @@ export async function POST(req: Request) {
       })
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: currentUser.storeCode === "ALL" ? "HRN" : currentUser.storeCode,
       actionType: "DECISION_ENGINE_CAPTURE",

@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { eq, ne } from "drizzle-orm";
 
 export async function POST(req: Request) {
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
       await db.delete(orders);
       await db.delete(pshBatches);
 
-      await db.insert(auditLogs).values({
+      await writeAuditLog({
         actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_CLEAN_ORDERS",
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
         }))
       );
 
-      await db.insert(auditLogs).values({
+      await writeAuditLog({
         actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_RESTORE_XLS",
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
       // Admin dışındaki kullanıcıları temizle
       await db.delete(users).where(ne(users.role, "ADMIN"));
 
-      await db.insert(auditLogs).values({
+      await writeAuditLog({
         actorName: currentUser.name,
         storeCode: "ALL",
         actionType: "DATABASE_FACTORY_RESET",

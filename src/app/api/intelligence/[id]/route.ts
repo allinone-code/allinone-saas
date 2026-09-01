@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireRole, isDenied } from "@/lib/guards";
 import { parseBody, intelligencePatchSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function PATCH(
   req: Request,
@@ -70,7 +71,7 @@ export async function PATCH(
       .where(eq(productMasters.id, Number(id)))
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: "HRN",
       actionType: "DECISION_OVERRIDE",

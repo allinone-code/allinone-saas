@@ -5,6 +5,7 @@ import { requireRole, isDenied } from "@/lib/guards";
 import { hashPassword } from "@/lib/passwords";
 import { parseBody, userCreateSchema, userUpdateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       })
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: storeCode || "ALL",
       actionType: "USER_CREATED",
@@ -140,7 +141,7 @@ export async function PATCH(req: Request) {
       .where(eq(users.id, Number(id)))
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: updated.storeCode || "ALL",
       actionType: "USER_UPDATED",

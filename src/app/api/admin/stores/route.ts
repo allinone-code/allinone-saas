@@ -4,6 +4,7 @@ import { stores, auditLogs, orders } from "@/db/schema";
 import { requireUser, requireRole, isDenied } from "@/lib/guards";
 import { parseBody, storeCreateSchema, storeUpdateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { desc, eq, count, sum } from "drizzle-orm";
 
 export async function GET() {
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
       })
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: cleanCode,
       actionType: "STORE_CREATED",
@@ -146,7 +147,7 @@ export async function PATCH(req: Request) {
       .where(eq(stores.id, Number(id)))
       .returning();
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: updated.storeCode,
       actionType: "STORE_UPDATED",

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireUser, requireRole, isDenied, canAccessStore } from "@/lib/guards";
 import { parseBody, orderUpdateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function PATCH(
   req: Request,
@@ -57,7 +58,7 @@ export async function PATCH(
 
     // Log action if significant change
     if (body.cargoStatus || body.pshStatus || body.problemAction) {
-      await db.insert(auditLogs).values({
+      await writeAuditLog({
         actorName: currentUser.name,
         storeCode: current.buyerStore,
         actionType: "ORDER_UPDATED",

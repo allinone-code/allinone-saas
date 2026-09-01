@@ -17,5 +17,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO cerberus_app;
 
 -- Not: FK'ler ve silme korumaları (T2.2) yetersiz kalan son hattadır;
 -- ideal mimaride DATABASE_URL yerine kısıtlı-role bağlantı string'i kullanılır.
--- Geçiş sırası: roller oluştur → uygulama AUDIT_DATABASE_URL ayrı değişkenle bağlanır
--- (küçük kod değişikliği; bu fazın kapsamı dışında bırakılmıştır, Faz 8'e taşınabilir).
+-- Geçiş sırası (uygulama tarafı Faz 8'de TAMAMLANDI):
+-- 1) Bu SQL'i çalıştır → 2) Neon'da cerberus_audit LOGIN rolü için ayrı bağlantı string'i üret
+--    → 3) AUDIT_DATABASE_URL ortam değişkenini tanımla (src/lib/audit.ts bunu otomatik kullanır)
+-- AUDIT_DATABASE_URL yoksa uygulama birincil bağlantıyla yazar (geri uyumlu, yumuşak geçiş).
+-- Not: audit_reads birincil bağlantıda kalır; yalnızca YAZIM yolu ayrışır.
+-- database-reset dev-aracının db.delete(auditLogs) çağrısı kısıtlı rolle ÇALIŞMAZ — bilinçli.

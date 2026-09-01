@@ -4,6 +4,7 @@ import { users, orders, auditLogs } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { requireRole, isDenied } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { hashPassword } from "@/lib/passwords";
 import { log } from "@/lib/logger";
 import crypto from "crypto";
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
       .set({ orderEmail: `deleted+${target.id}@redacted.local` })
       .where(eq(orders.orderEmail, email));
 
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName: currentUser.name,
       storeCode: target.storeCode,
       actionType: "DSR_ANONYMIZE",

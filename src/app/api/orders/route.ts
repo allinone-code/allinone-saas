@@ -4,6 +4,7 @@ import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { parseBody, orderCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { writeAuditLog } from "@/lib/audit";
 import { maskOrderForRole, minimizeUsersForRole } from "@/lib/privacy";
 import { desc, eq, and, inArray, count, sql } from "drizzle-orm";
 
@@ -255,7 +256,7 @@ export async function POST(req: Request) {
       .returning();
 
     // Audit log
-    await db.insert(auditLogs).values({
+    await writeAuditLog({
       actorName,
       storeCode: targetStore,
       actionType: "ORDER_CREATED",
