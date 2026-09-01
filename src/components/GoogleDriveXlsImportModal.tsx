@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import * as XLSX from "xlsx";
 import {
   X,
   FileSpreadsheet,
@@ -120,8 +119,10 @@ export function GoogleDriveXlsImportModal({
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        // ~800 KB'lık ayrıştırıcı yalnızca dosya yüklendiğinde gelir (bundle bölmesi)
+        const XLSX = await import("xlsx");
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -292,7 +293,7 @@ export function GoogleDriveXlsImportModal({
             }`}
           >
             <ClipboardPaste className="w-4 h-4 text-amber-400" />
-            <span>3. Excel'den Kopyala / Yapıştır</span>
+            <span>3. Excel&rsquo;den Kopyala / Yapıştır</span>
           </button>
         </div>
 
@@ -316,7 +317,7 @@ export function GoogleDriveXlsImportModal({
               Excel (.xlsx, .xls) veya CSV dosyanızı buraya sürükleyin ya da tıklayıp seçin
             </h4>
             <p className="text-xs text-slate-400 font-mono-tech mt-1">
-              Google Drive'dan indirdiğiniz veya yerel bilgisayarınızdaki 40-kolon tablonuz anında ayrıştırılır
+              Google Drive&rsquo;dan indirdiğiniz veya yerel bilgisayarınızdaki 40-kolon tablonuz anında ayrıştırılır
             </p>
           </div>
         )}
@@ -345,7 +346,7 @@ export function GoogleDriveXlsImportModal({
               </button>
             </div>
             <p className="text-[11px] text-slate-500">
-              * İpucu: Google E-Tablonuzda sağ üstteki "Paylaş" butonundan "Bağlantıya sahip olan herkes görüntüleyebilir" seçili olmalıdır.
+              * İpucu: Google E-Tablonuzda sağ üstteki &quot;Paylaş&quot; butonundan &quot;Bağlantıya sahip olan herkes görüntüleyebilir&quot; seçili olmalıdır.
             </p>
           </div>
         )}

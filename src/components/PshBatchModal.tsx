@@ -134,7 +134,7 @@ export function PshBatchModal({
 
           <div>
             <label className="block text-[11px] font-mono-tech text-slate-400 mb-1.5">
-              Bu Batch'e Eklenecek Siparişler ({selectedIds.length} adet seçili):
+              Bu Batch&rsquo;e Eklenecek Siparişler ({selectedIds.length} adet seçili):
             </label>
             <div className="max-h-48 overflow-y-auto border border-slate-800 rounded-xl bg-[#0B0F17] p-2 space-y-1.5">
               {unbatchedOrders.length === 0 ? (

@@ -3,9 +3,14 @@ import { Pool } from "pg";
 
 export const isDatabaseConfigured = !!process.env.DATABASE_URL;
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:postgres@127.0.0.1:5432/app_db";
+// F-31/T4.4: fail-open localhost fallback'i kaldırıldı.
+// DATABASE_URL yoksa uygulama açılışta net hata verir; sessizce yanlış DB'ye bağlanmaz.
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error(
+    "DATABASE_URL ortam değişkeni tanımlı değil. .env.example dosyasına bakın."
+  );
+}
 
 const globalForDb = globalThis as typeof globalThis & {
   __cerberusPool?: Pool;

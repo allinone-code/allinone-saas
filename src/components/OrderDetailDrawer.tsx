@@ -225,9 +225,9 @@ export function OrderDetailDrawer({
                   className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-sky-300 font-semibold focus:outline-none"
                 >
                   <option value="BEKLIYOR">BEKLIYOR (Depoya Gelmedi)</option>
-                  <option value="BATCH_OLUSTURULDU">BATCH_OLUSTURULDU (PSH'ta)</option>
+                  <option value="BATCH_OLUSTURULDU">BATCH_OLUSTURULDU (PSH&rsquo;ta)</option>
                   <option value="DEPO_SAYILDI">DEPO_SAYILDI (Eksik/Defo Not Edildi)</option>
-                  <option value="AMAZONA_SEVK">AMAZONA_SEVK (FBA'e Çıktı)</option>
+                  <option value="AMAZONA_SEVK">AMAZONA_SEVK (FBA&rsquo;e Çıktı)</option>
                 </select>
               </div>
 
