@@ -24,7 +24,7 @@ const DEMO_ACCOUNTS = [
     email: "ahmet@cerberus-commerce.io",
     storeCode: "TÜM MAĞAZALAR (ALL)",
     badgeColor: "bg-indigo-500/15 text-indigo-300 border-indigo-500/40",
-    desc: "Tüm 26 mağazayı denetler, yeni mağaza/kullanıcı açar, SP-API token'larını ve denetim loglarını yönetir.",
+    desc: "Tüm mağazaları denetler, yeni mağaza/kullanıcı açar ve denetim loglarını yönetir.",
   },
   {
     name: "Harun",
@@ -126,11 +126,11 @@ export default function LoginPage() {
           {/* Live System Diagnostics Micro-Bar */}
           <div className="flex items-center gap-3 text-[11px] font-mono-tech bg-[#0F1626] border border-slate-800/90 rounded-xl px-3.5 py-2">
             <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              AMAZON SP-API LIVE
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              SİSTEM ÇALIŞIYOR
             </span>
             <span className="text-slate-700">|</span>
-            <span className="text-slate-300">NJ PREP WAREHOUSE: ONLINE</span>
+            <span className="text-slate-400">GÜVENLİ OTURUM (JWT / 8 SAAT)</span>
           </div>
         </div>
 

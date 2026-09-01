@@ -4,9 +4,13 @@ import type { NextConfig } from "next";
  * T6.2 — Güvenlik başlıkları (tüm rotalar).
  * next.config.ts artık boş değil; header politikası burada yaşar.
  */
+const isProd = process.env.NODE_ENV === "production";
+
 const securityHeaders = [
-  // Clickjacking engeli
-  { key: "X-Frame-Options", value: "DENY" },
+  // Clickjacking engeli.
+  // Geliştirmede kaldırılır: yerel önizleme panelleri uygulamayı iframe içinde
+  // gösterir; üretimde DENY olarak uygulanır.
+  ...(isProd ? [{ key: "X-Frame-Options", value: "DENY" }] : []),
   // MIME sniffing engeli
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Referrer minimizasyonu (bağlantılarımızda tedarikçi ROI verisi sızmasın)
@@ -21,12 +25,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+      `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self'",
-      "frame-ancestors 'none'",
+      "connect-src 'self' ws: wss:",
+      isProd ? "frame-ancestors 'none'" : "frame-ancestors *",
       "base-uri 'self'",
       "form-action 'self'",
       "upgrade-insecure-requests",

@@ -114,7 +114,11 @@ export function AdminDashboard({
   };
 
   useEffect(() => {
-    fetchAdminData();
+    // Effect gövdesinde senkron setState yapılmaz; yükleme async akışta yönetilir.
+    async function run() {
+      await fetchAdminData();
+    }
+    void run();
   }, []);
 
   const handleCreateStore = async (e: React.FormEvent) => {
@@ -676,17 +680,25 @@ export function AdminDashboard({
       )}
 
       {/* ========================================================================= */}
-      {/* 4. AMAZON SP-API & MUHASEBE BAĞLANTILARI                                   */}
+      {/* 4. AMAZON SP-API ENTEGRASYONU — DURUM: HENÜZ BAĞLANMADI                   */}
       {/* ========================================================================= */}
       {activeSubTab === "SP_API" && (
         <div className="space-y-4">
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5">
+          <div className="bg-[#0F1626] border border-amber-500/40 rounded-2xl p-5">
             <h3 className="text-sm font-bold text-white uppercase font-mono-tech flex items-center gap-2">
-              <Server className="w-4 h-4 text-indigo-400" />
-              Amazon Seller Central SP-API &amp; Inventory Lab Entegrasyon Durumu
+              <Server className="w-4 h-4 text-amber-400" />
+              Amazon SP-API &amp; Inventory Lab Entegrasyonu — PLANLANAN ÖZELLİK
             </h3>
-            <p className="text-xs text-slate-400 font-mono-tech mt-1">
-              Her mağazanın Amazon Marketplace ID, LWA Refresh Token ve BuyBox Repricer bağlantısı denetlenir.
+            <p className="text-xs text-slate-300 font-mono-tech mt-2 leading-relaxed">
+              Bu ekran daha önce her mağaza için &quot;SP-API BAĞLI&quot;, sahte bir LWA token ve
+              &quot;son senkronizasyon: 2 dk önce&quot; gösteriyordu. Gerçekte hiçbir Amazon
+              bağlantısı kurulmamıştır. Yanıltıcı olmaması için rozetler gerçek durumu
+              yansıtacak biçimde değiştirildi (denetim bulgusu F-23).
+            </p>
+            <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+              Entegrasyon için gereken adımlar: Amazon Seller Central geliştirici kaydı → LWA
+              uygulaması → refresh token kasası (şifreli) → oran sınırlı senkronizasyon işi →
+              sipariş/stok eşleme. Tahmini efor: 8–13 kişi-gün.
             </p>
           </div>
 
@@ -694,44 +706,42 @@ export function AdminDashboard({
             {stores.map((st) => (
               <div
                 key={st.id}
-                className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4"
+                className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 space-y-3"
               >
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <span className="text-xs font-bold text-indigo-400 font-mono-tech">
                       {st.storeCode} — {st.marketplace}
                     </span>
-                    <h4 className="text-sm font-bold text-white">{st.storeName}</h4>
+                    <h4 className="text-sm font-bold text-white truncate">{st.storeName}</h4>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono-tech font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> SP-API BAĞLI
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono-tech font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1 shrink-0">
+                    BAĞLI DEĞİL
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs font-mono-tech bg-[#080C14] p-3.5 rounded-xl border border-slate-800">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Marketplace ID:</span>
-                    <span className="text-slate-200 font-bold">ATVPDKIKX0DER (US-EAST)</span>
+                    <span className="text-slate-500">Tanımlanmadı</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">LWA Client Token:</span>
-                    <span className="text-emerald-400">amzn1.application-oa2-client.••••</span>
+                    <span className="text-slate-400">LWA Refresh Token:</span>
+                    <span className="text-slate-500">Yok</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Inventory Lab Senkronu:</span>
-                    <span className="text-indigo-400 font-bold">Otomatik (FBA Feed)</span>
+                    <span className="text-slate-400">Son senkronizasyon:</span>
+                    <span className="text-slate-500">Hiç</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 text-xs font-mono-tech">
-                  <span className="text-slate-500">Son Senkronizasyon: 2 dk önce</span>
-                  <button
-                    onClick={() => showFeedback(`${st.storeCode} SP-API FBA stok senkronizasyonu tetiklendi.`)}
-                    className="px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-lg text-xs font-bold transition"
-                  >
-                    Senkronize Et
-                  </button>
-                </div>
+                <button
+                  disabled
+                  title="SP-API entegrasyonu henüz geliştirilmedi"
+                  className="w-full px-3 py-1.5 bg-slate-800/60 text-slate-500 rounded-lg text-xs font-bold cursor-not-allowed border border-slate-700"
+                >
+                  Senkronize Et (kullanılamaz)
+                </button>
               </div>
             ))}
           </div>

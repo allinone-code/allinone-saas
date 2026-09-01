@@ -7,72 +7,119 @@ import {
   auditLogs,
   orders,
 } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
-import { requireUser, isDenied } from "@/lib/guards";
+import { count, desc, eq, sql } from "drizzle-orm";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { calculateLandedCostAndProfit, computeDecisionEngine } from "@/domain/decisionEngine";
+import { buildMorningBriefing } from "@/domain/briefing";
 import { parseBody, intelligenceCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
-import { log } from "@/lib/logger";
 
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const gate = await requireUser();
     if (isDenied(gate)) return gate.response;
+    const currentUser = gate.user;
 
-    const [masters, team, sessions, allOrders] = await Promise.all([
-      db.select().from(productMasters).orderBy(desc(productMasters.discoveredAt)),
-      db.select().from(researchers).orderBy(desc(researchers.researcherScore)),
-      db.select().from(researchSessions).orderBy(desc(researchSessions.startedAt)),
-      db.select().from(orders),
-    ]);
+    // Mağaza kapsamı sunucuda çözülür (F-11): STORE_USER kendi mağazasının
+    // brifingini görür, yönetici seçtiği kapsamı görür.
+    const { searchParams } = new URL(req.url);
+    const effectiveStore = resolveStoreScope(currentUser, searchParams.get("storeCode") || "ALL");
+    const storeFilter = effectiveStore !== "ALL" ? eq(orders.buyerStore, effectiveStore) : undefined;
 
-    // Calculate Business Health Score (0-100) and Morning Briefing
-    const totalOrders = allOrders.length;
-    const problemOrders = allOrders.filter((o) => o.cargoStatus === "İPTAL" || Number(o.p2MissingQty) > 0).length;
-    const avgRoi = masters.reduce((s, m) => s + Number(m.roiPercent || 0), 0) / (masters.length || 1);
-    const businessHealthScore = Math.min(
-      99,
-      Math.max(65, Math.round(75 + avgRoi * 0.25 - problemOrders * 1.5))
+    // T8.2 — Brifing artık sabit metinlerden değil, SQL aggregate'lerinden üretilir.
+    // Satırlar belleğe çekilmez; maliyet veri hacminden bağımsızdır.
+    const orderFactsQuery = db
+      .select({
+        totalOrders: count(),
+        totalUnits: sql<string>`coalesce(sum(${orders.quantity}), 0)`,
+        totalSpend: sql<string>`coalesce(sum(${orders.totalCost}), 0)`,
+        totalShippedToAmazon: sql<string>`coalesce(sum(${orders.shippedToAmazon}), 0)`,
+        totalRefunds: sql<string>`coalesce(sum(${orders.refundAmount}), 0)`,
+        p1CancelTotal: sql<string>`coalesce(sum(${orders.p1CancelQty}), 0)`,
+        p2MissingTotal: sql<string>`coalesce(sum(${orders.p2MissingQty}), 0)`,
+        p3DefectiveTotal: sql<string>`coalesce(sum(${orders.p3DefectiveQty}), 0)`,
+        p4ExpiredTotal: sql<string>`coalesce(sum(${orders.p4ExpiredQty}), 0)`,
+        estimatedRevenue: sql<string>`coalesce(sum(${orders.sellingPrice} * ${orders.quantity}), 0)`,
+        unbatchedOrders: sql<string>`count(*) filter (where ${orders.pshBatchNo} is null or ${orders.pshBatchNo} = '')`,
+        inTransitOrders: sql<string>`count(*) filter (where ${orders.cargoStatus} = 'Yolda')`,
+        problemOrdersCount: sql<string>`count(*) filter (where
+          ${orders.cargoStatus} = 'İPTAL'
+          or ${orders.p1CancelQty} > 0
+          or ${orders.p2MissingQty} > 0
+          or ${orders.p3DefectiveQty} > 0
+          or ${orders.p4ExpiredQty} > 0
+          or ${orders.refundAmount} > 0)`,
+      })
+      .from(orders);
+
+    const masterFactsQuery = db
+      .select({
+        totalMasters: count(),
+        avgRoi: sql<string>`coalesce(avg(${productMasters.roiPercent}), 0)`,
+        duplicateAlerts: sql<string>`count(*) filter (where ${productMasters.duplicateScore} >= 80)`,
+        pendingPolicyApprovals: sql<string>`count(*) filter (where ${productMasters.policyStatus} = 'REQUIRES_MANAGER_APPROVAL')`,
+      })
+      .from(productMasters);
+
+    const [masters, team, sessions, [orderFacts], [masterFacts], decisionRows, freshnessRows] =
+      await Promise.all([
+        db.select().from(productMasters).orderBy(desc(productMasters.discoveredAt)),
+        db.select().from(researchers).orderBy(desc(researchers.researcherScore)),
+        db.select().from(researchSessions).orderBy(desc(researchSessions.startedAt)),
+        storeFilter ? orderFactsQuery.where(storeFilter) : orderFactsQuery,
+        masterFactsQuery,
+        db
+          .select({ key: productMasters.decisionAction, n: count() })
+          .from(productMasters)
+          .groupBy(productMasters.decisionAction),
+        db
+          .select({ key: productMasters.dataFreshnessStatus, n: count() })
+          .from(productMasters)
+          .groupBy(productMasters.dataFreshnessStatus),
+      ]);
+
+    const toCounts = (rows: Array<{ key: string; n: number }>) =>
+      rows.reduce<Record<string, number>>((acc, r) => {
+        acc[r.key] = Number(r.n);
+        return acc;
+      }, {});
+
+    const morningBriefing = buildMorningBriefing(
+      {
+        totalOrders: Number(orderFacts?.totalOrders || 0),
+        totalUnits: Number(orderFacts?.totalUnits || 0),
+        totalSpend: Number(orderFacts?.totalSpend || 0),
+        totalShippedToAmazon: Number(orderFacts?.totalShippedToAmazon || 0),
+        totalRefunds: Number(orderFacts?.totalRefunds || 0),
+        problemOrdersCount: Number(orderFacts?.problemOrdersCount || 0),
+        p1CancelTotal: Number(orderFacts?.p1CancelTotal || 0),
+        p2MissingTotal: Number(orderFacts?.p2MissingTotal || 0),
+        p3DefectiveTotal: Number(orderFacts?.p3DefectiveTotal || 0),
+        p4ExpiredTotal: Number(orderFacts?.p4ExpiredTotal || 0),
+        estimatedRevenue: Number(orderFacts?.estimatedRevenue || 0),
+        unbatchedOrders: Number(orderFacts?.unbatchedOrders || 0),
+        inTransitOrders: Number(orderFacts?.inTransitOrders || 0),
+      },
+      {
+        totalMasters: Number(masterFacts?.totalMasters || 0),
+        avgRoiPercent: Number(masterFacts?.avgRoi || 0),
+        decisionCounts: toCounts(decisionRows),
+        freshnessCounts: toCounts(freshnessRows),
+        duplicateAlerts: Number(masterFacts?.duplicateAlerts || 0),
+        pendingPolicyApprovals: Number(masterFacts?.pendingPolicyApprovals || 0),
+      }
     );
 
-    const morningBriefing = {
-      businessHealthScore,
-      whatChanged: [
-        `26 Mağaza Konsolide Ciro: $${allOrders.reduce((s, o) => s + Number(o.sellingPrice) * Number(o.quantity), 0).toFixed(2)} (+%14.2 artış)`,
-        `Ortalama Landed-Cost Ayarlı ROI: %${avgRoi.toFixed(1)} (Hedef >%30.0)`,
-        `FBA Sevk Oranı: %94.2 (Amazon NJ Prep Merkezi entegre)`,
-      ],
-      whatMatters: [
-        `2 kritik depo sayım uyarısı (P2 Eksik Teslimat takipte)`,
-        `10 ABD Sourcing Uzmanı aktif (${masters.length} onaylı ürün kasası)`,
-        `Dyson V15 Detect (B09ZVDL7D4) ROI <%25 Policy Engine tarafından otomatik DURDURULDU`,
-      ],
-      whatShouldIDo: [
-        `1. DeWalt 20V MAX XR (B0183RLW8A) için 65 adet FBA sevk emrini onayla (%53.2 ROI)`,
-        `2. Ninja CREAMi (B08QX6L29W) %96 Duplicate Alarmını Selin'in kaydıyla birleştir`,
-        `3. WO310759607 numaralı siparişin Narvar kargo tazminat dosyasını kontrol et`,
-      ],
-    };
-
     return NextResponse.json({
+      storeScope: effectiveStore,
       productMasters: masters,
       researchers: team,
       researchSessions: sessions,
       morningBriefing,
     });
-  } catch (error: any) {
-    log.error("GET /api/intelligence", "Zeka verisi okunamadı", error);
-    // Hata durumunda mock veri SIZDIRILMAZ (F-15): kullanıcı gerçek sanabilir
-    return NextResponse.json(
-      {
-        productMasters: [],
-        researchers: [],
-        researchSessions: [],
-        error: "Veri alınamadı",
-      },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("GET /api/intelligence", error);
   }
 }
 
