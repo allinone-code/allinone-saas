@@ -372,3 +372,107 @@ motorunun (geçen turda kurduğumuz) metin eşleştirmesi yerine FK garantisiyle
 
 Aşama 2 ve 3, gerçek çok kalemli sipariş ihtiyacı doğduğunda ele alınmalıdır.
 Bugünkü veride (24/24 tek kalemli) acil değil.
+
+---
+
+# EK — AŞAMA 1 UYGULANDI (2026-09-02)
+
+Rapordaki Aşama 1 hayata geçirildi. Aşağıdaki sonuçlar **canlı veritabanında
+gerçek veri üzerinde** ölçülmüştür.
+
+## Kurulan yapı
+
+| Tablo | Rolü |
+|---|---|
+| `products` | Ürünün tek doğruluk kaynağı; ASIN unique |
+| `supplier_offers` | Tedarikçi fiyatının **zaman serisi** |
+| `product_lifecycle_events` | Ürünün hafızası — her durak bir olay |
+| `orders.product_id` | FK (B-03'ün kapanışı) |
+
+Ürünün yolculuğu 12 duraklı bir durum makinesi olarak modellendi:
+`DISCOVERED → ANALYZING → SCORED → APPROVED → PURCHASING → IN_WAREHOUSE →
+LISTED → SELLING → MONITORING → PAUSED / DISCONTINUED` (+ `REJECTED`).
+Geçerli geçişler `isValidTransition` ile kilitlendi; durak atlanamaz.
+
+## Geri doldurma sonuçları (gerçek veri)
+
+```
+Girdi satırı        : 24
+Benzersiz ürün      : 12
+Fiyat gözlemi       : 16
+Yinelenen (atlandı) : 8
+Tekrar oranı        : %50.0
+Bağlanan sipariş    : 24
+Bağlanmamış kalan   : 0     ← B-03 kapandı
+```
+
+Script idempotenttir: ikinci çalıştırmada 0 yeni kayıt, 0 yinelenen gözlem.
+
+## B-02'nin kanıtı — artık sorgulanabilir
+
+Raporun yazıldığı anda **imkânsız** olan sorgu şimdi çalışıyor:
+
+| ASIN | Ürün | Gözlem | İlk | Son | Değişim |
+|---|---|---|---|---|---|
+| B0DGQX1FS7 | FORCE FACTOR Hair Growth | 2 | $29.99 | $26.24 | **-%12.50** |
+| B0D47RZVR3 | FORCE FACTOR Total Beets | 2 | $23.99 | $21.59 | **-%10.00** |
+| B01CQ3E6HG | MegaFood Baby & Me 2 | 2 | $34.26 | $34.27 | +%0.03 |
+
+İki gerçek arbitraj fırsatı, eskiden JSONB içinde görünmez haldeydi.
+
+## Ürün zekâsı — yeni yetenek
+
+`GET /api/products` ürünün tüm yolculuğunu tek yerde toplar ve bir **yargı**
+üretir. Kural sırası kasıtlıdır: **önce para kaybı, sonra operasyon, sonra
+büyüme.** Zarar eden bir ürün, maliyeti düşse bile "daha al" tavsiyesi alamaz.
+
+Canlı portföy çıktısı:
+
+```
+totalProducts: 12    productsAtLoss: 7    buyingOpportunities: 2
+byVerdict: UNMEASURED 6, HEALTHY 3, STOP_LOSS 1, FIX_OPERATIONS 1, SCALE_UP 1
+byStage:   PURCHASING 5, SELLING 6, IN_WAREHOUSE 1
+```
+
+### Ortaya çıkan iş bulguları
+
+**1. B01CQ3E6HG — gizli kanama (STOP_LOSS)**
+
+| Maliyet | Gelir | İade | Alınan | Sevk | Fire |
+|---|---|---|---|---|---|
+| $1.027,91 | $240,00 | $890,85 | 30 | 4 | **26** |
+
+Bu ürün tek başına portföyün en büyük zarar kalemi. 30 adetten 26'sı fire
+olmuş, harcamanın %87'si iade olarak geri dönmüş. Sipariş bazlı görünümde bu
+5 ayrı satıra dağıldığı için **fark edilmiyordu**; ürün bazlı toplamda anında
+görünür hale geldi.
+
+**2. B0D47RZVR3 — büyüme fırsatı (SCALE_UP)**
+
+ROI %35.18 ve tedarikçi maliyeti -%10. Kârlı bir üründe arbitraj penceresi
+açık; sipariş miktarı artırılmalı. Bu sinyal iki ayrı veri kaynağının
+(gerçekleşen kâr + fiyat trendi) birleşmesinden doğuyor — ikisi de eski
+mimaride yoktu.
+
+**3. Portföy net kârı -$2.660,78 · 12 üründen 7'si zararda**
+
+Sipariş bazlı bakışta toplam ciro ve harcama görünüyordu; hangi ürünün
+sermayeyi yaktığı görünmüyordu.
+
+## Doğrulama
+
+- Testler **117 → 171** (+54): 27 backfill, 19 ürün zekâsı, 8 entegrasyon
+- Veritabanı garantileri PGlite üzerinde gerçek migration ile kanıtlandı:
+  ASIN unique, FK zorlaması, cascade, RESTRICT (siparişi olan ürün silinemez),
+  negatif fiyat reddi, tanımsız durak reddi
+- `tsc` temiz · `eslint` 0 hata · `next build` başarılı
+
+## Sırada ne var
+
+Aşama 1 tamamlandı ama `orders.product_id` hâlâ **nullable**. Bir sonraki
+adım (Aşama 1.2): import yolunu ürün oluşturacak şekilde güncelleyip kolonu
+`NOT NULL` yapmak. Bundan sonra ürünsüz sipariş yazmak **fiziksel olarak
+imkânsız** hale gelir.
+
+Aşama 2 (purchase_orders/order_items ayrımı) ve Aşama 3
+(inventory_movements) raporun 5. bölümündeki sırayla ele alınmalıdır.

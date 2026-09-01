@@ -177,6 +177,162 @@ export const productMasters = pgTable("product_masters", {
     ('VALID', 'INVALID', 'MISSING', 'STALE', 'CONFLICTING')`),
 ]);
 
+// ============================================================================
+// AŞAMA 1 — ÜRÜN MERKEZLİ ÇEKİRDEK
+//
+// Denetim bulguları B-01/B-02/B-03 (docs/audit/04) bu tablolarla kapatılır.
+//
+// Tasarım ilkesi: HIZLI DEĞİŞEN veriyle HİÇ DEĞİŞMEYEN veri ayrılır.
+//   products         → ürünün değişmeyen kimliği (başlık, marka, ASIN)
+//   supplierOffers   → tedarikçi fiyatının ZAMAN SERİSİ (günlük değişir)
+//   productLifecycle → ürünün yolculuğundaki her durak (olay defteri)
+//
+// Bu ayrım olmadan fiyat geçmişi ya kaybolur ya da başlık N kez tekrarlanır.
+// Mevcut veride her ikisi de oluyordu: %50.8 tekrar + JSONB'de gömülü fiyat.
+// ============================================================================
+
+/**
+ * 9. PRODUCTS — Ürünün tek doğruluk kaynağı (Single Source of Truth)
+ *
+ * Sistemin kalbi. Bir ASIN burada BİR kez yaşar; siparişler, teklifler ve
+ * yaşam döngüsü olayları buraya bağlanır.
+ *
+ * `orders` tablosundaki ürün alanları (productTitle, brandName, imageUrl…)
+ * geçiş boyunca korunur ama doğruluk kaynağı artık burasıdır.
+ */
+export const products = pgTable("products", {
+  id: serial("id").primaryKey(),
+
+  // Kimlik — ASIN pazaryeri kimliği, UPC üretici kimliği
+  asin: text("asin").notNull().unique(),
+  upc: text("upc"),
+  title: text("title").notNull(),
+  brand: text("brand").notNull().default("General"),
+  category: text("category").notNull().default("UNCATEGORIZED"),
+  imageUrl: text("image_url"),
+  amazonUrl: text("amazon_url"),
+
+  // Fiziksel nitelikler — kargo ve prep maliyetini etkiler
+  isFragile: boolean("is_fragile").notNull().default(false),
+  isMultiPack: boolean("is_multipack").notNull().default(false),
+  isBundle: boolean("is_bundle").notNull().default(false),
+  countPerBundle: integer("count_per_bundle"),
+  packCount: integer("pack_count").notNull().default(1),
+
+  /**
+   * Ürünün yolculuktaki mevcut durağı. Kullanıcının tarif ettiği akış:
+   * keşif → analiz → puanlama → onay → satın alma → depo → listeleme →
+   * satış → izleme → (gerekirse) durdurma
+   */
+  lifecycleStage: text("lifecycle_stage").notNull().default("DISCOVERED"),
+
+  /** Ürün aktif takipte mi, yoksa durduruldu mu? */
+  isActive: boolean("is_active").notNull().default(true),
+
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+},
+(t) => [
+  index("products_brand_idx").on(t.brand),
+  index("products_lifecycle_idx").on(t.lifecycleStage),
+  index("products_active_idx").on(t.isActive),
+
+  check("products_lifecycle_enum", sql`${t.lifecycleStage} in (
+    'DISCOVERED', 'ANALYZING', 'SCORED', 'APPROVED', 'REJECTED',
+    'PURCHASING', 'IN_WAREHOUSE', 'LISTED', 'SELLING', 'MONITORING',
+    'PAUSED', 'DISCONTINUED')`),
+  check("products_pack_count_positive", sql`${t.packCount} > 0`),
+  check("products_bundle_count_positive", sql`
+    ${t.countPerBundle} is null or ${t.countPerBundle} > 0`),
+]);
+
+/**
+ * 10. SUPPLIER_OFFERS — Tedarikçi fiyatının zaman serisi
+ *
+ * Denetim bulgusu B-02: gerçek veride B0DGQX1FS7'nin maliyeti iki günde
+ * $29.99 → $26.24 düşmüştü (-%12.5). Bu bir hata değil, arbitraj sinyaliydi;
+ * ama şema onu saklayamıyordu (JSONB `costHistory` sorgulanamaz).
+ *
+ * Artık her fiyat gözlemi bir satırdır. "Maliyeti düşen ürünler" sorgusu
+ * pencere fonksiyonuyla yazılabilir hale gelir.
+ */
+export const supplierOffers = pgTable("supplier_offers", {
+  id: serial("id").primaryKey(),
+
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+
+  supplierName: text("supplier_name").notNull(),
+  supplierCode: text("supplier_code"),
+  sourceUrl: text("source_url"),
+  sourceDomain: text("source_domain"),
+
+  /** Gözlem anındaki birim fiyat */
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("USD"),
+  inStock: boolean("in_stock").notNull().default(true),
+
+  /**
+   * Fiyatın GÖZLENDİĞİ an. Veri tazeliği (dataFreshness motoru) artık
+   * ayrı bir metin alanı değil, bu damganın yaşıdır.
+   */
+  observedAt: timestamp("observed_at").defaultNow().notNull(),
+
+  /** Gözlem nereden geldi: manuel giriş, XLS import, ileride scraper/API */
+  sourceType: text("source_type").notNull().default("XLS_IMPORT"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+},
+(t) => [
+  // En sık sorgu: "bu ürünün son fiyatı" → (product_id, observed_at desc)
+  index("supplier_offers_product_observed_idx").on(t.productId, t.observedAt),
+  index("supplier_offers_supplier_idx").on(t.supplierName),
+
+  check("supplier_offers_price_non_negative", sql`${t.unitPrice} >= 0`),
+  check("supplier_offers_source_type_enum", sql`${t.sourceType} in (
+    'XLS_IMPORT', 'MANUAL', 'SCRAPER', 'API', 'MIGRATION')`),
+]);
+
+/**
+ * 11. PRODUCT_LIFECYCLE_EVENTS — Ürünün hafızası
+ *
+ * "Ve bütün bu yolculuk boyunca Cerberus hafızasını büyütür."
+ *
+ * Her durak bir olaydır: ne zaman, kim tarafından, hangi durumdan hangi
+ * duruma. Bu tablo olmadan ürünün geçmişi yalnızca "şu an neredeyiz"
+ * bilgisine indirgenir — nasıl geldiğimiz kaybolur.
+ */
+export const productLifecycleEvents = pgTable("product_lifecycle_events", {
+  id: serial("id").primaryKey(),
+
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+
+  fromStage: text("from_stage"),
+  toStage: text("to_stage").notNull(),
+
+  /** Olayı tetikleyen: kullanıcı adı ya da 'SYSTEM' */
+  actorName: text("actor_name").notNull().default("SYSTEM"),
+
+  /** Kararın gerekçesi — denetlenebilirlik için zorunlu alan değil ama önemli */
+  reason: text("reason"),
+
+  /** Olay anındaki ölçüm bağlamı (ROI, skor vb.) — denetim izi */
+  contextSnapshot: jsonb("context_snapshot").notNull().default({}),
+
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+},
+(t) => [
+  index("lifecycle_events_product_time_idx").on(t.productId, t.occurredAt),
+  check("lifecycle_events_to_stage_enum", sql`${t.toStage} in (
+    'DISCOVERED', 'ANALYZING', 'SCORED', 'APPROVED', 'REJECTED',
+    'PURCHASING', 'IN_WAREHOUSE', 'LISTED', 'SELLING', 'MONITORING',
+    'PAUSED', 'DISCONTINUED')`),
+]);
+
 // 6. Orders Master Table (Exact 40-Column Google Drive XLS Structure + PSH & Inventory Lab)
 export const orders = pgTable(
   "orders",
@@ -245,6 +401,21 @@ export const orders = pgTable(
 
   // PSH & Envanter Takip Entegrasyon Alanları
   // T2.2: Batch referansı FK ile zorlanır (nullable — batch'e bağlanmamış sipariş olabilir)
+  /**
+   * AŞAMA 1 — Ürün bağlantısı (denetim bulgusu B-03).
+   *
+   * Önce: orders ile product_masters ASIN METNİ üzerinden "umutla"
+   * eşleşiyordu. Gerçek veride kesişim SIFIR çıkmıştı ve kimse fark
+   * etmemişti — çünkü veritabanı bunu engelleyecek bir kısıt tanımıyordu.
+   * Gerçekleşen ROI motorunun uydurma sayı üretmesinin kök nedeni buydu.
+   *
+   * Şimdi: FK garantisi. Geçiş sırasında nullable; geri doldurma
+   * tamamlandıktan sonra NOT NULL yapılacak (Aşama 1.2).
+   */
+  productId: integer("product_id").references(() => products.id, {
+    onDelete: "restrict",
+  }),
+
   pshBatchNo: text("psh_batch_no").references(() => pshBatches.batchNumber), // PSH Batch Numarası (ör: BATCH-2026-01)
   pshStatus: text("psh_status").notNull().default("BEKLIYOR"), // 'BEKLIYOR' | 'BATCH_OLUSTURULDU' | 'DEPO_SAYILDI' | 'AMAZONA_SEVK'
   inventoryLabStatus: text("inventory_lab_status").notNull().default("GIRILMEDI"), // 'GIRILMEDI' | 'GIRILDI' | 'AKTIF_SATISTA'
@@ -257,6 +428,7 @@ export const orders = pgTable(
   uniqueIndex("orders_order_number_store_uq").on(t.orderNumber, t.buyerStore),
   index("orders_buyer_store_date_idx").on(t.buyerStore, t.orderDate),
   index("orders_asin_idx").on(t.asin),
+  index("orders_product_id_idx").on(t.productId),
 
   // ── Aşama 0: Veri bütünlüğü güvenlik ağı (denetim bulgusu B-04) ──
   // Veritabanı son savunma hattıdır. Bu kurallar uygulama katmanında da
@@ -333,3 +505,8 @@ export type ProductMaster = typeof productMasters.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type PshBatch = typeof pshBatches.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type Product = typeof products.$inferSelect;
+export type NewProduct = typeof products.$inferInsert;
+export type SupplierOffer = typeof supplierOffers.$inferSelect;
+export type NewSupplierOffer = typeof supplierOffers.$inferInsert;
+export type ProductLifecycleEvent = typeof productLifecycleEvents.$inferSelect;

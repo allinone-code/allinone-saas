@@ -8,13 +8,14 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import path from "node:path";
-import { orders, stores, pshBatches } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { orders, stores, pshBatches, products, supplierOffers } from "@/db/schema";
 
 const db = drizzle(new PGlite());
-/** PG hata kodları: 23503=FKey, 23505=Unique, 23514=Check. Drizzle hatası cause zincirinde taşınır. */
+/** PG hata kodları: 23503=FKey, 23505=Unique, 23514=Check, 23001=Restrict. Drizzle hatası cause zincirinde taşınır. */
 async function expectPgError(
   promise: Promise<unknown>,
-  code: "23503" | "23505" | "23514"
+  code: "23503" | "23505" | "23514" | "23001"
 ) {
   try {
     await promise;
@@ -219,5 +220,152 @@ describe("CHECK kısıtları — fiziksel olarak imkânsız veri reddedilir", ()
       .values(base({ quantity: 10, shippedToAmazon: 4, cargoStatus: "İPTAL" }))
       .returning();
     expect(row.cargoStatus).toBe("İPTAL");
+  });
+});
+
+/**
+ * AŞAMA 1 — Ürün merkezli çekirdeğin veritabanı garantileri.
+ *
+ * Denetim bulgusu B-03: orders ile ürün arasında FK yoktu, ASIN metniyle
+ * eşleşiyordu ve gerçek veride kesişim SIFIR çıkmıştı. Bu testler bağın
+ * artık veritabanı tarafından zorlandığını kanıtlar.
+ */
+describe("Ürün merkezli çekirdek (Aşama 1)", () => {
+  beforeAll(async () => {
+    await insertStore("PRD");
+  });
+
+  it("ASIN benzersizdir: aynı ürün iki kez yaratılamaz (B-01)", async () => {
+    await db.insert(products).values({ asin: "B0UNIQUE01", title: "Ürün A" });
+    await expectPgError(
+      db.insert(products).values({ asin: "B0UNIQUE01", title: "Ürün A kopya" }),
+      "23505"
+    );
+  });
+
+  it("FK: var olmayan ürüne sipariş bağlanamaz (B-03)", async () => {
+    await expectPgError(
+      db.insert(orders).values({
+        ...ORDER_BASE,
+        buyerStore: "PRD",
+        orderNumber: "WO-PRD-FK",
+        productId: 999999,
+      }),
+      "23503"
+    );
+  });
+
+  it("geçerli ürüne bağlı sipariş yazılabilir ve JOIN çalışır", async () => {
+    const [p] = await db
+      .insert(products)
+      .values({ asin: "B0LINKED01", title: "Bağlı Ürün" })
+      .returning();
+
+    const [o] = await db
+      .insert(orders)
+      .values({
+        ...ORDER_BASE,
+        buyerStore: "PRD",
+        orderNumber: "WO-PRD-LINK",
+        productId: p.id,
+      })
+      .returning();
+
+    expect(o.productId).toBe(p.id);
+  });
+
+  it("fiyat zaman serisi: aynı ürüne farklı tarihli gözlemler yazılır (B-02)", async () => {
+    const [p] = await db
+      .insert(products)
+      .values({ asin: "B0TREND001", title: "Trend Ürünü" })
+      .returning();
+
+    await db.insert(supplierOffers).values([
+      {
+        productId: p.id,
+        supplierName: "TEST TEDARIKCI",
+        unitPrice: "29.99",
+        observedAt: new Date("2026-02-11"),
+      },
+      {
+        productId: p.id,
+        supplierName: "TEST TEDARIKCI",
+        unitPrice: "26.24",
+        observedAt: new Date("2026-02-13"),
+      },
+    ]);
+
+    const rows = await db
+      .select()
+      .from(supplierOffers)
+      .where(eq(supplierOffers.productId, p.id));
+
+    expect(rows).toHaveLength(2);
+  });
+
+  it("negatif fiyatlı teklif reddedilir", async () => {
+    const [p] = await db
+      .insert(products)
+      .values({ asin: "B0NEGPRICE", title: "Negatif" })
+      .returning();
+
+    await expectPgError(
+      db.insert(supplierOffers).values({
+        productId: p.id,
+        supplierName: "X",
+        unitPrice: "-5.00",
+      }),
+      "23514"
+    );
+  });
+
+  it("tanımsız yaşam döngüsü durağı reddedilir", async () => {
+    await expectPgError(
+      db.insert(products).values({
+        asin: "B0BADSTAGE",
+        title: "Hatalı durak",
+        lifecycleStage: "UCUYOR",
+      }),
+      "23514"
+    );
+  });
+
+  it("ürün silinince fiyat geçmişi de silinir (cascade)", async () => {
+    const [p] = await db
+      .insert(products)
+      .values({ asin: "B0CASCADE1", title: "Cascade" })
+      .returning();
+
+    await db.insert(supplierOffers).values({
+      productId: p.id,
+      supplierName: "X",
+      unitPrice: "10.00",
+    });
+
+    await db.delete(products).where(eq(products.id, p.id));
+
+    const remaining = await db
+      .select()
+      .from(supplierOffers)
+      .where(eq(supplierOffers.productId, p.id));
+    expect(remaining).toHaveLength(0);
+  });
+
+  it("siparişi olan ürün silinemez (restrict) — veri kaybı önlenir", async () => {
+    const [p] = await db
+      .insert(products)
+      .values({ asin: "B0RESTRICT", title: "Korumalı" })
+      .returning();
+
+    await db.insert(orders).values({
+      ...ORDER_BASE,
+      buyerStore: "PRD",
+      orderNumber: "WO-PRD-RESTRICT",
+      productId: p.id,
+    });
+
+    // ON DELETE RESTRICT ihlali 23001 kodu üretir (23503 değil): sipariş
+    // geçmişi olan bir ürün silinerek P&L tarihçesi yok edilemez.
+    await expectPgError(db.delete(products).where(eq(products.id, p.id)), "23001");
   });
 });
