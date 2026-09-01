@@ -1,0 +1,235 @@
+openapi: 3.0.3
+info:
+  title: CERBERUS Commerce OS — API Sözleşmesi (T3.5)
+  version: "3.0-faz3"
+  description: >
+    Tüm uçlar `cerberus_session` imzalı JWT çerezi ile korunur (açık uçlar: /api/auth/login, /api/health).
+    Kimliksiz istek 401; rol/storeCode ihlali 403; doğrulama hatası 422; sunucu hatası 500 + correlationId döner.
+servers:
+  - url: /
+tags: [auth, orders, intelligence, batches, admin, system]
+
+paths:
+  /api/health:
+    get:
+      tags: [system]
+      summary: Canlılık + DB bağlantı kontrolü (hata detayı sızdırmaz)
+      security: []
+      responses:
+        "200": { description: healthy }
+        "500": { description: unhealthy (detay yalnızca sunucu logunda) }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Giriş — bcrypt doğrulama, rate-limit (5/15dk), imzalı JWT çerez
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        "200": { description: "success + kullanıcı özeti; Set-Cookie: cerberus_session (httpOnly, 8s)" }
+        "401": { description: "E-posta/parola hatalı veya iptal edilmiş parola" }
+        "422": { description: "Zod doğrulama hatası" }
+        "429": { description: "Rate limit; Retry-After başlığı" }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Çerezi siler
+      responses: { "200": { description: "success" } }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Mevcut oturum bilgisi
+      responses:
+        "200": { description: "authenticated + user" }
+        "401": { description: "Oturum yok/geçersiz" }
+
+  /api/orders:
+    get:
+      tags: [orders]
+      summary: Sipariş listesi + SQL KPI + sayfalama
+      parameters:
+        - { name: storeCode, in: query, schema: { type: string } , description: "STORE_USER için yok sayılır (F-11)" }
+        - { name: cargoStatus, in: query, schema: { type: string } }
+        - { name: pshBatchNo, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1, minimum: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 200, maximum: 2000 } }
+      responses:
+        "200": { description: "orders, stores, batches, auditLogs, users(güvenli), kpis, pagination" }
+        "401": { description: Oturum gerekli }
+    post:
+      tags: [orders]
+      summary: Yeni sipariş (40-kolon XLS sözleşmesi; orderCreateSchema)
+      responses:
+        "200": { description: "message + order" }
+        "401": { description: Oturum gerekli }
+        "422": { description: Doğrulama hatası }
+
+  /api/orders/summary:
+    get:
+      tags: [orders]
+      summary: Yalnızca KPI özeti (SQL aggregate; satır dönmez)
+      parameters:
+        - { name: storeCode, in: query, schema: { type: string } }
+      responses:
+        "200": { description: "storeScope + kpis" }
+        "401": { description: Oturum gerekli }
+
+  /api/orders/{id}:
+    patch:
+      tags: [orders]
+      summary: Sipariş güncelle (beyaz liste alanlar; storeCode kapsam kontrolü)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: "message + order" }
+        "401": { description: Oturum gerekli }
+        "403": { description: Mağaza kapsamı dışı }
+        "422": { description: Doğrulama hatası }
+    delete:
+      tags: [orders]
+      summary: Sipariş sil (yalnız ADMIN/MANAGER)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: silindi }
+        "401": { description: Oturum gerekli }
+        "403": { description: Yetki yetersiz }
+
+  /api/orders/import-xls:
+    post:
+      tags: [orders]
+      summary: Toplu XLS satırı içe aktarım (transaction; 5.000 satır / 15 MB üst sınır)
+      responses:
+        "200": { description: importedCount }
+        "401": { description: Oturum gerekli }
+        "413": { description: Gövde çok büyük }
+        "422": { description: Doğrulama hatası }
+
+  /api/orders/import-drive-url:
+    post:
+      tags: [orders]
+      summary: Google Drive XLS ayrıştırma (15 sn timeout, 20 MB üst sınır)
+      responses:
+        "200": { description: "headers + rows" }
+        "401": { description: Oturum gerekli }
+        "413": { description: Kaynak çok büyük }
+
+  /api/intelligence:
+    get:
+      tags: [intelligence]
+      summary: Product Master vault + araştırmacı skorları + sabah brifingi
+      responses:
+        "200": { description: productMasters, researchers, researchSessions, morningBriefing }
+        "401": { description: Oturum gerekli }
+    post:
+      tags: [intelligence]
+      summary: Yeni Product Master yakalama (Decision Engine hesapları sunucuda)
+      responses:
+        "200": { description: "message + master" }
+        "401": { description: Oturum gerekli }
+        "422": { description: Doğrulama hatası }
+
+  /api/intelligence/{id}:
+    patch:
+      tags: [intelligence]
+      summary: Karar aksiyonu güncelle (ADMIN/MANAGER onay matrisi)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: "message + master" }
+        "401": { description: Oturum gerekli }
+        "403": { description: Yetki yetersiz }
+        "422": { description: Doğrulama hatası }
+
+  /api/batches:
+    get:
+      tags: [batches]
+      summary: PSH batch listesi (mağaza kapsamlı)
+      responses:
+        "200": { description: batches }
+        "401": { description: Oturum gerekli }
+    post:
+      tags: [batches]
+      summary: Batch oluştur + sipariş bağla
+      responses:
+        "200": { description: "message + batch" }
+        "401": { description: Oturum gerekli }
+        "422": { description: Doğrulama hatası }
+
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: Kullanıcı listesi (ADMIN)
+      responses:
+        "200": { description: "users (password_hash içermez)" }
+        "401": { description: Oturum gerekli }
+        "403": { description: Yetki yetersiz }
+    post:
+      tags: [admin]
+      summary: Kullanıcı oluştur (ADMIN; parola bcrypt, min 12 kr.)
+      responses:
+        "200": { description: "message + user" }
+        "422": { description: Doğrulama hatası }
+    patch:
+      tags: [admin]
+      summary: Kullanıcı güncelle (ADMIN)
+      responses:
+        "200": { description: "message + user" }
+        "422": { description: Doğrulama hatası }
+
+  /api/admin/stores:
+    get:
+      tags: [admin]
+      summary: Mağaza listesi + canlı istatistik (giriş yapmış herkes)
+      responses:
+        "200": { description: stores }
+        "401": { description: Oturum gerekli }
+    post:
+      tags: [admin]
+      summary: Mağaza oluştur (ADMIN/MANAGER)
+      responses:
+        "200": { description: "message + store" }
+        "403": { description: Yetki yetersiz }
+        "422": { description: Doğrulama hatası }
+    patch:
+      tags: [admin]
+      summary: Mağaza güncelle (ADMIN/MANAGER)
+      responses:
+        "200": { description: "message + store" }
+        "403": { description: Yetki yetersiz }
+
+  /api/admin/master-crud:
+    delete:
+      tags: [admin]
+      summary: Satır silme (ADMIN/MANAGER; audit_logs tablosu kapalı — F-09)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tableName: { type: string, enum: [orders, users, stores, pshBatches, productMasters] }
+                id: { type: integer }
+                storeCodeFilter: { type: string }
+      responses:
+        "200": { description: silindi }
+        "403": { description: "auditLog silme engeli / yetki" }
+
+  /api/admin/database-reset:
+    post:
+      tags: [admin]
+      summary: "Yıkıcı sıfırlama araçları — YALNIZCA geliştirme ortamı (üretimde 404), ADMIN + RESET-CERBERUS onayı"
+      responses:
+        "200": { description: başarılı }
+        "404": { description: Üretimde kapalı }

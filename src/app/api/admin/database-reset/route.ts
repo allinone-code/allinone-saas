@@ -10,6 +10,7 @@ import {
   stores,
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
+import { handleRouteError } from "@/lib/apiResponse";
 import { eq, ne } from "drizzle-orm";
 
 export async function POST(req: Request) {
@@ -124,8 +125,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ error: "Geçersiz işlem tipi" }, { status: 400 });
-  } catch (error: any) {
-    console.error("POST /api/admin/database-reset error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/admin/database-reset", error);
   }
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { parseBody, orderCreateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 import { desc, eq, and, inArray, count, sql } from "drizzle-orm";
 
 export async function GET(req: Request) {
@@ -16,6 +18,10 @@ export async function GET(req: Request) {
     const requestedStore = searchParams.get("storeCode") || "ALL";
     const cargoStatus = searchParams.get("cargoStatus");
     const pshBatchNo = searchParams.get("pshBatchNo");
+
+    // Sayfalama standardı (T3.2): page 1'den başlar, pageSize üst sınırı 2000
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const pageSize = Math.min(2000, Math.max(1, Number(searchParams.get("pageSize")) || 200));
 
     // Mağaza izolasyonu sunucuda, oturum claim'inden zorlanır (F-11):
     // istemciden gelen storeCode parametresi STORE_USER için yok sayılır.
@@ -32,17 +38,17 @@ export async function GET(req: Request) {
       conditions.push(eq(orders.pshBatchNo, pshBatchNo));
     }
 
-    const allOrders =
-      conditions.length > 0
-        ? await db
-            .select()
-            .from(orders)
-            .where(and(...conditions))
-            .orderBy(desc(orders.orderDate), desc(orders.id))
-        : await db
-            .select()
-            .from(orders)
-            .orderBy(desc(orders.orderDate), desc(orders.id));
+    const ordersBase = db.select().from(orders);
+    const allOrders = await (conditions.length > 0
+      ? ordersBase
+          .where(and(...conditions))
+          .orderBy(desc(orders.orderDate), desc(orders.id))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize)
+      : ordersBase
+          .orderBy(desc(orders.orderDate), desc(orders.id))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize));
 
     // KPI seçimi SQL tarafında aggregate ile hesaplanir (T2.6):
     // bellekte tum tabloyu reduce etmek yok; sayfa boyutu buyurse bile sabit maliyet
@@ -109,6 +115,12 @@ export async function GET(req: Request) {
       users: allUsers,
       // Anonim fallback kaldırıldı: oturum bu noktada garanti edilir (F-02/F-05)
       currentUser,
+      pagination: {
+        page,
+        pageSize,
+        total: totalOrdersCount,
+        pageCount: Math.ceil(totalOrdersCount / pageSize),
+      },
       kpis: {
         totalOrdersCount,
         totalUnits,
@@ -122,12 +134,8 @@ export async function GET(req: Request) {
         totalRefunds: totalRefunds.toFixed(2),
       },
     });
-  } catch (error: any) {
-    console.error("GET /api/orders error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to fetch orders" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("GET /api/orders", error);
   }
 }
 
@@ -137,7 +145,10 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
+    // Zod doğrulama (T3.1): 40 kolonluk sözleşme tek şemada merkezileşti
+    const parsed = await parseBody(req, orderCreateSchema);
+    if ("response" in parsed) return parsed.response;
+    const body = parsed.data;
 
     // Mağaza kapsamı oturumdan zorlanır (F-11): STORE_USER başka mağazaya yazamaz
     const targetStore = resolveStoreScope(currentUser, body.buyerStore || "HRN");
@@ -188,13 +199,6 @@ export async function POST(req: Request) {
 
     // Aktör adı istemciden değil oturumdan alınır (audit spoofing engeli)
     const actorName = currentUser.name;
-
-    if (!productTitle || !asin || !orderNumber) {
-      return NextResponse.json(
-        { error: "Ürün adı, ASIN ve Sipariş No zorunludur" },
-        { status: 400 }
-      );
-    }
 
     const calculatedTotal = Number(totalCost) || Number(unitCost) * Number(quantity);
     const calculatedCorrected = Number(correctedCost) || calculatedTotal;
@@ -262,11 +266,7 @@ export async function POST(req: Request) {
       message: "Sipariş Google Drive XLS veritabanına başarıyla kaydedildi.",
       order: inserted,
     });
-  } catch (error: any) {
-    console.error("POST /api/orders error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to create order" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/orders", error);
   }
 }

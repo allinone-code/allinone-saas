@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { productMasters, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireRole, isDenied } from "@/lib/guards";
+import { parseBody, intelligencePatchSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 export async function PATCH(
   req: Request,
@@ -15,7 +17,11 @@ export async function PATCH(
     const currentUser = gate.user;
 
     const { id } = await context.params;
-    const body = await req.json();
+
+    // Zod doğrulama (T3.1): karar aksiyonu enum olarak doğrulanır
+    const parsed = await parseBody(req, intelligencePatchSchema);
+    if ("response" in parsed) return parsed.response;
+    const body = parsed.data;
 
     const existing = await db
       .select()
@@ -78,7 +84,7 @@ export async function PATCH(
       message: "Decision Engine aksiyonu güncellendi",
       master: updated,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("PATCH /api/intelligence/[id]", error);
   }
 }

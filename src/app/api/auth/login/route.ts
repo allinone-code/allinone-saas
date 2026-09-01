@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken } from "@/lib/session";
 import { hashPassword, isRevokedLegacyPassword, verifyPassword } from "@/lib/passwords";
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
+import { parseBody, loginSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 function getClientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
@@ -14,17 +16,11 @@ function getClientIp(req: Request): string {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const cleanEmail = String(body.email || "").trim().toLowerCase();
-    const cleanPassword = String(body.password ?? "").trim();
-
-    if (!cleanEmail) {
-      return NextResponse.json({ error: "E-posta adresi gereklidir" }, { status: 400 });
-    }
-    // Boş parola artık asla kabul edilmez (F-04)
-    if (!cleanPassword) {
-      return NextResponse.json({ error: "Parola gereklidir" }, { status: 400 });
-    }
+    // Zod doğrulama (T3.1): format/uzunluk kuralları şemada merkezileşti
+    const parsed = await parseBody(req, loginSchema);
+    if ("response" in parsed) return parsed.response;
+    const cleanEmail = parsed.data.email;
+    const cleanPassword = parsed.data.password.trim();
 
     // Brute-force koruması (F-07): IP+hesap 5/15dk, IP geneli 30/15dk
     const ip = getClientIp(req);
@@ -131,8 +127,7 @@ export async function POST(req: Request) {
     });
 
     return res;
-  } catch (error: any) {
-    console.error("Login error:", error);
-    return NextResponse.json({ error: "Giriş sırasında bir hata oluştu" }, { status: 500 });
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/auth/login", error);
   }
 }

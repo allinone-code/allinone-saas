@@ -9,6 +9,8 @@ import {
 } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { requireUser, isDenied } from "@/lib/guards";
+import { parseBody, intelligenceCreateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 function calculateLandedCostAndProfit(
   sourcePrice: number,
@@ -160,7 +162,10 @@ export async function POST(req: Request) {
     if (isDenied(gate)) return gate.response;
     const currentUser = gate.user;
 
-    const body = await req.json();
+    // Zod doğrulama (T3.1)
+    const parsed = await parseBody(req, intelligenceCreateSchema);
+    if ("response" in parsed) return parsed.response;
+    const body = parsed.data;
     const {
       sourceUrl,
       title,
@@ -299,11 +304,7 @@ export async function POST(req: Request) {
       message: `Product Master oluşturuldu. Decision Engine Kararı: ${radar.decisionAction}`,
       master: inserted,
     });
-  } catch (error: any) {
-    console.error("POST /api/intelligence error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to create product master" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/intelligence", error);
   }
 }

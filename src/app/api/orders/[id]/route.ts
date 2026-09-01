@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { orders, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser, requireRole, isDenied, canAccessStore } from "@/lib/guards";
+import { parseBody, orderUpdateSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
 
 export async function PATCH(
   req: Request,
@@ -14,7 +16,11 @@ export async function PATCH(
     const currentUser = gate.user;
 
     const { id } = await context.params;
-    const body = await req.json();
+
+    // Zod doğrulama (T3.1): yalnızca izinli alanlar, strict mod
+    const parsed = await parseBody(req, orderUpdateSchema);
+    if ("response" in parsed) return parsed.response;
+    const body = parsed.data;
 
     const existing = await db
       .select()
@@ -35,39 +41,12 @@ export async function PATCH(
     }
 
     const current = existing[0];
-    const updatePayload: Record<string, any> = {
+    // Strict şema, alan listesinin kendisidir (T3.1): alan beyaz listesi tek yerde
+    const updatePayload: Record<string, unknown> = {
       updatedAt: new Date(),
     };
-
-    // Update allowed fields
-    const fields = [
-      "cargoStatus",
-      "shippedToAmazon",
-      "p1CancelQty",
-      "p2MissingQty",
-      "p3DefectiveQty",
-      "p4ExpiredQty",
-      "problemAction",
-      "problemResult",
-      "refundAmount",
-      "pshBatchNo",
-      "pshStatus",
-      "inventoryLabStatus",
-      "description1",
-      "description2",
-      "auditNote",
-      "driveLink",
-      "sellingPrice",
-      "unitCost",
-      "quantity",
-      "totalCost",
-      "correctedCost",
-    ];
-
-    for (const f of fields) {
-      if (body[f] !== undefined) {
-        updatePayload[f] = body[f];
-      }
+    for (const [key, value] of Object.entries(body)) {
+      if (value !== undefined) updatePayload[key] = value;
     }
 
     const [updated] = await db
@@ -93,12 +72,8 @@ export async function PATCH(
       message: "Sipariş güncellendi",
       order: updated,
     });
-  } catch (error: any) {
-    console.error("PATCH /api/orders/[id] error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to update order" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("PATCH /api/orders/[id]", error);
   }
 }
 
@@ -128,11 +103,7 @@ export async function DELETE(
       message: "Sipariş silindi",
       deletedId: id,
     });
-  } catch (error: any) {
-    console.error("DELETE /api/orders/[id] error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to delete order" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleRouteError("DELETE /api/orders/[id]", error);
   }
 }
