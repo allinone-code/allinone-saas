@@ -12,6 +12,7 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
 import { ProductPortfolio } from "@/features/products/ProductPortfolio";
 import { ProductJourneyDrawer } from "@/features/products/ProductJourneyDrawer";
+import { DiscoveryCaptureModal } from "@/features/products/DiscoveryCaptureModal";
 
 import { useCerberusData } from "@/features/useCerberusData";
 import { Sidebar, buildNavGroups } from "@/features/shell/Sidebar";
@@ -112,6 +113,7 @@ export default function CerberusApp() {
   const [isXlsImportOpen, setIsXlsImportOpen] = useState(false);
   const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
   const [isWarehouseReconOpen, setIsWarehouseReconOpen] = useState(false);
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
 
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER";
   const isStoreLocked = Boolean(
@@ -178,7 +180,7 @@ export default function CerberusApp() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decisionAction, sellingPrice }),
         });
-        if (!res.ok) await refresh();
+        await refresh();
       } catch (err) {
         clientLog.error("intelligence/update", "Karar güncelleme başarısız", { err: String(err) });
         await refresh();
@@ -269,6 +271,50 @@ export default function CerberusApp() {
                 decisionFilter={decisionFilter}
                 onDecisionFilterChange={setDecisionFilter}
                 onSelect={setSelectedMaster}
+                onOpenProduct={(productId) => {
+                  const found = products.find((p) => p.id === productId);
+                  if (found) {
+                    setSelectedProduct(found);
+                    return;
+                  }
+                  setSelectedProduct({
+                    id: productId,
+                    asin: "",
+                    title: "Ürün",
+                    brand: "",
+                    lifecycleStage: "DISCOVERED",
+                    isActive: true,
+                    priceTrend: {
+                      changePercent: null,
+                      direction: "UNKNOWN",
+                      latestPrice: null,
+                      firstPrice: null,
+                      isBuyingOpportunity: false,
+                    },
+                    latestPrice: null,
+                    offerCount: 0,
+                    supplierName: null,
+                    operations: {
+                      orderCount: 0,
+                      unitsPurchased: 0,
+                      unitsShipped: 0,
+                      unitsLost: 0,
+                      lastOrderDate: null,
+                    },
+                    pnl: {
+                      netRevenue: 0,
+                      netProfit: 0,
+                      roiPercent: null,
+                      lossRatePercent: 0,
+                      fulfillmentRatePercent: 0,
+                      refundRatePercent: 0,
+                    },
+                    verdict: "UNMEASURED",
+                    verdictReasons: [],
+                    recommendedAction: "",
+                    severity: "INFO",
+                  });
+                }}
               />
             </div>
           )}
@@ -279,6 +325,7 @@ export default function CerberusApp() {
               summary={productSummary}
               loading={loading}
               onSelect={setSelectedProduct}
+              onDiscover={() => setIsDiscoveryOpen(true)}
             />
           )}
 
@@ -387,6 +434,52 @@ export default function CerberusApp() {
         onClose={() => setIsWarehouseReconOpen(false)}
         onSaved={refresh}
         orders={filteredOrders}
+      />
+
+      <DiscoveryCaptureModal
+        isOpen={isDiscoveryOpen}
+        onClose={() => setIsDiscoveryOpen(false)}
+        researchers={researchers}
+        onCaptured={async (result) => {
+          await refresh();
+          setSelectedProduct({
+            id: result.productId,
+            asin: "",
+            title: "Keşfedilen ürün",
+            brand: "",
+            lifecycleStage: result.lifecycleStage,
+            isActive: true,
+            priceTrend: {
+              changePercent: null,
+              direction: "UNKNOWN",
+              latestPrice: null,
+              firstPrice: null,
+              isBuyingOpportunity: false,
+            },
+            latestPrice: null,
+            offerCount: 0,
+            supplierName: null,
+            operations: {
+              orderCount: 0,
+              unitsPurchased: 0,
+              unitsShipped: 0,
+              unitsLost: 0,
+              lastOrderDate: null,
+            },
+            pnl: {
+              netRevenue: 0,
+              netProfit: 0,
+              roiPercent: null,
+              lossRatePercent: 0,
+              fulfillmentRatePercent: 0,
+              refundRatePercent: 0,
+            },
+            verdict: "UNMEASURED",
+            verdictReasons: [],
+            recommendedAction: "",
+            severity: "INFO",
+          });
+        }}
       />
     </div>
   );

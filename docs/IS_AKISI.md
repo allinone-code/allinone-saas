@@ -372,6 +372,23 @@ denetim kaydına yazılır.
 
 ---
 
+## 9.5 Aşama 3 — keşif hattı (2026-09-02)
+
+Ürün artık siparişten önce var olabilir. Araştırmacı **Ürün Portföyü → Ürün keşfet**
+ile ASIN, alış ve satış fiyatı girer. `POST /api/intelligence` katalogda ürünü
+`DISCOVERED` doğurur, karar motorunu çalıştırır ve durakları yürütür:
+
+```
+DISCOVERED → ANALYZING → SCORED → APPROVED   (BUY / TEST)
+DISCOVERED → REJECTED                        (düşük ROI — analiz uydurulmaz)
+WAIT ise SCORED'da kalır
+```
+
+Karar Kasası'ndaki BUY/TEST/WAIT/REJECT düğmesi aynı durakları senkronlar.
+Onaylı ürüne sipariş yazılınca durak `PURCHASING`'e geçer; satıştaki ürün geri gitmez.
+
+---
+
 ## 10. Kalan teknik borç
 
 Bu turda kapatılmayan, bilinçli olarak devredilen maddeler:

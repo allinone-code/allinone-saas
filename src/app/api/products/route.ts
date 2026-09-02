@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { products, supplierOffers, orders } from "@/db/schema";
+import { products, supplierOffers, orders, productMasters } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
 
     const factsByProduct = new Map(factsRows.map((f) => [f.productId, f]));
 
-    const [catalog, offerRows] = await Promise.all([
+    const [catalog, offerRows, masterRows] = await Promise.all([
       db.select().from(products).orderBy(desc(products.updatedAt)),
       db
         .select({
@@ -72,7 +72,26 @@ export async function GET(req: Request) {
         })
         .from(supplierOffers)
         .orderBy(supplierOffers.observedAt),
+      db
+        .select({
+          id: productMasters.id,
+          productId: productMasters.productId,
+          asin: productMasters.asin,
+          decisionAction: productMasters.decisionAction,
+          opportunityScore: productMasters.opportunityScore,
+          confidenceScore: productMasters.confidenceScore,
+          roiPercent: productMasters.roiPercent,
+          policyStatus: productMasters.policyStatus,
+        })
+        .from(productMasters),
     ]);
+
+    const masterByProductId = new Map<number, (typeof masterRows)[number]>();
+    const masterByAsin = new Map<string, (typeof masterRows)[number]>();
+    for (const m of masterRows) {
+      if (m.productId != null) masterByProductId.set(m.productId, m);
+      masterByAsin.set(String(m.asin || "").toUpperCase(), m);
+    }
 
     const offersByProduct = new Map<number, typeof offerRows>();
     for (const o of offerRows) {
@@ -99,6 +118,18 @@ export async function GET(req: Request) {
         lifecycleStage: p.lifecycleStage as LifecycleStage,
       });
 
+      const linked = masterByProductId.get(p.id) ?? masterByAsin.get(p.asin);
+      const decision = linked
+        ? {
+            action: linked.decisionAction,
+            opportunityScore: linked.opportunityScore,
+            confidenceScore: linked.confidenceScore,
+            roiPercent: linked.roiPercent,
+            policyStatus: linked.policyStatus,
+            productMasterId: linked.id,
+          }
+        : null;
+
       return {
         id: p.id,
         asin: p.asin,
@@ -109,6 +140,7 @@ export async function GET(req: Request) {
         lifecycleStage: p.lifecycleStage,
         isActive: p.isActive,
         discoveredAt: p.discoveredAt,
+        decision,
 
         priceTrend,
         latestPrice: priceTrend.latestPrice,

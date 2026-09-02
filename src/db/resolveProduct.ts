@@ -17,6 +17,12 @@
 import { eq, sql } from "drizzle-orm";
 import { products, supplierOffers, productLifecycleEvents } from "./schema";
 import { extractDomain } from "@/domain/productBackfill";
+import {
+  purchasingWalk,
+  shouldAdvanceToPurchasingOnOrder,
+} from "@/domain/discoveryPipeline";
+import { applyHops } from "./advanceStage";
+import type { LifecycleStage } from "@/domain/productIntelligence";
 
 export interface ResolveProductInput {
   asin: string;
@@ -81,7 +87,7 @@ export async function resolveProduct(
   }
 
   const [existing] = await tx
-    .select({ id: products.id })
+    .select({ id: products.id, lifecycleStage: products.lifecycleStage })
     .from(products)
     .where(eq(products.asin, asin))
     .limit(1);
@@ -91,6 +97,22 @@ export async function resolveProduct(
 
   if (existing) {
     productId = existing.id;
+    // Sipariş, keşif/onay hattındaki ürünü PURCHASING'e çeker.
+    // Satıştaki ürüne ikinci sipariş geri götürmez.
+    if (shouldAdvanceToPurchasingOnOrder(existing.lifecycleStage)) {
+      const hops = purchasingWalk(existing.lifecycleStage as LifecycleStage);
+      if (hops.length > 0) {
+        const walked = await applyHops(tx, productId, hops, "SYSTEM", {
+          asin,
+          source: "order",
+        });
+        if ("invalid" in walked || "notFound" in walked) {
+          throw new Error(
+            `Sipariş durak geçişini uygulayamadı (${existing.lifecycleStage} → PURCHASING).`
+          );
+        }
+      }
+    }
   } else {
     const title = String(input.productTitle ?? "").trim() || `Ürün ${asin}`;
     const brand = String(input.brandName ?? "").trim().toUpperCase() || "GENERAL";

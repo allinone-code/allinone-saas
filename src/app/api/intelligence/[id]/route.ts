@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { productMasters, auditLogs } from "@/db/schema";
+import { productMasters, auditLogs, products } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireRole, isDenied } from "@/lib/guards";
 import { parseBody, intelligencePatchSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { scoringWalk, type DecisionAction } from "@/domain/discoveryPipeline";
+import { applyHops } from "@/db/advanceStage";
+import type { LifecycleStage } from "@/domain/productIntelligence";
 
 export async function PATCH(
   req: Request,
@@ -64,20 +67,54 @@ export async function PATCH(
       updatePayload.costHistory = history;
     }
 
-    const [updated] = await db
-      .update(productMasters)
-      .set(updatePayload)
-      .where(eq(productMasters.id, Number(id)))
-      .returning();
+    const scoringActions = new Set(["BUY", "TEST", "WAIT", "REJECT"]);
 
-    await db.insert(auditLogs).values({
-      actorName: currentUser.name,
-      storeCode: "HRN",
-      actionType: "DECISION_OVERRIDE",
-      targetEntity: `${current.productCode} (${current.title.slice(0, 32)})`,
-      beforeState: current.decisionAction,
-      afterState: updated.decisionAction,
-      details: `Karar motoru aksiyonu ${current.decisionAction} -> ${updated.decisionAction} olarak güncellendi.`,
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(productMasters)
+        .set(updatePayload)
+        .where(eq(productMasters.id, Number(id)))
+        .returning();
+
+      const action = String(body.decisionAction ?? row.decisionAction);
+      if (scoringActions.has(action) && row.productId) {
+        const [catalog] = await tx
+          .select({ lifecycleStage: products.lifecycleStage })
+          .from(products)
+          .where(eq(products.id, row.productId))
+          .limit(1);
+        if (catalog) {
+          const hops = scoringWalk(
+            catalog.lifecycleStage as LifecycleStage,
+            action as DecisionAction,
+            Number(row.roiPercent) || 0
+          );
+          if (hops.length > 0) {
+            const walked = await applyHops(
+              tx,
+              row.productId,
+              hops,
+              currentUser.name || currentUser.email,
+              { source: "decision_override", decision: action }
+            );
+            if ("invalid" in walked || "notFound" in walked) {
+              throw new Error("Karar hattı durak geçişini uygulayamadı.");
+            }
+          }
+        }
+      }
+
+      await tx.insert(auditLogs).values({
+        actorName: currentUser.name,
+        storeCode: "HRN",
+        actionType: "DECISION_OVERRIDE",
+        targetEntity: `${current.productCode} (${current.title.slice(0, 32)})`,
+        beforeState: current.decisionAction,
+        afterState: row.decisionAction,
+        details: `Karar motoru aksiyonu ${current.decisionAction} -> ${row.decisionAction} olarak güncellendi.`,
+      });
+
+      return row;
     });
 
     return NextResponse.json({

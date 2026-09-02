@@ -11,6 +11,7 @@ import {
   ArrowDownRight,
   Minus,
   PackageSearch,
+  Compass,
 } from "lucide-react";
 import type { ProductView, ProductSummaryView } from "../types";
 import {
@@ -128,16 +129,20 @@ function TrendCell({ product }: { product: ProductView }) {
   );
 }
 
+const PIPELINE_STAGES = ["DISCOVERED", "ANALYZING", "SCORED", "APPROVED", "REJECTED"] as const;
+
 export function ProductPortfolio({
   products,
   summary,
   loading,
   onSelect,
+  onDiscover,
 }: {
   products: ProductView[];
   summary: ProductSummaryView | null;
   loading: boolean;
   onSelect: (product: ProductView) => void;
+  onDiscover?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [verdictFilter, setVerdictFilter] = useState("ALL");
@@ -195,6 +200,39 @@ export function ProductPortfolio({
           />
         </div>
       )}
+
+      {/* Aşama 3 — keşif hattı */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface-1 p-3">
+        <span className="px-2 font-mono-tech text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+          Keşif hattı
+        </span>
+        {PIPELINE_STAGES.map((stage) => {
+          const n = summary?.byStage?.[stage] ?? 0;
+          const active = stageFilter === stage;
+          return (
+            <button
+              key={stage}
+              onClick={() => setStageFilter(active ? "ALL" : stage)}
+              className={`rounded-lg border px-2.5 py-1 font-mono-tech text-[11px] font-bold transition ${
+                active
+                  ? "border-brand bg-brand/15 text-brand-soft"
+                  : "border-line bg-surface-base text-ink-muted hover:text-ink"
+              }`}
+            >
+              {STAGE_LABEL[stage]} · {n}
+            </button>
+          );
+        })}
+        {onDiscover && (
+          <button
+            onClick={onDiscover}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-1.5 font-mono-tech text-[11px] font-bold text-white shadow-lg shadow-brand/20"
+          >
+            <Compass className="h-3.5 w-3.5" />
+            Ürün keşfet
+          </button>
+        )}
+      </div>
 
       {/* Filtreler */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface-1 p-4">
@@ -291,6 +329,11 @@ export function ProductPortfolio({
 
                       <td className="p-3.5">
                         <JourneyBar stage={p.lifecycleStage} />
+                        {p.decision && (
+                          <span className="mt-1 inline-block font-mono-tech text-[10px] font-bold text-brand-soft">
+                            {p.decision.action} · {p.decision.opportunityScore}/100
+                          </span>
+                        )}
                       </td>
 
                       <td className="p-3.5">

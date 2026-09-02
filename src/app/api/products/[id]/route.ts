@@ -6,6 +6,7 @@ import {
   productLifecycleEvents,
   orders,
   auditLogs,
+  productMasters,
 } from "@/db/schema";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { requireUser, requireRole, isDenied, resolveStoreScope } from "@/lib/guards";
@@ -65,7 +66,7 @@ export async function GET(
         ? sql`and ${orders.buyerStore} = ${effectiveStore}`
         : sql``;
 
-    const [offers, orderRows, events] = await Promise.all([
+    const [offers, orderRows, events, [linkedMaster]] = await Promise.all([
       db
         .select()
         .from(supplierOffers)
@@ -81,6 +82,11 @@ export async function GET(
         .from(productLifecycleEvents)
         .where(eq(productLifecycleEvents.productId, productId))
         .orderBy(desc(productLifecycleEvents.occurredAt)),
+      db
+        .select()
+        .from(productMasters)
+        .where(eq(productMasters.productId, productId))
+        .limit(1),
     ]);
 
     // Operasyonel gerçekleşme — sipariş satırlarından toplanır
@@ -205,6 +211,21 @@ export async function GET(
         cargoStatus: o.cargoStatus,
         pshStatus: o.pshStatus,
       })),
+      decision: linkedMaster
+        ? {
+            action: linkedMaster.decisionAction,
+            opportunityScore: linkedMaster.opportunityScore,
+            confidenceScore: linkedMaster.confidenceScore,
+            roiPercent: linkedMaster.roiPercent,
+            policyStatus: linkedMaster.policyStatus,
+            productMasterId: linkedMaster.id,
+            profitabilityScore: linkedMaster.profitabilityScore,
+            demandScore: linkedMaster.demandScore,
+            competitionScore: linkedMaster.competitionScore,
+            riskLevel: linkedMaster.riskLevel,
+            researcherName: linkedMaster.researcherName,
+          }
+        : null,
       timeline: events.map((e) => ({
         id: e.id,
         fromStage: e.fromStage,

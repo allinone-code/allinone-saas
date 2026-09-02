@@ -341,6 +341,43 @@ export function ProductJourneyDrawer({
 
           {detail && !loading && (
             <>
+              {detail.decision && (
+                <Section title="Karar motoru — keşif puanı" icon={Wallet}>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <Stat
+                      label="Karar"
+                      value={detail.decision.action}
+                      tone={
+                        detail.decision.action === "BUY"
+                          ? "positive"
+                          : detail.decision.action === "REJECT"
+                            ? "danger"
+                            : detail.decision.action === "WAIT"
+                              ? "caution"
+                              : "info"
+                      }
+                    />
+                    <Stat
+                      label="Fırsat"
+                      value={`${detail.decision.opportunityScore}/100`}
+                    />
+                    <Stat
+                      label="Güven"
+                      value={`%${detail.decision.confidenceScore}`}
+                    />
+                    <Stat
+                      label="Tahmini ROI"
+                      value={percent(Number(detail.decision.roiPercent))}
+                    />
+                  </div>
+                  {detail.decision.researcherName && (
+                    <p className="mt-2 font-mono-tech text-[10px] text-ink-faint">
+                      Keşfeden: {detail.decision.researcherName}
+                    </p>
+                  )}
+                </Section>
+              )}
+
               {/* Yargı ve gerekçe */}
               <div className={`rounded-2xl border p-4 ${TONE_CLASS[tone].chip}`}>
                 <p className="font-display text-sm font-bold">{detail.recommendedAction}</p>

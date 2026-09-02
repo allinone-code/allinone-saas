@@ -81,6 +81,20 @@ export interface BatchView {
   inventoryLabSynced: boolean;
 }
 
+export interface ProductDecisionView {
+  action: string;
+  opportunityScore: number;
+  confidenceScore: number;
+  roiPercent: string | number;
+  policyStatus?: string;
+  productMasterId: number;
+  profitabilityScore?: number;
+  demandScore?: number;
+  competitionScore?: number;
+  riskLevel?: string;
+  researcherName?: string;
+}
+
 export interface ProductMasterView {
   id: number;
   productCode: string;
@@ -89,6 +103,9 @@ export interface ProductMasterView {
   asin: string;
   upc: string;
   researcherName: string;
+  productId?: number | null;
+  catalogStage?: string | null;
+  catalogStageLabel?: string | null;
   dataFreshnessStatus: string;
   dataQualityStatus: string;
   landedCost: string;
@@ -258,6 +275,7 @@ export interface ProductView {
   verdictReasons: string[];
   recommendedAction: string;
   severity: string;
+  decision?: ProductDecisionView | null;
 }
 
 export interface ProductSummaryView {
@@ -267,6 +285,8 @@ export interface ProductSummaryView {
   buyingOpportunities: number;
   totalNetProfit: number;
   productsAtLoss: number;
+  pendingDiscovery?: number;
+  approvedAwaitingPurchase?: number;
 }
 
 export interface LifecycleEventView {
@@ -330,6 +350,7 @@ export interface ProductDetailView {
   verdictReasons: string[];
   recommendedAction: string;
   severity: string;
+  decision?: ProductDecisionView | null;
   orders: Array<{
     id: number;
     orderNumber: string;

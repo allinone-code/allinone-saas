@@ -92,6 +92,17 @@ export const productMasters = pgTable("product_masters", {
   researcherCode: text("researcher_code").notNull().default("SRC-01"),
   researcherName: text("researcher_name").notNull(),
 
+  /**
+   * Aşama 3 — katalog bağı.
+   *
+   * Karar kasası artık ürünün gölgesi değil, ürünün puanlama kaydıdır.
+   * Nullable: tarihsel (ASIN kesişimsiz) demo kayıtları bağlanamayabilir;
+   * yeni keşifler her zaman bir `products` satırına yazılır.
+   */
+  // FK SQL migration'da: products daha aşağıda tanımlandığı için burada
+  // `.references()` çağrısı TDZ'ye düşer. İlişki 0004 göçünde kurulur.
+  productId: integer("product_id"),
+
   // 13-Stage Cerberus Lifecycle
   lifecycleStage: text("lifecycle_stage").notNull().default("APPROVED"),
 
@@ -148,6 +159,7 @@ export const productMasters = pgTable("product_masters", {
 (t) => [
   // ── Aşama 0: Karar kasası bütünlüğü (B-04, B-05) ──
   index("product_masters_asin_idx").on(t.asin),
+  index("product_masters_product_id_idx").on(t.productId),
 
   check("pm_prices_non_negative", sql`
     ${t.sourcePrice} >= 0 and ${t.landedCost} >= 0 and ${t.sellingPrice} >= 0`),

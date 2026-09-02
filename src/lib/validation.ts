@@ -196,11 +196,13 @@ export const intelligenceCreateSchema = z.object({
   brand: shortText(120).optional(),
   category: shortText(120).optional(),
   upc: shortText(32).optional(),
-  asin: shortText(20).optional(),
-  sourcePrice: money.optional(),
-  sellingPrice: money.optional(),
+  // Aşama 3: sahte ASIN üretmek katalogu çöple doldurur. Keşif kimliği zorunlu.
+  asin: shortText(20).min(1, "ASIN zorunludur"),
+  sourcePrice: money,
+  sellingPrice: money,
   prepCost: money.optional(),
   researcherName: shortText(120).optional(),
+  researcherCode: shortText(32).optional(),
   supplierName: shortText(200).optional(),
   notes: shortText(2000).optional(),
 });

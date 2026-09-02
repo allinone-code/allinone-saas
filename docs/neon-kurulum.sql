@@ -1,6 +1,6 @@
 -- ============================================================
 -- CERBERUS — Neon tek dosyalık kurulum
--- Üretildi: 2026-09-02T00:49:54.817Z
+-- Üretildi: 2026-09-02T11:16:00.403Z
 --
 -- KULLANIM: Neon konsolu > SQL Editor > bu dosyanın TAMAMINI
 -- yapıştırın > Run.
@@ -356,6 +356,43 @@ END $$;
 
 ALTER TABLE "orders" ALTER COLUMN "product_id" SET NOT NULL;
 
+-- ---- 0004_asama3_discovery.sql ----
+-- AŞAMA 3 — Karar kasasını ürün kataloğuna bağla.
+--
+-- product_masters.product_id: bir ürünün en fazla bir kasa kaydı vardır.
+-- Tarihsel (ASIN kesişimsiz) kayıtlar NULL kalabilir; yeni keşifler her
+-- zaman bir products satırına yazılır.
+ALTER TABLE "product_masters" ADD COLUMN "product_id" integer;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'product_masters_product_id_products_id_fk'
+  ) THEN
+    ALTER TABLE "product_masters"
+      ADD CONSTRAINT "product_masters_product_id_products_id_fk"
+      FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+  END IF;
+END $$;
+-- Aynı ASIN'e birden fazla kasa kaydı varsa en yeni olan bağlanır.
+WITH ranked AS (
+  SELECT
+    pm.id,
+    p.id AS product_id,
+    row_number() OVER (
+      PARTITION BY p.id
+      ORDER BY pm.discovered_at DESC NULLS LAST, pm.id DESC
+    ) AS rn
+  FROM product_masters pm
+  JOIN products p ON upper(trim(pm.asin)) = p.asin
+  WHERE pm.product_id IS NULL
+)
+UPDATE product_masters pm
+SET product_id = ranked.product_id
+FROM ranked
+WHERE pm.id = ranked.id AND ranked.rn = 1;
+CREATE UNIQUE INDEX IF NOT EXISTS "product_masters_product_id_uq" ON "product_masters" USING btree ("product_id") WHERE "product_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "product_masters_product_id_idx" ON "product_masters" USING btree ("product_id");
+
 -- [3/5] Drizzle migration takibi
 -- Bunlar yazılmazsa 'npm run db:migrate' aynı migration'ları
 -- tekrar uygulamaya çalışır ve hata verir.
@@ -369,6 +406,7 @@ INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('58b92d1f43d
 INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('7d818d719b991b84c2eb810ce58d6c3bbf1debbcae8fb0ed6005870ed7852b61', 1788303393517);
 INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('2b44baa71c80585734b877d5bbc191d4d67f6c589eaa0fe483d5f51d0e0a7c49', 1788304250820);
 INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('82e2580cfc19eda43e36394c3c45b1084562dd5fd7f919d9d70ca0db8cf84b4c', 1788305303323);
+INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('b1041de7d523d8dd4db4037e8b41fb18efa02b8a9d55f79b1ee0b16d9aceeda1', 1788312000000);
 
 -- [4/5] Başlangıç verisi
 
