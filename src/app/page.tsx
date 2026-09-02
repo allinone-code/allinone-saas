@@ -10,6 +10,8 @@ import { PshBatchModal } from "@/components/PshBatchModal";
 import { WarehouseReconciliationModal } from "@/components/WarehouseReconciliationModal";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
+import { ProductPortfolio } from "@/features/products/ProductPortfolio";
+import { ProductJourneyDrawer } from "@/features/products/ProductJourneyDrawer";
 
 import { useCerberusData } from "@/features/useCerberusData";
 import { Sidebar, buildNavGroups } from "@/features/shell/Sidebar";
@@ -28,7 +30,7 @@ import {
 } from "@/features/operations/OperationsPanels";
 import { computeOrderKpis, downloadOrdersCsv, filterOrders } from "@/features/orders/ordersCsv";
 import { clientLog } from "@/lib/clientLogger";
-import type { OrderView, ProductMasterView, TabId } from "@/features/types";
+import type { OrderView, ProductMasterView, ProductView, TabId } from "@/features/types";
 import { isProblemOrder } from "@/features/types";
 
 /** Her sekmenin üst çubukta gösterilecek başlık ve açıklaması */
@@ -36,6 +38,10 @@ const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
   BRIEFING_DECISION: {
     title: "Sabah Brifingi & Karar Kasası",
     subtitle: "Ne değişti, ne önemli, ne yapmalıyım — canlı veriden hesaplanır",
+  },
+  PRODUCTS: {
+    title: "Ürün Portföyü",
+    subtitle: "Keşiften satışa ürün yolculuğu, fiyat trendi ve kâr sağlığı",
   },
   RESEARCHERS: {
     title: "ABD Sourcing Ekibi",
@@ -75,6 +81,8 @@ export default function CerberusApp() {
     stores,
     batches,
     productMasters,
+    products,
+    productSummary,
     researchers,
     briefing,
     loading,
@@ -99,6 +107,7 @@ export default function CerberusApp() {
 
   const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
   const [selectedMaster, setSelectedMaster] = useState<ProductMasterView | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductView | null>(null);
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isXlsImportOpen, setIsXlsImportOpen] = useState(false);
   const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
@@ -121,6 +130,7 @@ export default function CerberusApp() {
     () =>
       buildNavGroups({
         masters: productMasters.length,
+        products: products.length,
         researchers: researchers.length,
         orders: orders.length,
         batches: batches.length,
@@ -128,7 +138,7 @@ export default function CerberusApp() {
         stores: stores.length,
         isAdmin: Boolean(isAdmin),
       }),
-    [productMasters.length, researchers.length, orders.length, batches.length, problemCount, stores.length, isAdmin]
+    [productMasters.length, products.length, researchers.length, orders.length, batches.length, problemCount, stores.length, isAdmin]
   );
 
   const navigate = useCallback((id: TabId) => {
@@ -263,6 +273,15 @@ export default function CerberusApp() {
             </div>
           )}
 
+          {activeTab === "PRODUCTS" && (
+            <ProductPortfolio
+              products={products}
+              summary={productSummary}
+              loading={loading}
+              onSelect={setSelectedProduct}
+            />
+          )}
+
           {activeTab === "RESEARCHERS" && <ResearcherBoard researchers={researchers} />}
 
           {activeTab === "XLS_MASTER" && (
@@ -317,6 +336,13 @@ export default function CerberusApp() {
           )}
         </main>
       </div>
+
+      <ProductJourneyDrawer
+        product={selectedProduct}
+        canManage={Boolean(isAdmin)}
+        onClose={() => setSelectedProduct(null)}
+        onStageChanged={refresh}
+      />
 
       <ProductMasterDrawer
         master={selectedMaster}

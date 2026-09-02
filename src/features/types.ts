@@ -176,6 +176,7 @@ export interface MorningBriefingView {
 
 export type TabId =
   | "BRIEFING_DECISION"
+  | "PRODUCTS"
   | "RESEARCHERS"
   | "XLS_MASTER"
   | "PSH_BATCHES"
@@ -207,4 +208,142 @@ export function isProblemOrder(o: OrderView): boolean {
     Number(o.p4ExpiredQty) > 0 ||
     Number(o.refundAmount) > 0
   );
+}
+
+// ---------------------------------------------------------------------------
+// Aşama 2 — Ürün merkezli görünüm tipleri
+// ---------------------------------------------------------------------------
+
+export interface ProductPnlView {
+  netRevenue: number;
+  netProfit: number;
+  roiPercent: number | null;
+  lossRatePercent: number;
+  fulfillmentRatePercent: number;
+  refundRatePercent: number;
+  reason?: string;
+}
+
+export interface PriceTrendView {
+  changePercent: number | null;
+  direction: "UP" | "DOWN" | "FLAT" | "UNKNOWN";
+  latestPrice: number | null;
+  firstPrice: number | null;
+  isBuyingOpportunity: boolean;
+}
+
+export interface ProductView {
+  id: number;
+  asin: string;
+  title: string;
+  brand: string;
+  imageUrl?: string | null;
+  amazonUrl?: string | null;
+  lifecycleStage: string;
+  isActive: boolean;
+  discoveredAt?: string | null;
+  priceTrend: PriceTrendView;
+  latestPrice: number | null;
+  offerCount: number;
+  supplierName: string | null;
+  operations: {
+    orderCount: number;
+    unitsPurchased: number;
+    unitsShipped: number;
+    unitsLost: number;
+    lastOrderDate: string | null;
+  };
+  pnl: ProductPnlView;
+  verdict: string;
+  verdictReasons: string[];
+  recommendedAction: string;
+  severity: string;
+}
+
+export interface ProductSummaryView {
+  totalProducts: number;
+  byVerdict: Record<string, number>;
+  byStage: Record<string, number>;
+  buyingOpportunities: number;
+  totalNetProfit: number;
+  productsAtLoss: number;
+}
+
+export interface LifecycleEventView {
+  id: number;
+  fromStage: string | null;
+  fromLabel: string | null;
+  toStage: string;
+  toLabel: string;
+  actorName: string;
+  reason: string | null;
+  contextSnapshot: unknown;
+  occurredAt: string;
+}
+
+export interface PriceObservationView {
+  id: number;
+  observedAt: string;
+  unitPrice: number;
+  supplierName: string;
+  sourceDomain: string | null;
+  sourceType: string;
+}
+
+export interface ProductDetailView {
+  storeScope: string;
+  product: ProductView & {
+    upc?: string | null;
+    category?: string | null;
+    stageLabel: string;
+    allowedNextStages: Array<{ stage: string; label: string }>;
+    isTerminal: boolean;
+    packCount: number;
+    updatedAt: string;
+  };
+  priceTrend: PriceTrendView;
+  priceSeries: PriceObservationView[];
+  suppliers: Array<{
+    supplierName: string;
+    count: number;
+    min: number;
+    max: number;
+    last: number;
+  }>;
+  operations: {
+    orderCount: number;
+    unitsPurchased: number;
+    unitsShipped: number;
+    unitsLost: number;
+    totalCost: number;
+    grossRevenue: number;
+    totalRefunds: number;
+    lossBreakdown: {
+      p1Cancel: number;
+      p2Missing: number;
+      p3Defective: number;
+      p4Expired: number;
+    };
+  };
+  pnl: ProductPnlView;
+  verdict: string;
+  verdictReasons: string[];
+  recommendedAction: string;
+  severity: string;
+  orders: Array<{
+    id: number;
+    orderNumber: string;
+    orderDate: string;
+    buyerStore: string;
+    supplierName: string;
+    quantity: number;
+    shippedToAmazon: number;
+    unitCost: string;
+    sellingPrice: string;
+    totalCost: string;
+    refundAmount: string;
+    cargoStatus: string;
+    pshStatus: string;
+  }>;
+  timeline: LifecycleEventView[];
 }

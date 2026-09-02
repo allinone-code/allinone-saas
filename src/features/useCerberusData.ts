@@ -7,6 +7,8 @@ import type {
   MorningBriefingView,
   OrderView,
   ProductMasterView,
+  ProductView,
+  ProductSummaryView,
   ResearcherView,
   SessionUserView,
   StoreView,
@@ -19,6 +21,9 @@ interface CerberusData {
   stores: StoreView[];
   batches: BatchView[];
   productMasters: ProductMasterView[];
+  /** Aşama 2 — ürün merkezli katalog ve portföy özeti */
+  products: ProductView[];
+  productSummary: ProductSummaryView | null;
   researchers: ResearcherView[];
   briefing: MorningBriefingView | null;
   loading: boolean;
@@ -48,6 +53,8 @@ export function useCerberusData(): CerberusData {
   const [stores, setStores] = useState<StoreView[]>([]);
   const [batches, setBatches] = useState<BatchView[]>([]);
   const [productMasters, setProductMasters] = useState<ProductMasterView[]>([]);
+  const [products, setProducts] = useState<ProductView[]>([]);
+  const [productSummary, setProductSummary] = useState<ProductSummaryView | null>(null);
   const [researchers, setResearchers] = useState<ResearcherView[]>([]);
   const [briefing, setBriefing] = useState<MorningBriefingView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,7 +105,7 @@ export function useCerberusData(): CerberusData {
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [ordersRes, intelRes] = await Promise.all([
+        const [ordersRes, intelRes, productsRes] = await Promise.all([
           fetch(`/api/orders?storeCode=${encodeURIComponent(selectedStore)}`, {
             cache: "no-store",
             signal,
@@ -107,14 +114,18 @@ export function useCerberusData(): CerberusData {
             cache: "no-store",
             signal,
           }),
+          fetch(`/api/products?storeCode=${encodeURIComponent(selectedStore)}`, {
+            cache: "no-store",
+            signal,
+          }),
         ]);
 
-        if (ordersRes.status === 401 || intelRes.status === 401) {
+        if (ordersRes.status === 401 || intelRes.status === 401 || productsRes.status === 401) {
           router.push("/login");
           return;
         }
 
-        if (!ordersRes.ok || !intelRes.ok) {
+        if (!ordersRes.ok || !intelRes.ok || !productsRes.ok) {
           setDataError(
             "Veriler sunucudan alınamadı. Ekranda eksik veri gösterilmiyor — lütfen sayfayı yenileyin."
           );
@@ -123,12 +134,15 @@ export function useCerberusData(): CerberusData {
 
         const ordersJson = await ordersRes.json();
         const intelJson = await intelRes.json();
+        const productsJson = await productsRes.json();
 
         setDataError(null);
         setOrders(ordersJson.orders ?? []);
         setStores(ordersJson.stores ?? []);
         setBatches(ordersJson.batches ?? []);
         setProductMasters(intelJson.productMasters ?? []);
+        setProducts(productsJson.products ?? []);
+        setProductSummary(productsJson.summary ?? null);
         setResearchers(intelJson.researchers ?? []);
         setBriefing(intelJson.morningBriefing ?? null);
       } catch (err) {
@@ -190,6 +204,8 @@ export function useCerberusData(): CerberusData {
     stores,
     batches,
     productMasters,
+    products,
+    productSummary,
     researchers,
     briefing,
     loading,

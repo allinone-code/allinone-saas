@@ -560,3 +560,99 @@ Veri katmanı artık ürün merkezli ve kısıtlarla kilitli. Bundan sonrası
 **Aşama 2 — ürün yolculuğunun arayüzü**: ürün detay sayfası (tek ürünün tüm
 hikâyesi: fiyat serisi, operasyon, P&L, olay defteri) ve durak geçişlerini
 kullanıcının yönetebileceği ekranlar.
+
+---
+
+## EK — AŞAMA 2 UYGULANDI (2026-09-02)
+
+Aşama 1 ve 1.2 veri katmanını ürün merkezli hale getirdi ama bu yapı
+**arayüzde görünmüyordu**. Ürün yolculuğu veritabanında vardı, kullanıcı için
+yoktu. Aşama 2 bu boşluğu kapatır.
+
+### 1. Ürün Portföyü (yeni sekme)
+
+Sol menüde **Ürün** kendi grubunda, karardan hemen sonra yer alır — sistemin
+kalbi mağaza değil ürün olduğu için.
+
+Her satır bir ürünün tüm yolculuğunu özetler: kimlik → yolculuk durağı →
+tedarikçi fiyat trendi → operasyonel gerçekleşme → kâr/ROI → yargı ve aksiyon.
+
+Bilinçli tasarım kararları:
+
+- **Sıralama alfabetik değil, aciliyete göre.** Karar destek ekranında
+  alfabetik sıra işe yaramaz. Önce `severity`, eşitlikte **parasal etki
+  büyüklüğü** — zarar da bir etkidir, dolayısıyla -$2.000'lik ürün +$100'lük
+  ürünün önüne geçer.
+- **“Ölçülemedi” ile “sıfır” asla karıştırılmaz.** ROI'si hesaplanamayan ürün
+  `—` gösterir, `%0.0` değil. Bu ikisi tamamen farklı iş durumlarıdır.
+- **Düşen tedarikçi fiyatı yeşildir.** Alışta fiyatın düşmesi bizim lehimizedir;
+  genel “düşüş = kötü” refleksi burada yanlış olur.
+
+### 2. Ürün Yolculuğu Çekmecesi
+
+Satıra tıklandığında tek ürünün **tüm hikâyesi** açılır:
+
+| Bölüm | Ne cevaplar |
+|---|---|
+| Yargı + gerekçe | Bu üründe şimdi ne yapmalıyım? |
+| Kâr / Zarar | Net kâr, ROI, net gelir, toplam maliyet |
+| Operasyonel gerçekleşme | Alım, sevk, fire, iade — **fire nedeni dökümüyle** |
+| Tedarikçi fiyat serisi | Bağımlılıksız SVG grafik + tedarikçi karşılaştırması |
+| Ürün yolculuğu | 9 duraklı ilerleme + durak değiştirme |
+| Olay defteri | Kim, ne zaman, neden — Cerberus'un hafızası |
+| Sipariş geçmişi | Bu ürüne ait tüm siparişler |
+
+**Fire dökümü hemen işe yaradı:** B01CQ3E6HG'nin 26 firesinin tamamının
+`P1 iptal` olduğu ortaya çıktı — depo/kalite sorunu değil, **sipariş iptali**
+sorunu. “Fire %87” tek başına yanlış yere baktırırdı.
+
+### 3. Durak geçişi — üç güvence
+
+`PATCH /api/products/[id]` ürün yolculuğunun kalbidir:
+
+1. **Kurallara uygunluk.** `STAGE_META.next` dışına çıkılamaz. Canlı test:
+   “Satın alınıyor → Satışta” **422** ile reddedildi, izin verilen duraklar
+   yanıtta döndü.
+2. **Gerekçe zorunlu.** 3 karakterden kısa gerekçe **422**. Gerekçesiz karar,
+   aylar sonra okunamayan karardır.
+3. **Kalıcı olay + snapshot.** Her geçiş, o andaki gerçekliği saklar:
+   `{asin, orderCount: 5, unitsPurchased: 30, unitsShipped: 4, totalCost: 1027.91}`.
+   “Bu karar neye bakarak verildi?” sorusu aylar sonra cevaplanabilir.
+
+Yetki: durak değiştirmek sermaye taahhüdü doğurduğu için ADMIN/MANAGER'a özel.
+Mağaza kullanıcısının denemesi **401** aldı.
+
+### Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Test paketi | **221/221 geçti** (186'dan +35) |
+| Yeni testler | 13 durak geçişi (entegrasyon) + 22 biçimlendirme (birim) |
+| `eslint` | temiz (0 hata, 0 uyarı) |
+| `next build` | başarılı, `/api/products/[id]` kayıtlı |
+| Canlı: geçersiz sıçrama | 422 + izin verilen duraklar döndü |
+| Canlı: gerekçesiz geçiş | 422 |
+| Canlı: geçerli geçiş | 200, olay + snapshot yazıldı |
+| Canlı: yetkisiz kullanıcı | 401 |
+
+Test edilen değişmezler arasında dikkat çekenler: başarısız geçiş **olay
+bırakmaz** (transaction geri alınır), `DISCONTINUED`'dan çıkış yoktur, olay
+zinciri **kopuksuzdur** (her olayın `fromStage`'i bir öncekinin `toStage`'i) ve
+veritabanı uydurma durak metnini `23514` ile reddeder.
+
+### Yerel geliştirme notu
+
+Bu ortamda Postgres ikilisi kurulamadığından, önizlemeyi çalıştırmak için
+`DATABASE_URL=pglite:./.pglite-dev` desteği eklendi (testlerin kullandığı
+motorun aynısı). **Üretim yolu değişmedi:** `postgres://` adresleri her zaman
+gerçek `pg` havuzunu kullanır ve `pglite:` şeması `NODE_ENV=production`
+altında açıkça hata verir.
+
+### Sırada ne var
+
+Ürün yolculuğu artık uçtan uca görünür ve yönetilebilir. Mantıklı devam:
+**Aşama 3 — keşif ve puanlama ucunu bağlamak.** Bugün ürünler yolculuğa
+`PURCHASING` durağından giriyor (çünkü sipariş kaydıyla doğuyorlar);
+`DISCOVERED → ANALYZING → SCORED → APPROVED` başlangıcı henüz bir ekrana
+bağlı değil. Karar Kasası'ndaki puanlama mantığı bu duraklarla birleştirilirse
+yolculuk baştan sona tek akış olur.

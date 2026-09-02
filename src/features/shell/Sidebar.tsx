@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  Boxes,
   Building2,
   ChevronLeft,
   FileSpreadsheet,
@@ -29,6 +30,7 @@ export interface NavItem {
 /** Menü grupları — işin akış sırasına göre dizildi: karar → tedarik → operasyon → yönetim */
 export function buildNavGroups(counts: {
   masters: number;
+  products: number;
   researchers: number;
   orders: number;
   batches: number;
@@ -46,6 +48,19 @@ export function buildNavGroups(counts: {
           hint: "İş sağlığı skoru ve karar kasası",
           badge: counts.masters,
           icon: Sun,
+        },
+      ],
+    },
+    {
+      // Ürün, sistemin kalbi: kendi grubunda ve karardan hemen sonra durur.
+      title: "Ürün",
+      items: [
+        {
+          id: "PRODUCTS",
+          label: "Ürün Portföyü",
+          hint: "Keşiften satışa ürün yolculuğu ve kâr sağlığı",
+          badge: counts.products,
+          icon: Boxes,
         },
       ],
     },

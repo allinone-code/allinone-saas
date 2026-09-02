@@ -39,6 +39,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // PGlite WASM/veri dosyalarını taşır; bundler'a girerse yolu bozulur.
+  // Yalnızca yerel geliştirme sürücüsü için gereklidir (bkz. src/db/index.ts).
+  serverExternalPackages: ["@electric-sql/pglite"],
+
   async headers() {
     return [
       {
