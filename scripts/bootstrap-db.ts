@@ -22,6 +22,7 @@ import { sql } from "drizzle-orm";
 
 const RESET = process.argv.includes("--reset");
 const SKIP_SEED = process.argv.includes("--no-seed");
+const INSPECT = process.argv.includes("--inspect");
 
 function step(n: number, title: string) {
   console.log(`\n[${n}/5] ${title}`);
@@ -56,6 +57,85 @@ async function main() {
 
   // Dinamik import: DATABASE_URL doğrulanmadan db modülü yüklenmemeli.
   const { db } = await import("@/db");
+
+  // ---------------------------------------------------------------------
+  // Teşhis modu: hiçbir şey yazmadan mevcut durumu raporla.
+  // Üretim veritabanına komut çalıştırmadan önce ne olacağını görmek için.
+  // ---------------------------------------------------------------------
+  if (INSPECT) {
+    console.log("\nTEŞHİS MODU — hiçbir değişiklik yapılmayacak.\n");
+
+    const tableRows = rowsOf(
+      await db.execute(sql`
+        select table_name from information_schema.tables
+        where table_schema = 'public' order by table_name
+      `)
+    );
+    const names = tableRows.map((r) => String(r.table_name));
+    console.log(`Mevcut tablolar (${names.length}):`);
+    console.log(names.length ? "  " + names.join(", ") : "  (yok — boş veritabanı)");
+
+    // Uygulanmış migration'lar
+    let applied: string[] = [];
+    try {
+      const mig = rowsOf(
+        await db.execute(sql`select hash, created_at from drizzle.__drizzle_migrations order by created_at`)
+      );
+      applied = mig.map((m) => String(m.created_at));
+      console.log(`\nUygulanmış migration sayısı: ${mig.length} / 4`);
+    } catch {
+      console.log("\nUygulanmış migration: yok (drizzle takip tablosu bulunamadı)");
+    }
+
+    // Ürün merkezli tablolar var mı?
+    const need = ["products", "supplier_offers", "product_lifecycle_events"];
+    const missing = need.filter((t) => !names.includes(t));
+    console.log(
+      missing.length === 0
+        ? "\nÜrün merkezli tablolar: MEVCUT"
+        : `\nÜrün merkezli tablolar EKSİK: ${missing.join(", ")}`
+    );
+
+    // Sipariş durumu
+    if (names.includes("orders")) {
+      const [tot] = rowsOf(await db.execute(sql`select count(*)::int as n from orders`));
+      console.log(`\nSipariş sayısı: ${Number(tot?.n ?? 0)}`);
+
+      const [hasCol] = rowsOf(
+        await db.execute(sql`
+          select is_nullable from information_schema.columns
+          where table_name = 'orders' and column_name = 'product_id'
+        `)
+      );
+      if (!hasCol) {
+        console.log("  product_id sütunu: YOK (0002 uygulanmamış)");
+      } else {
+        console.log(`  product_id nullable: ${hasCol.is_nullable}`);
+        const [orph] = rowsOf(
+          await db.execute(sql`select count(*)::int as n from orders where product_id is null`)
+        );
+        const n = Number(orph?.n ?? 0);
+        console.log(`  ürüne bağlanmamış sipariş: ${n}`);
+        if (n > 0) {
+          console.log("    -> bootstrap bunları otomatik geri dolduracak.");
+        }
+      }
+    } else {
+      console.log("\nSipariş tablosu yok — sıfırdan kurulum gerekir.");
+    }
+
+    console.log("\nÖNERİ:");
+    if (names.length === 0) {
+      console.log("  npm run db:bootstrap          # boş veritabanı, doğrudan kurulur");
+    } else if (missing.length > 0) {
+      console.log("  npm run db:bootstrap          # eksik tablolar eklenir, veri korunur");
+      console.log("  npm run db:bootstrap -- --reset   # ya da her şeyi silip sıfırdan");
+    } else {
+      console.log("  Şema güncel görünüyor. Veriyi tazelemek için --reset kullanın.");
+    }
+    console.log("");
+    process.exit(0);
+  }
 
   // -------------------------------------------------------------------------
   step(1, RESET ? "Mevcut şema siliniyor" : "Mevcut durum kontrol ediliyor");

@@ -19,7 +19,42 @@ Kısacası: kod hazır, veritabanı ve üretim ortamı henüz güncellenmedi.
 
 ---
 
-## 1. Neon: veritabanını kur
+## 1. Neon: önce durumu görün (hiçbir şeye dokunmadan)
+
+Komut çalıştırmadan önce veritabanınızın hangi durumda olduğunu öğrenin.
+Bu mod **hiçbir değişiklik yapmaz**, sadece rapor verir ve size hangi komutu
+çalıştırmanız gerektiğini söyler:
+
+```bash
+DATABASE_URL="postgresql://...neon.tech/dbname?sslmode=require" \
+npm run db:bootstrap -- --inspect
+```
+
+Örnek çıktı (boş veritabanı):
+
+```
+Mevcut tablolar (0):
+  (yok — boş veritabanı)
+Ürün merkezli tablolar EKSİK: products, supplier_offers, product_lifecycle_events
+Sipariş tablosu yok — sıfırdan kurulum gerekir.
+
+ÖNERİ:
+  npm run db:bootstrap          # boş veritabanı, doğrudan kurulur
+```
+
+Örnek çıktı (kurulum tamamlanmış):
+
+```
+Uygulanmış migration sayısı: 4 / 4
+Ürün merkezli tablolar: MEVCUT
+Sipariş sayısı: 24
+  product_id nullable: NO
+  ürüne bağlanmamış sipariş: 0
+```
+
+---
+
+## 2. Neon: veritabanını kur
 
 ### Seçenek A — Sıfırdan temiz kurulum (veriyi silmek sorun değilse)
 
@@ -72,7 +107,7 @@ satırı 12 benzersiz ürüne işaret eder. Eski mimaride bu tekrar görünmezdi
 
 ---
 
-## 2. Vercel: ortam değişkenleri
+## 3. Vercel: ortam değişkenleri
 
 Vercel → Project → Settings → Environment Variables:
 
@@ -93,7 +128,7 @@ tüketir.
 
 ---
 
-## 3. Kodu üretime al
+## 4. Kodu üretime al
 
 Bu oturumdaki çalışma `arena/01a05ea7-allinone-saas` dalında. Üretime almak
 için `main`'e merge edin:
@@ -106,12 +141,12 @@ gh pr create --base main --head arena/01a05ea7-allinone-saas \
 
 Vercel `main`'e merge sonrası otomatik deploy eder.
 
-**Sıralama önemli:** Önce Neon migration'ları (adım 1), sonra deploy.
+**Sıralama önemli:** Önce Neon migration'ları (adım 2), sonra deploy.
 Ters sırada yeni kod olmayan tabloları sorgular ve hata verir.
 
 ---
 
-## 4. Deploy sonrası doğrulama
+## 5. Deploy sonrası doğrulama
 
 ```bash
 curl -s https://<site>/api/health/ready
@@ -130,6 +165,7 @@ Ardından arayüzde:
 
 | Komut | Ne yapar |
 |---|---|
+| `npm run db:bootstrap -- --inspect` | **Hiçbir şey yazmaz**, mevcut durumu raporlar |
 | `npm run db:bootstrap` | Şema + geri doldurma + seed (veri korunur) |
 | `npm run db:bootstrap -- --reset` | **Her şeyi siler**, sıfırdan kurar |
 | `npm run db:bootstrap -- --no-seed` | Şema kurar, başlangıç verisi yüklemez |
