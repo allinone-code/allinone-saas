@@ -1,8 +1,7 @@
 # CERBERUS — Kurulum ve Deploy Rehberi
 
 Bu belge, kodu GitHub'dan Neon + Vercel üzerinde çalışır hale getirmek için
-izlenecek sırayı anlatır. Sıra önemlidir; atlanan bir adım sessiz veri
-bozulmasına değil, açık bir hataya yol açacak şekilde tasarlandı.
+izlenecek sırayı anlatır.
 
 ---
 
@@ -11,103 +10,125 @@ bozulmasına değil, açık bir hataya yol açacak şekilde tasarlandı.
 | Katman | Durum |
 |---|---|
 | GitHub (`arena/01a05ea7-allinone-saas`) | Tüm çalışma push edilmiş |
-| `main` | Henüz merge edilmedi |
+| `main` | PR #13 açık, henüz merge edilmedi |
 | Vercel | `main`'i deploy ettiği için eski kodu gösterir |
 | Neon | Yeni tablolar/migration'lar **uygulanmadı** |
 
-Kısacası: kod hazır, veritabanı ve üretim ortamı henüz güncellenmedi.
+---
+
+# YOL A — Neon konsolundan (terminal gerekmez) ⭐ ÖNERİLEN
+
+Zaten Neon konsolu açıksa en kolayı budur. Bilgisayarınıza hiçbir şey
+kurmanız gerekmez.
+
+## A1. SQL dosyasını açın
+
+Depodaki **`docs/neon-kurulum.sql`** dosyasını açın ve **tamamını** kopyalayın
+(483 satır).
+
+GitHub'dan da alabilirsiniz: depo → `docs/neon-kurulum.sql` → **Raw** → tümünü
+seçip kopyalayın.
+
+## A2. Neon SQL Editor'de çalıştırın
+
+1. Neon konsolu → sol menüden **SQL Editor**
+2. Kopyaladığınız SQL'in tamamını yapıştırın
+3. **Run** düğmesine basın
+
+> ⚠️ Dosyanın ilk satırları mevcut `public` şemasını **siler**. Korumak
+> istediğiniz veri varsa `DROP SCHEMA` satırını silin.
+
+Sonunda şu tabloyu görmelisiniz:
+
+| tablo | adet |
+|---|---|
+| stores | 4 |
+| users | 5 |
+| orders | 24 |
+| products | **12** |
+| supplier_offers | 16 |
+| product_lifecycle_events | 12 |
+
+`products` (12) < `orders` (24) olması **doğrudur**: 24 sipariş satırı 12
+benzersiz ürüne işaret eder. Eski mimaride bu tekrar görünmezdi.
+
+## A3. Giriş bilgileri
+
+Kurulum şu hesapları oluşturur:
+
+| E-posta | Rol |
+|---|---|
+| `ahmet@cerberus-commerce.io` | ADMIN |
+| `harun@cerberus-commerce.io` | HRN mağazası |
+| `selin@cerberus-commerce.io` | SEL mağazası |
+| `can@cerberus-commerce.io` | MK mağazası |
+
+**Başlangıç parolası (hepsi için):** `CerberusKurulum2026!`
+
+> 🔐 Bu parola kod deposunda açık yazılıdır, yani herkese açıktır.
+> **İlk girişten hemen sonra değiştirin.**
+
+Bu hash bir testle doğrulanır (`src/setup/neonSetupPassword.test.ts`) —
+yanlış hash yüzünden "kurulum başarılı ama giriş çalışmıyor" durumu olamaz.
 
 ---
 
-## 1. Neon: önce durumu görün (hiçbir şeye dokunmadan)
+# YOL B — Terminalden (bilgisayarınızda)
 
-Komut çalıştırmadan önce veritabanınızın hangi durumda olduğunu öğrenin.
-Bu mod **hiçbir değişiklik yapmaz**, sadece rapor verir ve size hangi komutu
-çalıştırmanız gerektiğini söyler:
+Node.js kuruluysa ve depoyu klonladıysanız bu yol daha esnektir.
+
+## B1. Hazırlık
 
 ```bash
-DATABASE_URL="postgresql://...neon.tech/dbname?sslmode=require" \
+git clone https://github.com/allinone-code/allinone-saas.git
+cd allinone-saas
+git checkout arena/01a05ea7-allinone-saas
+npm install
+```
+
+## B2. Önce durumu görün (hiçbir şey değiştirmez)
+
+```bash
+DATABASE_URL="postgresql://...neon.tech/db?sslmode=require" \
 npm run db:bootstrap -- --inspect
 ```
 
-Örnek çıktı (boş veritabanı):
+Mevcut tabloları, uygulanmış migration sayısını ve ürüne bağlanmamış sipariş
+olup olmadığını raporlar; ardından hangi komutu çalıştırmanız gerektiğini
+söyler.
 
-```
-Mevcut tablolar (0):
-  (yok — boş veritabanı)
-Ürün merkezli tablolar EKSİK: products, supplier_offers, product_lifecycle_events
-Sipariş tablosu yok — sıfırdan kurulum gerekir.
-
-ÖNERİ:
-  npm run db:bootstrap          # boş veritabanı, doğrudan kurulur
-```
-
-Örnek çıktı (kurulum tamamlanmış):
-
-```
-Uygulanmış migration sayısı: 4 / 4
-Ürün merkezli tablolar: MEVCUT
-Sipariş sayısı: 24
-  product_id nullable: NO
-  ürüne bağlanmamış sipariş: 0
-```
-
----
-
-## 2. Neon: veritabanını kur
-
-### Seçenek A — Sıfırdan temiz kurulum (veriyi silmek sorun değilse)
-
-Tek komut her şeyi yapar: şemayı sıfırlar, migration'ları uygular, başlangıç
-verisini yükler.
-
-```bash
-DATABASE_URL="postgresql://...neon.tech/dbname?sslmode=require" \
-SEED_ADMIN_PASSWORD="güçlü-bir-parola" \
-SEED_STORE_PASSWORD="başka-güçlü-parola" \
-npm run db:bootstrap -- --reset
-```
-
-`--reset` **`public` şemasını komple siler**. Geri dönüşü yoktur.
-
-### Seçenek B — Mevcut veriyi koruyarak yükselt
+## B3. Kurun
 
 ```bash
 DATABASE_URL="postgresql://..." \
-SEED_ADMIN_PASSWORD="..." SEED_STORE_PASSWORD="..." \
+SEED_ADMIN_PASSWORD="güçlü-bir-parola" \
+SEED_STORE_PASSWORD="başka-güçlü-parola" \
 npm run db:bootstrap
 ```
 
-Bu modda betik, mevcut siparişlerinizi silmez. `0003` migration'ı ürüne
-bağlanmamış sipariş yüzünden durursa, betik **otomatik olarak** geri
-doldurmayı çalıştırıp göçü tamamlar.
+Terminal yolunun avantajı: parolayı **siz** belirlersiniz, depoda yazılı olan
+ortak parolayı kullanmazsınız.
 
-Gerçek bir eski veritabanı üzerinde doğrulandı:
-
-```
-[2/5] 0003 durdu: ürüne bağlanmamış siparişler var (beklenen).
-[3/5] 2 ürün, 3 fiyat gözlemi, 3 sipariş bağlandı.
-      migration yeniden deneniyor... tüm migration'lar uygulandı.
-[4/5] yetim sipariş yok — product_id bütünlüğü sağlam.
-```
-
-### Beklenen çıktı (temiz kurulum)
-
-```
-stores                     4
-users                      5
-orders                     24
-products                   12
-supplier_offers            16
-product_lifecycle_events   12
-```
-
-`products` sayısı `orders`'tan küçüktür — doğru olan budur: 24 sipariş
-satırı 12 benzersiz ürüne işaret eder. Eski mimaride bu tekrar görünmezdi.
+Tamamen sıfırdan başlamak için sona `-- --reset` ekleyin.
 
 ---
 
-## 3. Vercel: ortam değişkenleri
+## Bağlantı adresi nereden alınır?
+
+Neon konsolu → **Connection Details** → **Connection string**.
+
+**`-pooler`** içeren adresi seçin. Serverless ortamda doğrudan bağlantı,
+her fonksiyon çağrısında yeni bağlantı açarak Neon limitini tüketir.
+
+```
+postgresql://kullanici:parola@ep-xxx-pooler.bolge.aws.neon.tech/dbname?sslmode=require
+```
+
+---
+
+# Sonraki adımlar
+
+## 1. Vercel: ortam değişkenleri
 
 Vercel → Project → Settings → Environment Variables:
 
@@ -128,7 +149,7 @@ tüketir.
 
 ---
 
-## 4. Kodu üretime al
+## 2. Kodu üretime al
 
 Bu oturumdaki çalışma `arena/01a05ea7-allinone-saas` dalında. Üretime almak
 için `main`'e merge edin:
@@ -141,12 +162,12 @@ gh pr create --base main --head arena/01a05ea7-allinone-saas \
 
 Vercel `main`'e merge sonrası otomatik deploy eder.
 
-**Sıralama önemli:** Önce Neon migration'ları (adım 2), sonra deploy.
+**Sıralama önemli:** Önce Neon kurulumu (Yol A veya B), sonra merge.
 Ters sırada yeni kod olmayan tabloları sorgular ve hata verir.
 
 ---
 
-## 5. Deploy sonrası doğrulama
+## 3. Deploy sonrası doğrulama
 
 ```bash
 curl -s https://<site>/api/health/ready
@@ -165,6 +186,7 @@ Ardından arayüzde:
 
 | Komut | Ne yapar |
 |---|---|
+| `npx tsx scripts/generate-neon-sql.ts` | `docs/neon-kurulum.sql` dosyasını yeniden üretir |
 | `npm run db:bootstrap -- --inspect` | **Hiçbir şey yazmaz**, mevcut durumu raporlar |
 | `npm run db:bootstrap` | Şema + geri doldurma + seed (veri korunur) |
 | `npm run db:bootstrap -- --reset` | **Her şeyi siler**, sıfırdan kurar |
