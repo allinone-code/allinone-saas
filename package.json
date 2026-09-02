@@ -13,7 +13,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "audit:checkpoint": "tsx scripts/audit-checkpoint.ts",
-    "retention:report": "tsx scripts/retention-report.ts"
+    "retention:report": "tsx scripts/retention-report.ts",
+    "db:bootstrap": "tsx scripts/bootstrap-db.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",
