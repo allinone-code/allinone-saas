@@ -231,25 +231,25 @@ export function GoogleDriveXlsImportModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#0F1626] border border-slate-700/80 rounded-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto p-6 shadow-2xl flex flex-col space-y-4">
+      <div className="bg-surface-1 border border-line rounded-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto p-6 shadow-2xl flex flex-col space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-3.5 border-b border-line">
           <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+            <div className="p-2.5 rounded-xl bg-positive/15 border border-positive/30 text-positive">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-display font-bold text-white">
+              <h2 className="text-base font-display font-bold text-ink">
                 Çoklu Kaynak Excel / Google Drive Sipariş İçe Aktarıcı ({store} Mağazası)
               </h2>
-              <p className="text-xs text-slate-400 font-mono-tech">
+              <p className="text-xs text-ink-muted font-mono-tech">
                 Bilgisayarınızdan .xlsx / .csv yükleyin veya Google E-Tablo linkini yapıştırıp Excel gibi hücre düzenleyin
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-3 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -262,11 +262,11 @@ export function GoogleDriveXlsImportModal({
             onClick={() => setActiveImportMode("FILE_UPLOAD")}
             className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
               activeImportMode === "FILE_UPLOAD"
-                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
-                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+                ? "bg-brand/20 text-brand-soft border-brand shadow-sm"
+                : "bg-surface-base text-ink-muted border-line hover:text-ink"
             }`}
           >
-            <FileUp className="w-4 h-4 text-emerald-400" />
+            <FileUp className="w-4 h-4 text-positive" />
             <span>1. Bilgisayardan .XLSX / .CSV Yükle</span>
           </button>
 
@@ -275,11 +275,11 @@ export function GoogleDriveXlsImportModal({
             onClick={() => setActiveImportMode("DRIVE_URL")}
             className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
               activeImportMode === "DRIVE_URL"
-                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
-                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+                ? "bg-brand/20 text-brand-soft border-brand shadow-sm"
+                : "bg-surface-base text-ink-muted border-line hover:text-ink"
             }`}
           >
-            <CloudDownload className="w-4 h-4 text-sky-400" />
+            <CloudDownload className="w-4 h-4 text-info" />
             <span>2. Google Drive Linkinden Çek</span>
           </button>
 
@@ -288,11 +288,11 @@ export function GoogleDriveXlsImportModal({
             onClick={() => setActiveImportMode("PASTE_TSV")}
             className={`py-2.5 px-3 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
               activeImportMode === "PASTE_TSV"
-                ? "bg-indigo-600/20 text-indigo-300 border-indigo-500 shadow-sm"
-                : "bg-[#080C14] text-slate-400 border-slate-800 hover:text-white"
+                ? "bg-brand/20 text-brand-soft border-brand shadow-sm"
+                : "bg-surface-base text-ink-muted border-line hover:text-ink"
             }`}
           >
-            <ClipboardPaste className="w-4 h-4 text-amber-400" />
+            <ClipboardPaste className="w-4 h-4 text-caution" />
             <span>3. Excel&rsquo;den Kopyala / Yapıştır</span>
           </button>
         </div>
@@ -301,7 +301,7 @@ export function GoogleDriveXlsImportModal({
         {activeImportMode === "FILE_UPLOAD" && (
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-8 bg-[#080C14] text-center cursor-pointer transition group"
+            className="border-2 border-dashed border-line hover:border-brand rounded-2xl p-8 bg-surface-base text-center cursor-pointer transition group"
           >
             <input
               ref={fileInputRef}
@@ -310,21 +310,21 @@ export function GoogleDriveXlsImportModal({
               onChange={handleFileUpload}
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition">
+            <div className="w-12 h-12 rounded-2xl bg-brand/15 border border-brand/30 text-brand-soft flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition">
               <FileUp className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-white">
+            <h4 className="text-sm font-bold text-ink">
               Excel (.xlsx, .xls) veya CSV dosyanızı buraya sürükleyin ya da tıklayıp seçin
             </h4>
-            <p className="text-xs text-slate-400 font-mono-tech mt-1">
+            <p className="text-xs text-ink-muted font-mono-tech mt-1">
               Google Drive&rsquo;dan indirdiğiniz veya yerel bilgisayarınızdaki 40-kolon tablonuz anında ayrıştırılır
             </p>
           </div>
         )}
 
         {activeImportMode === "DRIVE_URL" && (
-          <div className="bg-[#080C14] border border-slate-800 rounded-2xl p-4 space-y-3 font-mono-tech text-xs">
-            <label className="block text-slate-300 font-bold">
+          <div className="bg-surface-base border border-line rounded-2xl p-4 space-y-3 font-mono-tech text-xs">
+            <label className="block text-ink-muted font-bold">
               Google Drive / Google Sheets Paylaşım Linki
             </label>
             <div className="flex items-center gap-2">
@@ -333,19 +333,19 @@ export function GoogleDriveXlsImportModal({
                 value={driveUrl}
                 onChange={(e) => setDriveUrl(e.target.value)}
                 placeholder="https://docs.google.com/spreadsheets/d/1DoJEF8iYPCRwhT3.../edit"
-                className="flex-1 px-3.5 py-2.5 bg-[#0F1626] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                className="flex-1 px-3.5 py-2.5 bg-surface-1 border border-line rounded-xl text-ink focus:outline-none focus:border-brand"
               />
               <button
                 type="button"
                 disabled={fetchingDrive || !driveUrl.trim()}
                 onClick={handleFetchFromDrive}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-xl flex items-center gap-2 transition"
+                className="px-5 py-2.5 bg-brand hover:bg-brand-soft disabled:opacity-50 text-ink font-bold rounded-xl flex items-center gap-2 transition"
               >
                 <CloudDownload className="w-4 h-4" />
                 {fetchingDrive ? "Drive Okunuyor..." : "Drive'dan Otomatik Çek"}
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-ink-faint">
               * İpucu: Google E-Tablonuzda sağ üstteki &quot;Paylaş&quot; butonundan &quot;Bağlantıya sahip olan herkes görüntüleyebilir&quot; seçili olmalıdır.
             </p>
           </div>
@@ -358,13 +358,13 @@ export function GoogleDriveXlsImportModal({
               value={tsvText}
               onChange={(e) => setTsvText(e.target.value)}
               placeholder={`Satın Alan\tTarih\tÜrün resmi\tFBM/FBA\tÜrün adı Amazon\tASIN\tMSKU\tSatıcı adı\tOrderno...\nHRN\t2026-01-21\t\tFBA\tMegaFood One Daily...\tB00014DAJ8\tMHB00014DAJ8\tTHE VITAMINSHOPPE\tWO110074776`}
-              className="w-full p-3 bg-[#080C14] border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500 placeholder:text-slate-600"
+              className="w-full p-3 bg-surface-base border border-line rounded-xl text-ink focus:outline-none focus:border-brand placeholder:text-ink-faint"
             />
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handleParsePaste}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center gap-1.5"
+                className="px-4 py-2 bg-brand hover:bg-brand-soft text-ink rounded-xl font-bold flex items-center gap-1.5"
               >
                 Metni Çözümle &amp; Önizle
               </button>
@@ -374,14 +374,14 @@ export function GoogleDriveXlsImportModal({
 
         {/* Error or Success notification */}
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-mono-tech flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-danger/15 border border-danger/40 text-danger text-xs font-mono-tech flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {resultMessage && (
-          <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-mono-tech flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-positive/15 border border-positive/40 text-positive text-xs font-mono-tech flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{resultMessage}</span>
           </div>
@@ -391,18 +391,18 @@ export function GoogleDriveXlsImportModal({
         {previewRows.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono-tech">
-              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span className="text-positive font-bold flex items-center gap-1.5">
                 <Edit3 className="w-4 h-4" />
                 Önizleme &amp; Excel Tarzı Hücre Düzenleme ({previewRows.length} Satır Hazır)
               </span>
-              <span className="text-slate-400 text-[11px]">
+              <span className="text-ink-muted text-[11px]">
                 Kaynak: {fileName || "Dosya"} • Hücrelere tıklayıp kaydetmeden önce düzeltebilirsiniz
               </span>
             </div>
 
-            <div className="border border-slate-800 rounded-xl overflow-hidden bg-[#080C14] max-h-64 overflow-y-auto">
+            <div className="border border-line rounded-xl overflow-hidden bg-surface-base max-h-64 overflow-y-auto">
               <table className="w-full text-left text-xs font-mono-tech">
-                <thead className="bg-[#0F1626] text-slate-400 border-b border-slate-800 text-[11px] sticky top-0">
+                <thead className="bg-surface-1 text-ink-muted border-b border-line text-[11px] sticky top-0">
                   <tr>
                     <th className="p-2.5">#</th>
                     <th className="p-2.5">Mağaza</th>
@@ -416,16 +416,16 @@ export function GoogleDriveXlsImportModal({
                     <th className="p-2.5 text-right">Sil</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-line">
                   {previewRows.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-900/80">
-                      <td className="p-2 text-slate-500">{idx + 1}</td>
+                    <tr key={idx} className="hover:bg-surface-2/80">
+                      <td className="p-2 text-ink-faint">{idx + 1}</td>
                       <td className="p-2">
                         <input
                           type="text"
                           value={row.buyerStore}
                           onChange={(e) => handleCellChange(idx, "buyerStore", e.target.value)}
-                          className="w-14 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-indigo-400 font-bold"
+                          className="w-14 px-1.5 py-1 bg-surface-1 border border-line rounded text-brand-soft font-bold"
                         />
                       </td>
                       <td className="p-2">
@@ -433,7 +433,7 @@ export function GoogleDriveXlsImportModal({
                           type="text"
                           value={row.orderNumber}
                           onChange={(e) => handleCellChange(idx, "orderNumber", e.target.value)}
-                          className="w-28 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-white font-bold"
+                          className="w-28 px-1.5 py-1 bg-surface-1 border border-line rounded text-ink font-bold"
                         />
                       </td>
                       <td className="p-2">
@@ -441,7 +441,7 @@ export function GoogleDriveXlsImportModal({
                           type="text"
                           value={row.asin}
                           onChange={(e) => handleCellChange(idx, "asin", e.target.value.toUpperCase())}
-                          className="w-24 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-sky-400 font-bold"
+                          className="w-24 px-1.5 py-1 bg-surface-1 border border-line rounded text-info font-bold"
                         />
                       </td>
                       <td className="p-2">
@@ -449,7 +449,7 @@ export function GoogleDriveXlsImportModal({
                           type="text"
                           value={row.productTitle}
                           onChange={(e) => handleCellChange(idx, "productTitle", e.target.value)}
-                          className="w-full min-w-[200px] px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-slate-200"
+                          className="w-full min-w-[200px] px-1.5 py-1 bg-surface-1 border border-line rounded text-ink"
                         />
                       </td>
                       <td className="p-2">
@@ -457,7 +457,7 @@ export function GoogleDriveXlsImportModal({
                           type="number"
                           value={row.quantity}
                           onChange={(e) => handleCellChange(idx, "quantity", e.target.value)}
-                          className="w-14 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-center text-white font-bold"
+                          className="w-14 px-1.5 py-1 bg-surface-1 border border-line rounded text-center text-ink font-bold"
                         />
                       </td>
                       <td className="p-2">
@@ -466,7 +466,7 @@ export function GoogleDriveXlsImportModal({
                           step="0.01"
                           value={row.unitCost}
                           onChange={(e) => handleCellChange(idx, "unitCost", e.target.value)}
-                          className="w-20 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-amber-300 font-bold"
+                          className="w-20 px-1.5 py-1 bg-surface-1 border border-line rounded text-caution font-bold"
                         />
                       </td>
                       <td className="p-2">
@@ -475,14 +475,14 @@ export function GoogleDriveXlsImportModal({
                           step="0.01"
                           value={row.sellingPrice}
                           onChange={(e) => handleCellChange(idx, "sellingPrice", e.target.value)}
-                          className="w-20 px-1.5 py-1 bg-[#0F1626] border border-slate-700 rounded text-emerald-400 font-bold"
+                          className="w-20 px-1.5 py-1 bg-surface-1 border border-line rounded text-positive font-bold"
                         />
                       </td>
                       <td className="p-2">
                         <select
                           value={row.cargoStatus}
                           onChange={(e) => handleCellChange(idx, "cargoStatus", e.target.value)}
-                          className="px-2 py-1 bg-[#0F1626] border border-slate-700 rounded text-xs text-white"
+                          className="px-2 py-1 bg-surface-1 border border-line rounded text-xs text-ink"
                         >
                           <option value="Tam Geldi">Tam Geldi</option>
                           <option value="İPTAL">İPTAL</option>
@@ -494,7 +494,7 @@ export function GoogleDriveXlsImportModal({
                         <button
                           type="button"
                           onClick={() => handleDeleteRow(idx)}
-                          className="p-1 text-slate-500 hover:text-rose-400 transition"
+                          className="p-1 text-ink-faint hover:text-danger transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -508,8 +508,8 @@ export function GoogleDriveXlsImportModal({
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-          <span className="text-xs text-slate-500 font-mono-tech">
+        <div className="flex items-center justify-between pt-3 border-t border-line">
+          <span className="text-xs text-ink-faint font-mono-tech">
             {previewRows.length > 0
               ? `${previewRows.length} satır veritabanına kaydedilmeye hazır`
               : "Lütfen bir dosya yükleyin veya Google Drive linki girin"}
@@ -517,14 +517,14 @@ export function GoogleDriveXlsImportModal({
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-mono-tech text-slate-400 hover:text-white transition"
+              className="px-4 py-2 rounded-xl text-xs font-mono-tech text-ink-muted hover:text-ink transition"
             >
               Vazgeç
             </button>
             <button
               onClick={handleCommitToDatabase}
               disabled={importing || previewRows.length === 0}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-mono-tech text-xs uppercase font-bold tracking-wider transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-surface-base font-mono-tech text-xs uppercase font-bold tracking-wider transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
             >
               <Upload className="w-4 h-4" />
               {importing

@@ -91,24 +91,24 @@ export function NewOrderModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-slate-700/80 rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#0E1420]">
+      <div className="bg-[#161C28] border border-line rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-[#0E1420]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400">
+            <div className="p-2 rounded-lg bg-info/10 border border-info/30 text-info">
               <Plus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-display font-bold text-white">
+              <h2 className="text-base font-display font-bold text-ink">
                 Yeni Sipariş Girişi ({store} Mağazası)
               </h2>
-              <p className="text-xs text-slate-400 font-mono-tech">
+              <p className="text-xs text-ink-muted font-mono-tech">
                 Google Drive XLS formatında sipariş ve maliyet kaydı
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-3 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -117,18 +117,18 @@ export function NewOrderModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Satın Alan Mağaza
               </label>
               <input
                 type="text"
                 disabled
                 value={store}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-emerald-400 font-bold"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-positive font-bold"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Sipariş Tarihi
               </label>
               <input
@@ -136,11 +136,11 @@ export function NewOrderModal({
                 required
                 value={orderDate}
                 onChange={(e) => setOrderDate(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Order No (Sipariş No)
               </label>
               <input
@@ -149,13 +149,13 @@ export function NewOrderModal({
                 placeholder="Örn: WO110086220"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-sky-500/40 rounded-lg text-xs font-mono-tech text-sky-300 font-bold"
+                className="w-full px-3 py-2 bg-surface-base border border-info/40 rounded-lg text-xs font-mono-tech text-info font-bold"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+            <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
               Ürün Adı (Amazon Başlığı)
             </label>
             <input
@@ -164,13 +164,13 @@ export function NewOrderModal({
               placeholder="Örn: MegaFood One Daily Multivitamin 180 Tabs"
               value={productTitle}
               onChange={(e) => setProductTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs text-white"
+              className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs text-ink"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Amazon ASIN
               </label>
               <input
@@ -179,11 +179,11 @@ export function NewOrderModal({
                 placeholder="B00014DAJ8"
                 value={asin}
                 onChange={(e) => setAsin(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 MSKU
               </label>
               <input
@@ -191,11 +191,11 @@ export function NewOrderModal({
                 placeholder={`${store}-${asin || "ASIN"}`}
                 value={msku}
                 onChange={(e) => setMsku(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Marka Adı
               </label>
               <input
@@ -203,19 +203,19 @@ export function NewOrderModal({
                 placeholder="MegaFood / Vital / FORCE"
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs text-ink"
               />
             </div>
           </div>
 
           {/* Fiyatlandırma ve Maliyet */}
-          <div className="p-4 rounded-xl bg-[#0E1420] border border-slate-800 space-y-3">
-            <span className="text-xs font-mono-tech uppercase text-amber-400 font-bold flex items-center gap-1.5">
+          <div className="p-4 rounded-xl bg-[#0E1420] border border-line space-y-3">
+            <span className="text-xs font-mono-tech uppercase text-caution font-bold flex items-center gap-1.5">
               <DollarSign className="w-4 h-4" /> Maliyet ve Fiyat Bilgileri
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[10px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono-tech text-ink-muted mb-1">
                   Ürün Adedi
                 </label>
                 <input
@@ -223,11 +223,11 @@ export function NewOrderModal({
                   min="1"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-[#0B0F17] border border-slate-700 rounded text-xs font-mono-tech text-white"
+                  className="w-full px-3 py-1.5 bg-surface-base border border-line rounded text-xs font-mono-tech text-ink"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono-tech text-ink-muted mb-1">
                   Birim Alış Maliyeti ($)
                 </label>
                 <input
@@ -235,11 +235,11 @@ export function NewOrderModal({
                   step="0.01"
                   value={unitCost}
                   onChange={(e) => setUnitCost(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-[#0B0F17] border border-slate-700 rounded text-xs font-mono-tech text-amber-300 font-semibold"
+                  className="w-full px-3 py-1.5 bg-surface-base border border-line rounded text-xs font-mono-tech text-caution font-semibold"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono-tech text-ink-muted mb-1">
                   Satış Fiyatı ($)
                 </label>
                 <input
@@ -247,14 +247,14 @@ export function NewOrderModal({
                   step="0.01"
                   value={sellingPrice}
                   onChange={(e) => setSellingPrice(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-[#0B0F17] border border-emerald-500/50 rounded text-xs font-mono-tech text-emerald-400 font-bold"
+                  className="w-full px-3 py-1.5 bg-surface-base border border-emerald-500/50 rounded text-xs font-mono-tech text-positive font-bold"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono-tech text-ink-muted mb-1">
                   Toplam Maliyet
                 </label>
-                <div className="w-full px-3 py-1.5 bg-[#0B0F17] border border-sky-500/40 rounded text-xs font-mono-tech text-sky-400 font-bold">
+                <div className="w-full px-3 py-1.5 bg-surface-base border border-info/40 rounded text-xs font-mono-tech text-info font-bold">
                   ${totalCost}
                 </div>
               </div>
@@ -263,18 +263,18 @@ export function NewOrderModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Sipariş Maili (Google Account)
               </label>
               <input
                 type="email"
                 value={orderEmail}
                 onChange={(e) => setOrderEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Google Drive Fatura Linki
               </label>
               <input
@@ -282,20 +282,20 @@ export function NewOrderModal({
                 placeholder="https://drive.google.com/..."
                 value={driveLink}
                 onChange={(e) => setDriveLink(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Kargo Durumu
               </label>
               <select
                 value={cargoStatus}
                 onChange={(e) => setCargoStatus(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               >
                 <option value="Tam Geldi">Tam Geldi</option>
                 <option value="Yolda">Yolda</option>
@@ -304,7 +304,7 @@ export function NewOrderModal({
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Kredi Kartı Son 4
               </label>
               <input
@@ -312,34 +312,34 @@ export function NewOrderModal({
                 maxLength={4}
                 value={creditCard}
                 onChange={(e) => setCreditCard(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Dönem Kodu
               </label>
               <input
                 type="text"
                 value={periodCode}
                 onChange={(e) => setPeriodCode(e.target.value)}
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-xs font-mono-tech text-slate-400 hover:text-white transition"
+              className="px-4 py-2 rounded-lg text-xs font-mono-tech text-ink-muted hover:text-ink transition"
             >
               Vazgeç
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-sky-500/20"
+              className="px-5 py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-ink font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-sky-500/20"
             >
               {submitting ? "Kaydediliyor..." : "Siparişi Kaydet"}
             </button>

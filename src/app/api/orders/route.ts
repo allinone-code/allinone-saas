@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { orders, stores, pshBatches, auditLogs, users } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { resolveProduct, normalizeAsin } from "@/db/resolveProduct";
 import { parseBody, orderCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
 import { maskOrderForRole, minimizeUsersForRole } from "@/lib/privacy";
@@ -206,15 +207,45 @@ export async function POST(req: Request) {
     const calculatedTotal = Number(totalCost) || Number(unitCost) * Number(quantity);
     const calculatedCorrected = Number(correctedCost) || calculatedTotal;
 
-    const [inserted] = await db
+    // AŞAMA 1.2: Sipariş bir ürüne bağlanır; ürün yoksa katalogda oluşturulur.
+    // Tek transaction: ürün yaratılıp sipariş yazılamazsa ikisi de geri alınır.
+    const normalizedAsin = normalizeAsin(asin);
+    if (!normalizedAsin) {
+      return NextResponse.json(
+        { error: "ASIN zorunludur: her sipariş bir ürüne bağlanmalıdır." },
+        { status: 400 }
+      );
+    }
+
+    const inserted = await db.transaction(async (tx) => {
+      const { productId } = await resolveProduct(tx, {
+        asin: normalizedAsin,
+        productTitle,
+        brandName,
+        imageUrl,
+        amazonUrl,
+        packCount: Number(packCount) || 1,
+        isFragile,
+        isMultiPack,
+        isBundle,
+        supplierName,
+        supplierCode,
+        supplierUrl,
+        unitCost,
+        observedAt: orderDate,
+        sourceType: "MANUAL",
+      });
+
+      const [row] = await tx
       .insert(orders)
       .values({
+        productId,
         buyerStore: targetStore,
         orderDate,
         imageUrl: imageUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80",
         fulfillmentType,
         productTitle,
-        asin: asin.trim().toUpperCase(),
+        asin: normalizedAsin,
         msku: msku ? msku.trim() : `${targetStore}-${asin.trim()}`,
         supplierName,
         supplierCode,
@@ -253,6 +284,9 @@ export async function POST(req: Request) {
         inventoryLabStatus,
       })
       .returning();
+
+      return row;
+    });
 
     // Audit log
     await db.insert(auditLogs).values({

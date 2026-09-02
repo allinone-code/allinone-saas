@@ -100,24 +100,24 @@ export function WarehouseReconciliationModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-slate-700/80 rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+      <div className="bg-[#161C28] border border-line rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
+        <div className="flex items-center justify-between pb-4 border-b border-line">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-400">
+            <div className="p-2 rounded-lg bg-info/10 border border-info/30 text-info">
               <PackageCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-display font-bold text-white">
+              <h2 className="text-base font-display font-bold text-ink">
                 Depo Karşılama &amp; Sayım (Order No Eşleştirme)
               </h2>
-              <p className="text-xs text-slate-400 font-mono-tech">
+              <p className="text-xs text-ink-muted font-mono-tech">
                 Gelen kutuları Order No ile eşleştirin; eksik, defolu ve Amazona sevk adetlerini hesaplayın
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-3 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -127,19 +127,19 @@ export function WarehouseReconciliationModal({
         {!selectedOrder ? (
           <div className="my-4 space-y-3">
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Search className="w-4 h-4 text-ink-muted absolute left-3 top-3" />
               <input
                 type="text"
                 value={searchOrderNo}
                 onChange={(e) => setSearchOrderNo(e.target.value)}
                 placeholder="Order No (örn: WO110086220), ASIN veya ürün adı ara..."
-                className="w-full pl-9 pr-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-xl text-xs font-mono-tech text-white focus:outline-none focus:border-sky-500"
+                className="w-full pl-9 pr-3 py-2 bg-surface-base border border-line rounded-xl text-xs font-mono-tech text-ink focus:outline-none focus:border-sky-500"
               />
             </div>
 
-            <div className="border border-slate-800 rounded-xl bg-[#0E1420] overflow-hidden">
+            <div className="border border-line rounded-xl bg-[#0E1420] overflow-hidden">
               <table className="w-full text-left text-xs font-mono-tech">
-                <thead className="bg-[#0B0F17] text-slate-400 border-b border-slate-800">
+                <thead className="bg-surface-base text-ink-muted border-b border-line">
                   <tr>
                     <th className="p-3">Order No</th>
                     <th className="p-3">Ürün</th>
@@ -148,17 +148,17 @@ export function WarehouseReconciliationModal({
                     <th className="p-3 text-right">İşlem</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-line">
                   {filteredOrders.map((o) => (
-                    <tr key={o.id} className="hover:bg-slate-800/40">
-                      <td className="p-3 text-sky-400 font-bold">{o.orderNumber}</td>
-                      <td className="p-3 text-white truncate max-w-xs">{o.productTitle}</td>
-                      <td className="p-3 text-center text-amber-300 font-bold">{o.quantity} Adet</td>
+                    <tr key={o.id} className="hover:bg-surface-2">
+                      <td className="p-3 text-info font-bold">{o.orderNumber}</td>
+                      <td className="p-3 text-ink truncate max-w-xs">{o.productTitle}</td>
+                      <td className="p-3 text-center text-caution font-bold">{o.quantity} Adet</td>
                       <td className="p-3">{o.cargoStatus}</td>
                       <td className="p-3 text-right">
                         <button
                           onClick={() => handleSelectOrder(o)}
-                          className="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-white rounded font-bold text-[11px]"
+                          className="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-ink rounded font-bold text-[11px]"
                         >
                           Sayıma Başla
                         </button>
@@ -172,33 +172,33 @@ export function WarehouseReconciliationModal({
         ) : (
           /* 2. Adım: Seçilen Sipariş Sayım Formu */
           <form onSubmit={handleSubmit} className="my-4 space-y-4">
-            <div className="p-3.5 rounded-xl bg-[#0B0F17] border border-sky-500/30 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-surface-base border border-info/30 flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-mono-tech text-sky-400 block font-bold">
+                <span className="text-[10px] font-mono-tech text-info block font-bold">
                   SEÇİLEN SİPARİŞ: {selectedOrder.orderNumber} ({selectedOrder.buyerStore})
                 </span>
-                <h3 className="text-xs font-bold text-white mt-0.5">{selectedOrder.productTitle}</h3>
-                <span className="text-[11px] font-mono-tech text-slate-400">
+                <h3 className="text-xs font-bold text-ink mt-0.5">{selectedOrder.productTitle}</h3>
+                <span className="text-[11px] font-mono-tech text-ink-muted">
                   ASIN: {selectedOrder.asin} • Satıcı: {selectedOrder.supplierName} • Sipariş: {selectedOrder.quantity} Adet
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="text-xs text-slate-400 hover:text-white underline font-mono-tech"
+                className="text-xs text-ink-muted hover:text-ink underline font-mono-tech"
               >
                 Farklı Sipariş Seç
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-xl bg-[#0E1420] border border-slate-800">
-                <span className="text-[10px] font-mono-tech text-slate-400 block">Sipariş Adedi</span>
-                <span className="text-base font-bold text-white">{selectedOrder.quantity} Adet</span>
+              <div className="p-3 rounded-xl bg-[#0E1420] border border-line">
+                <span className="text-[10px] font-mono-tech text-ink-muted block">Sipariş Adedi</span>
+                <span className="text-base font-bold text-ink">{selectedOrder.quantity} Adet</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0E1420] border border-emerald-500/40">
-                <label className="text-[10px] font-mono-tech text-emerald-400 block font-bold mb-1">
+              <div className="p-3 rounded-xl bg-[#0E1420] border border-positive/40">
+                <label className="text-[10px] font-mono-tech text-positive block font-bold mb-1">
                   Depoya Gelen Adet
                 </label>
                 <input
@@ -206,12 +206,12 @@ export function WarehouseReconciliationModal({
                   min="0"
                   value={receivedQty}
                   onChange={(e) => handleReceivedChange(Number(e.target.value))}
-                  className="w-full px-2 py-1 bg-[#0B0F17] border border-slate-700 rounded text-sm font-mono-tech text-emerald-300 font-bold"
+                  className="w-full px-2 py-1 bg-surface-base border border-line rounded text-sm font-mono-tech text-positive font-bold"
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0E1420] border border-amber-500/40">
-                <label className="text-[10px] font-mono-tech text-amber-400 block font-bold mb-1">
+              <div className="p-3 rounded-xl bg-[#0E1420] border border-caution/40">
+                <label className="text-[10px] font-mono-tech text-caution block font-bold mb-1">
                   Eksik Adet (P2)
                 </label>
                 <input
@@ -219,12 +219,12 @@ export function WarehouseReconciliationModal({
                   min="0"
                   value={p2Missing}
                   onChange={(e) => setP2Missing(Number(e.target.value))}
-                  className="w-full px-2 py-1 bg-[#0B0F17] border border-slate-700 rounded text-sm font-mono-tech text-amber-300 font-bold"
+                  className="w-full px-2 py-1 bg-surface-base border border-line rounded text-sm font-mono-tech text-caution font-bold"
                 />
               </div>
 
-              <div className="p-3 rounded-xl bg-[#0E1420] border border-sky-500/40">
-                <label className="text-[10px] font-mono-tech text-sky-400 block font-bold mb-1">
+              <div className="p-3 rounded-xl bg-[#0E1420] border border-info/40">
+                <label className="text-[10px] font-mono-tech text-info block font-bold mb-1">
                   Amazona Sevk Edilen
                 </label>
                 <input
@@ -232,38 +232,38 @@ export function WarehouseReconciliationModal({
                   min="0"
                   value={shippedToAmazon}
                   onChange={(e) => setShippedToAmazon(Number(e.target.value))}
-                  className="w-full px-2 py-1 bg-[#0B0F17] border border-slate-700 rounded text-sm font-mono-tech text-sky-300 font-bold"
+                  className="w-full px-2 py-1 bg-surface-base border border-line rounded text-sm font-mono-tech text-info font-bold"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                   Defolu Adet (P3):
                 </label>
                 <input
                   type="number"
                   value={p3Defective}
                   onChange={(e) => setP3Defective(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                  className="w-full px-3 py-1.5 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+                <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                   Tarihi Geçmiş Adet (P4):
                 </label>
                 <input
                   type="number"
                   value={p4Expired}
                   onChange={(e) => setP4Expired(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                  className="w-full px-3 py-1.5 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-mono-tech text-slate-400 mb-1">
+              <label className="block text-[11px] font-mono-tech text-ink-muted mb-1">
                 Problem / Eksiklik Açıklaması ve Aksiyon:
               </label>
               <input
@@ -271,22 +271,22 @@ export function WarehouseReconciliationModal({
                 value={problemAction}
                 onChange={(e) => setProblemAction(e.target.value)}
                 placeholder="Örn: 2 adet eksik teslim alındı. Fatura itirazı başlatıldı..."
-                className="w-full px-3 py-2 bg-[#0B0F17] border border-slate-700 rounded-lg text-xs font-mono-tech text-white"
+                className="w-full px-3 py-2 bg-surface-base border border-line rounded-lg text-xs font-mono-tech text-ink"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line">
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="px-4 py-2 rounded-lg text-xs font-mono-tech text-slate-400 hover:text-white transition"
+                className="px-4 py-2 rounded-lg text-xs font-mono-tech text-ink-muted hover:text-ink transition"
               >
                 Vazgeç
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-5 py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-mono-tech text-xs uppercase font-bold tracking-wider transition shadow-lg shadow-sky-500/20"
+                className="px-5 py-2.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-ink font-mono-tech text-xs uppercase font-bold tracking-wider transition shadow-lg shadow-sky-500/20"
               >
                 {submitting ? "Kaydediliyor..." : "Sayım Sonucunu Kaydet"}
               </button>

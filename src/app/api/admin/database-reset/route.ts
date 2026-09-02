@@ -5,12 +5,16 @@ import {
   pshBatches,
   auditLogs,
   productMasters,
+  products,
+  supplierOffers,
+  productLifecycleEvents,
   researchSessions,
   users,
   stores,
 } from "@/db/schema";
 import { requireRole, isDenied } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
+import { insertOrdersWithProducts } from "@/db/resolveProduct";
 import { eq, ne } from "drizzle-orm";
 
 export async function POST(req: Request) {
@@ -39,8 +43,12 @@ export async function POST(req: Request) {
 
     if (actionType === "CLEAN_ORDERS_ONLY") {
       // 1. Sadece Siparişleri ve PSH Partilerini Temizle (Kullanıcılar & Mağazalar Kalır)
+      // Ürün kataloğu KORUNUR: keşfedilmiş ürün bilgisi siparişten bağımsız
+      // bir varlıktır. Ama fiyat gözlemleri siparişlerden türediği için
+      // onlarla birlikte gider.
       await db.delete(orders);
       await db.delete(pshBatches);
+      await db.delete(supplierOffers);
 
       await db.insert(auditLogs).values({
         actorName: currentUser.name,
@@ -61,7 +69,11 @@ export async function POST(req: Request) {
     if (actionType === "RESTORE_REAL_XLS") {
       // 2. The Vitamin Shoppe 38 Gerçek Siparişini Geri Yükle
       await db.delete(orders);
-      await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
+      await db.delete(supplierOffers);
+      // Ürün kataloğunu da besleyerek yükler (Aşama 1.2)
+      await db.transaction(async (tx) => {
+        await insertOrdersWithProducts(tx, orders, ALL_38_XLS_ORDERS as any[]);
+      });
 
       // PSH Batch'lerini de kontrol et
       await db.delete(pshBatches);
@@ -97,11 +109,53 @@ export async function POST(req: Request) {
       });
     }
 
+    if (actionType === "FRESH_START_REAL_DATA") {
+      // 4. GERÇEK VERİYLE BAŞLANGIÇ
+      // Tüm demo/fixture operasyonel verisini siler ama kurumsal yapıyı
+      // (mağazalar, kullanıcılar, araştırmacı kadrosu) korur.
+      //
+      // CLEAN_ORDERS_ONLY'den farkı: ürün ana kayıtlarını (productMasters) da
+      // temizler. Aksi halde demo ürünler kalır ve gerçek siparişlerle
+      // eşleşmediği için gerçekleşen ROI ölçümü kirlenir — sabah brifingi
+      // olmayan ürünler üzerinden skor üretir.
+      await db.delete(orders);
+      await db.delete(pshBatches);
+      await db.delete(productMasters);
+      // Ürün merkezli çekirdek de sıfırlanır: demo ürünler kalırsa gerçek
+      // siparişlerle eşleşmeyip katalogu ve ROI ölçümünü kirletir.
+      await db.delete(supplierOffers);
+      await db.delete(productLifecycleEvents);
+      await db.delete(products);
+      await db.delete(researchSessions);
+
+      await db.insert(auditLogs).values({
+        actorName: currentUser.name,
+        storeCode: "ALL",
+        actionType: "DATABASE_FRESH_START",
+        targetEntity: "orders, psh_batches, product_masters, research_sessions",
+        beforeState: "DEMO_VERISI",
+        afterState: "GERCEK_VERI_ICIN_HAZIR",
+        details:
+          "Tüm demo operasyonel verisi temizlendi. Mağazalar, kullanıcılar ve araştırmacı kadrosu korundu. Sistem gerçek Excel/Drive verisi için hazır.",
+      });
+
+      return NextResponse.json({
+        success: true,
+        message:
+          "Sistem gerçek veriyle başlangıç için hazırlandı. Siparişler, PSH partileri, ürün ana kayıtları ve araştırma oturumları silindi. Mağazalarınız, kullanıcı hesaplarınız ve araştırmacı kadronuz korundu. Artık kendi XLS/Drive verinizi yükleyebilirsiniz.",
+      });
+    }
+
     if (actionType === "NUKE_ALL_KEEP_ADMIN") {
       // 3. Admin Hariç Tüm Tabloları Temizle
       await db.delete(orders);
       await db.delete(pshBatches);
       await db.delete(productMasters);
+      // Ürün merkezli çekirdek de sıfırlanır: demo ürünler kalırsa gerçek
+      // siparişlerle eşleşmeyip katalogu ve ROI ölçümünü kirletir.
+      await db.delete(supplierOffers);
+      await db.delete(productLifecycleEvents);
+      await db.delete(products);
       await db.delete(researchSessions);
       await db.delete(auditLogs);
 

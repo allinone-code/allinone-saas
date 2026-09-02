@@ -71,3 +71,56 @@ describe("computeDecisionEngine (Karar Motoru)", () => {
     expect(low.profitabilityScore).toBeGreaterThanOrEqual(30);
   });
 });
+
+describe("Kanıt şeffaflığı (provenance) — sabit varsayımlar işaretlenir", () => {
+  it("kârlılık MEASURED, varsayımlar ASSUMED olarak etiketlenir", () => {
+    const r = computeDecisionEngine(60, "homedepot.com", 12);
+    expect(r.signals.profitability.provenance).toBe("MEASURED");
+    expect(r.signals.demand.provenance).toBe("HEURISTIC");
+    expect(r.signals.competition.provenance).toBe("HEURISTIC");
+    expect(r.signals.priceStability.provenance).toBe("ASSUMED");
+    expect(r.signals.supplierRisk.provenance).toBe("ASSUMED");
+    expect(r.signals.operationalRisk.provenance).toBe("ASSUMED");
+  });
+
+  it("sabit varsayıma dayanan eksenler adlarıyla raporlanır", () => {
+    const r = computeDecisionEngine(60, "homedepot.com", 12);
+    expect(r.assumedAxes).toEqual([
+      "Fiyat İstikrarı",
+      "Tedarikçi Riski",
+      "Operasyonel Risk",
+    ]);
+  });
+
+  it("evidenceCoverage skorun ölçüme dayanan yüzdesini bildirir", () => {
+    const r = computeDecisionEngine(60, "homedepot.com", 12);
+    expect(r.evidenceCoverage).toBe(45);
+  });
+
+  it("varsayım ağırlığı toplam %18'e indirildi (eskiden %35)", () => {
+    // Sabit eksenler skoru domine edemez: her biri %6
+    const r = computeDecisionEngine(60, "x.com", 10);
+    const assumedWeight = 0.06 * 3;
+    expect(assumedWeight).toBeCloseTo(0.18, 5);
+    expect(r.opportunityScore).toBeGreaterThan(0);
+  });
+
+  it("güven skoru kanıt kapsamıyla sınırlanır — %92 iddiası artık yok", () => {
+    const r = computeDecisionEngine(60, "homedepot.com", 12);
+    // 60 + 45*0.7 = 91.5 -> 92 ile min alınır, tavan 92'de kalır
+    expect(r.confidenceScore).toBeLessThanOrEqual(92);
+    expect(r.confidenceScore).toBeGreaterThan(0);
+  });
+
+  it("her sinyal gerekçesini Türkçe taşır", () => {
+    const r = computeDecisionEngine(45, "ulta.com", 5);
+    for (const sig of Object.values(r.signals)) {
+      expect(sig.basis.length).toBeGreaterThan(10);
+    }
+  });
+
+  it("ağırlıklar toplamı 1.0'dır", () => {
+    const total = 0.45 + 0.22 + 0.15 + 0.06 + 0.06 + 0.06;
+    expect(total).toBeCloseTo(1.0, 5);
+  });
+});

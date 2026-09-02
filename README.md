@@ -13,7 +13,13 @@ DISCOVER → UNDERSTAND → NORMALIZE → MATCH/DEDUP → ANALYZE → SCORE → 
 
 1. **Yönetici Sabah Brifingi (Morning Briefing) & İş Sağlığı Skoru (0–100):**
    - `WHAT CHANGED?` • `WHAT MATTERS?` • `WHAT SHOULD I DO?`
-   - Günlük 26 mağaza konsolide ciro, Landed-Cost ayarlı ROI ve FBA sevk oranı.
+   - Konsolide ciro, Landed-Cost ayarlı ROI ve FBA sevk oranı.
+   - **Tüm maddeler canlı SQL agregasyonundan üretilir** (`src/domain/briefing.ts`);
+     sabit kodlanmış demo cümlesi yoktur. Veri yoksa madde üretilmez.
+   - İş Sağlığı Skoru **5 eksenli ve açıklanabilirdir** (kârlılık %30, FBA sevk %22,
+     fire %20, veri tazeliği %15, nakit sızıntısı %13); skora tıklayınca kırılım açılır.
+   - ⚠️ **Amazon SP-API entegrasyonu henüz yapılmamıştır.** Admin panelindeki
+     entegrasyon ekranı bunu dürüstçe "BAĞLI DEĞİL" olarak gösterir.
 2. **Product Master Decision Vault (`Product ≠ Listing`):**
    - Karar Motoru: `BUY | TEST | WAIT | REJECT | REPRICE | REORDER | PAUSE | LIQUIDATE`
    - Veri Tazeliği: `FRESH | AGING | STALE | EXPIRED`

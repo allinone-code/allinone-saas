@@ -19,6 +19,7 @@ import {
 } from "@fixtures/mockData";
 import { DEFAULT_SYSTEM_USERS, getBootstrapPassword } from "@/lib/auth";
 import { hashPassword } from "@/lib/passwords";
+import { insertOrdersWithProducts } from "./resolveProduct";
 import { log } from "@/lib/logger";
 
 export async function ensureCerberusSeeded() {
@@ -198,7 +199,10 @@ export async function ensureCerberusSeeded() {
     if (Number(existingCount[0]?.total || 0) > 0) {
       await db.delete(orders);
     }
-    await db.insert(orders).values(ALL_38_XLS_ORDERS as any);
+    // AŞAMA 1.2: Seed de ürün kataloğunu besler; ürünsüz sipariş yazılmaz.
+    await db.transaction(async (tx) => {
+      await insertOrdersWithProducts(tx, orders, ALL_38_XLS_ORDERS as any[]);
+    });
   }
 
   // 8. Initial Audit Log

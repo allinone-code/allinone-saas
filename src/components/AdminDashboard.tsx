@@ -114,7 +114,11 @@ export function AdminDashboard({
   };
 
   useEffect(() => {
-    fetchAdminData();
+    // Effect gövdesinde senkron setState yapılmaz; yükleme async akışta yönetilir.
+    async function run() {
+      await fetchAdminData();
+    }
+    void run();
   }, []);
 
   const handleCreateStore = async (e: React.FormEvent) => {
@@ -251,7 +255,11 @@ export function AdminDashboard({
 
   // Execute Database Reset or Restore action
   const handleExecuteDatabaseTool = async (
-    actionType: "CLEAN_ORDERS_ONLY" | "RESTORE_REAL_XLS" | "NUKE_ALL_KEEP_ADMIN"
+    actionType:
+      | "CLEAN_ORDERS_ONLY"
+      | "RESTORE_REAL_XLS"
+      | "NUKE_ALL_KEEP_ADMIN"
+      | "FRESH_START_REAL_DATA"
   ) => {
     if (confirmationInput !== "RESET-CERBERUS") {
       showFeedback("Lütfen kutuya tam olarak 'RESET-CERBERUS' yazın.", "error");
@@ -307,8 +315,8 @@ export function AdminDashboard({
         <div
           className={`p-3.5 rounded-xl text-xs font-mono-tech flex items-center justify-between border ${
             feedbackMsg.type === "success"
-              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-              : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+              ? "bg-positive/15 border-positive/40 text-positive"
+              : "bg-danger/15 border-danger/40 text-danger"
           }`}
         >
           <span className="font-bold">{feedbackMsg.text}</span>
@@ -319,46 +327,46 @@ export function AdminDashboard({
       )}
 
       {/* Admin Header Strip */}
-      <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-lg">
+      <div className="bg-surface-1 border border-line rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-lg">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-tech uppercase font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-tech uppercase font-bold bg-brand/20 text-brand-soft border border-brand/30">
               SİSTEM ADMIN MERKEZİ
             </span>
-            <h2 className="text-lg font-bold text-white tracking-tight">
+            <h2 className="text-lg font-bold text-ink tracking-tight">
               Çoklu Mağaza Filosu, Yetki, Sipariş &amp; Veritabanı Temizleme Konsolu
             </h2>
           </div>
-          <p className="text-xs text-slate-400 font-mono-tech">
+          <p className="text-xs text-ink-muted font-mono-tech">
             26 mağazayı denetleyin, kullanıcıların mağazalarını atayın, sipariş satırlarını yönetin ve gerçek canlı verilerinizi yüklemek için temizlik araçlarını kullanın.
           </p>
         </div>
 
         {/* Global Stats */}
         <div className="flex flex-wrap items-center gap-3 font-mono-tech text-xs">
-          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 block uppercase">Mağaza Filosu</span>
-            <span className="text-white font-bold">{activeStores} Aktif / {totalStores} Mağaza</span>
+          <div className="bg-surface-base px-3.5 py-2.5 rounded-xl border border-line text-center">
+            <span className="text-[10px] text-ink-faint block uppercase">Mağaza Filosu</span>
+            <span className="text-ink font-bold">{activeStores} Aktif / {totalStores} Mağaza</span>
           </div>
-          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-slate-800 text-center">
-            <span className="text-[10px] text-slate-500 block uppercase">Uzman Personel</span>
-            <span className="text-indigo-400 font-bold">{totalUsers} Kullanıcı</span>
+          <div className="bg-surface-base px-3.5 py-2.5 rounded-xl border border-line text-center">
+            <span className="text-[10px] text-ink-faint block uppercase">Uzman Personel</span>
+            <span className="text-brand-soft font-bold">{totalUsers} Kullanıcı</span>
           </div>
-          <div className="bg-[#080C14] px-3.5 py-2.5 rounded-xl border border-indigo-500/40 text-center">
-            <span className="text-[10px] text-indigo-400 block uppercase">Konsolide Tedarik Bedeli</span>
-            <span className="text-emerald-400 font-bold">${totalGlobalSpend.toLocaleString()}</span>
+          <div className="bg-surface-base px-3.5 py-2.5 rounded-xl border border-brand/40 text-center">
+            <span className="text-[10px] text-brand-soft block uppercase">Konsolide Tedarik Bedeli</span>
+            <span className="text-positive font-bold">${totalGlobalSpend.toLocaleString()}</span>
           </div>
         </div>
       </div>
 
       {/* Admin Subtabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5 font-mono-tech text-xs overflow-x-auto">
+      <div className="-mx-1 flex items-center gap-2 overflow-x-auto border-b border-line px-1 pb-2.5 font-mono-tech text-xs [&>button]:shrink-0">
         <button
           onClick={() => setActiveSubTab("STORES")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "STORES"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-brand text-ink shadow-lg shadow-brand/25"
+              : "text-ink-muted hover:text-ink hover:bg-surface-2"
           }`}
         >
           <Store className="w-4 h-4" />
@@ -369,8 +377,8 @@ export function AdminDashboard({
           onClick={() => setActiveSubTab("USERS")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "USERS"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-brand text-ink shadow-lg shadow-brand/25"
+              : "text-ink-muted hover:text-ink hover:bg-surface-2"
           }`}
         >
           <Users className="w-4 h-4" />
@@ -381,11 +389,11 @@ export function AdminDashboard({
           onClick={() => setActiveSubTab("ORDERS_CRUD")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "ORDERS_CRUD"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-brand text-ink shadow-lg shadow-brand/25"
+              : "text-ink-muted hover:text-ink hover:bg-surface-2"
           }`}
         >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+          <FileSpreadsheet className="w-4 h-4 text-positive" />
           <span>3. Siparişler &amp; Toplu Düzenleme ({orders.length})</span>
         </button>
 
@@ -393,11 +401,11 @@ export function AdminDashboard({
           onClick={() => setActiveSubTab("SP_API")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "SP_API"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-brand text-ink shadow-lg shadow-brand/25"
+              : "text-ink-muted hover:text-ink hover:bg-surface-2"
           }`}
         >
-          <Zap className="w-4 h-4 text-sky-400" />
+          <Zap className="w-4 h-4 text-info" />
           <span>4. Amazon SP-API &amp; Muhasebe</span>
         </button>
 
@@ -405,8 +413,8 @@ export function AdminDashboard({
           onClick={() => setActiveSubTab("AUDIT")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap ${
             activeSubTab === "AUDIT"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              ? "bg-brand text-ink shadow-lg shadow-brand/25"
+              : "text-ink-muted hover:text-ink hover:bg-surface-2"
           }`}
         >
           <History className="w-4 h-4" />
@@ -417,11 +425,11 @@ export function AdminDashboard({
           onClick={() => setActiveSubTab("DB_TOOLS")}
           className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap border ${
             activeSubTab === "DB_TOOLS"
-              ? "bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-600/25"
-              : "bg-rose-500/10 text-rose-300 border-rose-500/30 hover:bg-rose-500/20"
+              ? "bg-danger text-ink border-danger shadow-lg shadow-danger/25"
+              : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/20"
           }`}
         >
-          <Database className="w-4 h-4 text-rose-400" />
+          <Database className="w-4 h-4 text-danger" />
           <span>6. 🧹 Veritabanı Temizleme &amp; Sıfırlama Araçları</span>
         </button>
       </div>
@@ -432,12 +440,12 @@ export function AdminDashboard({
       {activeSubTab === "STORES" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+            <h3 className="text-sm font-bold text-ink uppercase font-mono-tech">
               Tanımlı Mağazalar ve Satın Alma Yetkilileri
             </h3>
             <button
               onClick={() => setIsNewStoreModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25"
+              className="px-4 py-2 bg-brand hover:bg-brand-soft text-ink text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-brand/25"
             >
               <Plus className="w-4 h-4" /> Yeni Mağaza Tanımla
             </button>
@@ -449,15 +457,15 @@ export function AdminDashboard({
               return (
                 <div
                   key={st.id}
-                  className="bg-[#0F1626] border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 flex flex-col justify-between transition shadow-md"
+                  className="bg-surface-1 border border-line hover:border-brand/50 rounded-2xl p-5 flex flex-col justify-between transition shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 font-mono-tech text-xs font-bold border border-indigo-500/30">
+                        <span className="px-2.5 py-0.5 rounded bg-brand/15 text-brand-soft font-mono-tech text-xs font-bold border border-brand/30">
                           {st.storeCode}
                         </span>
-                        <span className="text-[10px] font-mono-tech text-slate-400 bg-slate-900 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-mono-tech text-ink-muted bg-surface-2 px-2 py-0.5 rounded">
                           {st.marketplace}
                         </span>
                       </div>
@@ -465,37 +473,37 @@ export function AdminDashboard({
                         onClick={() => handleToggleStoreStatus(st)}
                         className={`px-2.5 py-0.5 rounded text-[10px] font-mono-tech font-bold transition ${
                           isActive
-                            ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                            : "bg-slate-800 text-slate-500 hover:text-slate-300"
+                            ? "bg-positive/15 text-positive border border-positive/30 hover:bg-positive/25"
+                            : "bg-surface-3 text-ink-faint hover:text-ink-muted"
                         }`}
                       >
                         {isActive ? "AKTİF" : "PASİF"}
                       </button>
                     </div>
 
-                    <h4 className="text-base font-bold text-white mb-1">{st.storeName}</h4>
-                    <p className="text-xs text-slate-400 font-mono-tech mb-4">
-                      Alıcı Sorumlusu: <strong className="text-slate-200">{st.buyerName}</strong>
+                    <h4 className="text-base font-bold text-ink mb-1">{st.storeName}</h4>
+                    <p className="text-xs text-ink-muted font-mono-tech mb-4">
+                      Alıcı Sorumlusu: <strong className="text-ink">{st.buyerName}</strong>
                     </p>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono-tech bg-[#080C14] p-3 rounded-xl border border-slate-800/80 mb-3">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-mono-tech bg-surface-base p-3 rounded-xl border border-line mb-3">
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Sipariş Sayısı</span>
-                        <span className="text-white font-bold">{st.totalOrdersCount} Kayıt</span>
+                        <span className="text-[10px] text-ink-faint block">Sipariş Sayısı</span>
+                        <span className="text-ink font-bold">{st.totalOrdersCount} Kayıt</span>
                       </div>
                       <div>
-                        <span className="text-[10px] text-slate-500 block">Toplam Harcama</span>
-                        <span className="text-emerald-400 font-bold">${st.totalSpend}</span>
+                        <span className="text-[10px] text-ink-faint block">Toplam Harcama</span>
+                        <span className="text-positive font-bold">${st.totalSpend}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-mono-tech">
-                    <span className="text-slate-500 text-[11px]">Kart: **** {st.defaultCard || "1753"}</span>
+                  <div className="pt-3 border-t border-line flex items-center justify-between text-xs font-mono-tech">
+                    <span className="text-ink-faint text-[11px]">Kart: **** {st.defaultCard || "1753"}</span>
                     {onStoreSelected && (
                       <button
                         onClick={() => onStoreSelected(st.storeCode)}
-                        className="text-indigo-400 hover:underline font-bold text-xs flex items-center gap-1"
+                        className="text-brand-soft hover:underline font-bold text-xs flex items-center gap-1"
                       >
                         Siparişleri İncele →
                       </button>
@@ -514,20 +522,20 @@ export function AdminDashboard({
       {activeSubTab === "USERS" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+            <h3 className="text-sm font-bold text-ink uppercase font-mono-tech">
               Kullanıcılar, Yetkiler ve Mağaza İzolasyon Atamaları
             </h3>
             <button
               onClick={() => setIsNewUserModalOpen(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/25"
+              className="px-4 py-2 bg-brand hover:bg-brand-soft text-ink text-xs font-mono-tech font-bold uppercase rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-brand/25"
             >
               <Plus className="w-4 h-4" /> Yeni Kullanıcı Ekle
             </button>
           </div>
 
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-surface-1 border border-line rounded-2xl overflow-x-auto shadow-lg">
             <table className="w-full text-left text-xs font-mono-tech">
-              <thead className="bg-[#080C14] text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+              <thead className="bg-surface-base text-ink-muted border-b border-line text-[11px] uppercase">
                 <tr>
                   <th className="p-3.5">Kullanıcı</th>
                   <th className="p-3.5">E-posta</th>
@@ -536,31 +544,31 @@ export function AdminDashboard({
                   <th className="p-3.5 text-right">İşlem / Mağaza Değiştir</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-line">
                 {users.map((u) => {
                   const isAdmin = u.role === "ADMIN";
                   return (
-                    <tr key={u.id} className="hover:bg-slate-800/30 transition">
+                    <tr key={u.id} className="hover:bg-surface-3/30 transition">
                       <td className="p-3.5 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center text-xs border border-indigo-500/30">
+                        <div className="w-8 h-8 rounded-xl bg-brand/20 text-brand-soft font-bold flex items-center justify-center text-xs border border-brand/30">
                           {u.avatar || u.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className="font-bold text-white">{u.name}</span>
+                        <span className="font-bold text-ink">{u.name}</span>
                       </td>
-                      <td className="p-3.5 text-slate-300">{u.email}</td>
+                      <td className="p-3.5 text-ink-muted">{u.email}</td>
                       <td className="p-3.5">
                         <span
                           className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${
                             isAdmin
-                              ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/40"
-                              : "bg-emerald-500/15 text-emerald-300 border-emerald-500/40"
+                              ? "bg-brand/15 text-brand-soft border-brand/40"
+                              : "bg-positive/15 text-positive border-positive/40"
                           }`}
                         >
                           {u.role}
                         </span>
                       </td>
                       <td className="p-3.5">
-                        <span className="font-bold text-white px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+                        <span className="font-bold text-ink px-2.5 py-1 rounded-lg bg-surface-2 border border-line">
                           {u.storeCode === "ALL" ? "TÜM MAĞAZALAR (YETKİLİ)" : `${u.storeCode} STORE`}
                         </span>
                       </td>
@@ -569,7 +577,7 @@ export function AdminDashboard({
                           <select
                             value={u.storeCode}
                             onChange={(e) => handleUpdateUserStore(u.id, e.target.value)}
-                            className="px-3 py-1.5 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono-tech text-indigo-400 font-bold focus:outline-none"
+                            className="px-3 py-1.5 bg-surface-base border border-line rounded-xl text-xs font-mono-tech text-brand-soft font-bold focus:outline-none"
                           >
                             {stores.map((s) => (
                               <option key={s.storeCode} value={s.storeCode}>
@@ -578,7 +586,7 @@ export function AdminDashboard({
                             ))}
                           </select>
                         ) : (
-                          <span className="text-slate-500 text-[11px]">Süper Yetkili</span>
+                          <span className="text-ink-faint text-[11px]">Süper Yetkili</span>
                         )}
                       </td>
                     </tr>
@@ -595,12 +603,12 @@ export function AdminDashboard({
       {/* ========================================================================= */}
       {activeSubTab === "ORDERS_CRUD" && (
         <div className="space-y-4">
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-surface-1 border border-line rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+              <h3 className="text-sm font-bold text-ink uppercase font-mono-tech">
                 Tüm Mağazaların Sipariş Listesi ({displayedOrders.length} Kayıt)
               </h3>
-              <p className="text-xs text-slate-400 font-mono-tech">
+              <p className="text-xs text-ink-muted font-mono-tech">
                 Herhangi bir hatalı satırı tek tıkla silebilir veya inceleyebilirsiniz.
               </p>
             </div>
@@ -609,7 +617,7 @@ export function AdminDashboard({
               <select
                 value={orderStoreFilter}
                 onChange={(e) => setOrderStoreFilter(e.target.value)}
-                className="bg-[#080C14] border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono-tech text-indigo-300 font-bold"
+                className="bg-surface-base border border-line rounded-xl px-3 py-1.5 text-xs font-mono-tech text-brand-soft font-bold"
               >
                 <option value="ALL">TÜM MAĞAZALAR</option>
                 {stores.map((st) => (
@@ -623,14 +631,14 @@ export function AdminDashboard({
                 value={orderSearchQuery}
                 onChange={(e) => setOrderSearchQuery(e.target.value)}
                 placeholder="Order No veya ASIN ara..."
-                className="px-3 py-1.5 bg-[#080C14] border border-slate-700 rounded-xl text-xs font-mono-tech text-white"
+                className="px-3 py-1.5 bg-surface-base border border-line rounded-xl text-xs font-mono-tech text-ink"
               />
             </div>
           </div>
 
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl overflow-hidden max-h-[520px] overflow-y-auto">
+          <div className="bg-surface-1 border border-line rounded-2xl max-h-[520px] overflow-auto">
             <table className="w-full text-left text-xs font-mono-tech">
-              <thead className="bg-[#080C14] text-slate-400 border-b border-slate-800 sticky top-0">
+              <thead className="bg-surface-base text-ink-muted border-b border-line sticky top-0">
                 <tr>
                   <th className="p-3">ID</th>
                   <th className="p-3">Mağaza</th>
@@ -643,25 +651,25 @@ export function AdminDashboard({
                   <th className="p-3 text-right">Sil</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-line">
                 {displayedOrders.map((o) => (
-                  <tr key={o.id} className="hover:bg-slate-800/40">
-                    <td className="p-3 text-slate-500">#{o.id}</td>
-                    <td className="p-3 font-bold text-indigo-400">{o.buyerStore}</td>
-                    <td className="p-3 font-bold text-white">{o.orderNumber}</td>
-                    <td className="p-3 text-sky-400">{o.asin}</td>
-                    <td className="p-3 font-sans text-slate-200 truncate max-w-xs">{o.productTitle}</td>
-                    <td className="p-3 text-white font-bold">{o.quantity}</td>
-                    <td className="p-3 text-amber-300 font-bold">${o.unitCost}</td>
+                  <tr key={o.id} className="hover:bg-surface-3/40">
+                    <td className="p-3 text-ink-faint">#{o.id}</td>
+                    <td className="p-3 font-bold text-brand-soft">{o.buyerStore}</td>
+                    <td className="p-3 font-bold text-ink">{o.orderNumber}</td>
+                    <td className="p-3 text-info">{o.asin}</td>
+                    <td className="p-3 font-sans text-ink truncate max-w-xs">{o.productTitle}</td>
+                    <td className="p-3 text-ink font-bold">{o.quantity}</td>
+                    <td className="p-3 text-caution font-bold">${o.unitCost}</td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-surface-2 border border-line text-[10px]">
                         {o.cargoStatus}
                       </span>
                     </td>
                     <td className="p-3 text-right">
                       <button
                         onClick={() => handleDeleteOrderRow(o.id)}
-                        className="p-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white transition"
+                        className="p-1.5 rounded-lg bg-danger/15 hover:bg-rose-500 text-danger hover:text-ink transition"
                         title="Bu siparişi kalıcı olarak sil"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -676,17 +684,25 @@ export function AdminDashboard({
       )}
 
       {/* ========================================================================= */}
-      {/* 4. AMAZON SP-API & MUHASEBE BAĞLANTILARI                                   */}
+      {/* 4. AMAZON SP-API ENTEGRASYONU — DURUM: HENÜZ BAĞLANMADI                   */}
       {/* ========================================================================= */}
       {activeSubTab === "SP_API" && (
         <div className="space-y-4">
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5">
-            <h3 className="text-sm font-bold text-white uppercase font-mono-tech flex items-center gap-2">
-              <Server className="w-4 h-4 text-indigo-400" />
-              Amazon Seller Central SP-API &amp; Inventory Lab Entegrasyon Durumu
+          <div className="bg-surface-1 border border-caution/40 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-ink uppercase font-mono-tech flex items-center gap-2">
+              <Server className="w-4 h-4 text-caution" />
+              Amazon SP-API &amp; Inventory Lab Entegrasyonu — PLANLANAN ÖZELLİK
             </h3>
-            <p className="text-xs text-slate-400 font-mono-tech mt-1">
-              Her mağazanın Amazon Marketplace ID, LWA Refresh Token ve BuyBox Repricer bağlantısı denetlenir.
+            <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
+              Bu ekran daha önce her mağaza için &quot;SP-API BAĞLI&quot;, sahte bir LWA token ve
+              &quot;son senkronizasyon: 2 dk önce&quot; gösteriyordu. Gerçekte hiçbir Amazon
+              bağlantısı kurulmamıştır. Yanıltıcı olmaması için rozetler gerçek durumu
+              yansıtacak biçimde değiştirildi (denetim bulgusu F-23).
+            </p>
+            <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
+              Entegrasyon için gereken adımlar: Amazon Seller Central geliştirici kaydı → LWA
+              uygulaması → refresh token kasası (şifreli) → oran sınırlı senkronizasyon işi →
+              sipariş/stok eşleme. Tahmini efor: 8–13 kişi-gün.
             </p>
           </div>
 
@@ -694,44 +710,42 @@ export function AdminDashboard({
             {stores.map((st) => (
               <div
                 key={st.id}
-                className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4"
+                className="bg-surface-1 border border-line rounded-2xl p-5 space-y-3"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-indigo-400 font-mono-tech">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-brand-soft font-mono-tech">
                       {st.storeCode} — {st.marketplace}
                     </span>
-                    <h4 className="text-sm font-bold text-white">{st.storeName}</h4>
+                    <h4 className="text-sm font-bold text-ink truncate">{st.storeName}</h4>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono-tech font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> SP-API BAĞLI
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-mono-tech font-bold bg-surface-3 text-ink-muted border border-line flex items-center gap-1 shrink-0">
+                    BAĞLI DEĞİL
                   </span>
                 </div>
 
-                <div className="space-y-2 text-xs font-mono-tech bg-[#080C14] p-3.5 rounded-xl border border-slate-800">
+                <div className="space-y-2 text-xs font-mono-tech bg-surface-base p-3.5 rounded-xl border border-line">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Marketplace ID:</span>
-                    <span className="text-slate-200 font-bold">ATVPDKIKX0DER (US-EAST)</span>
+                    <span className="text-ink-muted">Marketplace ID:</span>
+                    <span className="text-ink-faint">Tanımlanmadı</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">LWA Client Token:</span>
-                    <span className="text-emerald-400">amzn1.application-oa2-client.••••</span>
+                    <span className="text-ink-muted">LWA Refresh Token:</span>
+                    <span className="text-ink-faint">Yok</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Inventory Lab Senkronu:</span>
-                    <span className="text-indigo-400 font-bold">Otomatik (FBA Feed)</span>
+                    <span className="text-ink-muted">Son senkronizasyon:</span>
+                    <span className="text-ink-faint">Hiç</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 text-xs font-mono-tech">
-                  <span className="text-slate-500">Son Senkronizasyon: 2 dk önce</span>
-                  <button
-                    onClick={() => showFeedback(`${st.storeCode} SP-API FBA stok senkronizasyonu tetiklendi.`)}
-                    className="px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 rounded-lg text-xs font-bold transition"
-                  >
-                    Senkronize Et
-                  </button>
-                </div>
+                <button
+                  disabled
+                  title="SP-API entegrasyonu henüz geliştirilmedi"
+                  className="w-full px-3 py-1.5 bg-surface-2 text-ink-faint rounded-lg text-xs font-bold cursor-not-allowed border border-line"
+                >
+                  Senkronize Et (kullanılamaz)
+                </button>
               </div>
             ))}
           </div>
@@ -743,31 +757,31 @@ export function AdminDashboard({
       {/* ========================================================================= */}
       {activeSubTab === "AUDIT" && (
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase font-mono-tech">
+          <h3 className="text-sm font-bold text-ink uppercase font-mono-tech">
             Gerçek Zamanlı Sistem Değişiklik Günlüğü (Audit Trail)
           </h3>
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 max-h-[500px] overflow-y-auto space-y-2.5">
+          <div className="bg-surface-1 border border-line rounded-2xl p-4 max-h-[500px] overflow-y-auto space-y-2.5">
             {auditLogs.length === 0 ? (
-              <p className="text-xs font-mono-tech text-slate-500">Henüz denetim kaydı bulunmuyor.</p>
+              <p className="text-xs font-mono-tech text-ink-faint">Henüz denetim kaydı bulunmuyor.</p>
             ) : (
               auditLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="p-3.5 rounded-xl bg-[#080C14] border border-slate-800/80 text-xs font-mono-tech flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  className="p-3.5 rounded-xl bg-surface-base border border-line text-xs font-mono-tech flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-indigo-400 font-bold">{log.actorName}</span>
-                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-amber-300">
+                      <span className="text-brand-soft font-bold">{log.actorName}</span>
+                      <span className="px-2 py-0.5 rounded bg-surface-2 border border-line text-[10px] text-caution">
                         {log.actionType}
                       </span>
-                      <span className="text-slate-200 font-semibold truncate max-w-sm">
+                      <span className="text-ink font-semibold truncate max-w-sm">
                         {log.targetEntity}
                       </span>
                     </div>
-                    {log.details && <p className="text-[11px] text-slate-400">{log.details}</p>}
+                    {log.details && <p className="text-[11px] text-ink-muted">{log.details}</p>}
                   </div>
-                  <div className="text-right text-[11px] text-slate-500 shrink-0">
+                  <div className="text-right text-[11px] text-ink-faint shrink-0">
                     {new Date(log.createdAt).toLocaleTimeString()} • Mağaza: {log.storeCode}
                   </div>
                 </div>
@@ -782,46 +796,77 @@ export function AdminDashboard({
       {/* ========================================================================= */}
       {activeSubTab === "DB_TOOLS" && (
         <div className="space-y-6">
-          <div className="bg-rose-500/10 border border-rose-500/40 rounded-2xl p-5 flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+          <div className="bg-danger/10 border border-danger/40 rounded-2xl p-5 flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-danger shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-base font-bold text-rose-300 uppercase font-mono-tech">
+              <h3 className="text-base font-bold text-danger uppercase font-mono-tech">
                 ⚠️ DANGER ZONE: Veritabanı Temizleme &amp; Gerçek Veri Hazırlık Merkezi
               </h3>
-              <p className="text-xs text-slate-300 font-mono-tech mt-1">
+              <p className="text-xs text-ink-muted font-mono-tech mt-1">
                 Kendi gerçek Google Drive / Excel sipariş verilerinizi yüklemeden önce mevcut test/demo siparişlerini tek tıkla temizleyebilir veya dilediğinizde 38 gerçek Vitamin Shoppe siparişini fabrika verisi olarak geri getirebilirsiniz.
               </p>
             </div>
           </div>
 
           {/* Security confirmation input */}
-          <div className="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 space-y-3 font-mono-tech text-xs">
-            <label className="block text-slate-300 font-bold">
+          <div className="bg-surface-1 border border-line rounded-2xl p-5 space-y-3 font-mono-tech text-xs">
+            <label className="block text-ink-muted font-bold">
               Güvenlik Onayı: Aşağıdaki araçları çalıştırmak için kutuya büyük harflerle{" "}
-              <code className="text-rose-400 bg-slate-900 px-1.5 py-0.5 rounded">RESET-CERBERUS</code> yazın:
+              <code className="text-danger bg-surface-2 px-1.5 py-0.5 rounded">RESET-CERBERUS</code> yazın:
             </label>
             <input
               type="text"
               value={confirmationInput}
               onChange={(e) => setConfirmationInput(e.target.value)}
               placeholder="RESET-CERBERUS"
-              className="w-full max-w-sm px-3.5 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold tracking-wider focus:outline-none focus:border-rose-500"
+              className="w-full max-w-sm px-3.5 py-2 bg-surface-base border border-line rounded-xl text-ink font-bold tracking-wider focus:outline-none focus:border-danger"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Tool 1: Clean Orders Only (Keep Users & Stores) */}
-            <div className="bg-[#0F1626] border border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {/* Tool 0: Gerçek Veriyle Başlangıç — canlıya geçiş için önerilen */}
+            <div className="flex flex-col justify-between space-y-4 rounded-2xl border-2 border-brand bg-surface-1 p-5 shadow-lg shadow-brand/10">
               <div>
-                <span className="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono-tech text-[10px] font-bold">
-                  EN ÇOK ÖNERİLEN (TEMİZ BAŞLANGIÇ)
+                <span className="rounded bg-brand px-2.5 py-0.5 font-mono-tech text-[10px] font-bold text-ink">
+                  CANLIYA GEÇİŞ İÇİN ÖNERİLEN
                 </span>
-                <h4 className="text-base font-bold text-white mt-2">
+                <h4 className="mt-2 text-base font-bold text-ink">
+                  0. Gerçek Veriyle Başlangıç
+                </h4>
+                <p className="mt-2 font-mono-tech text-xs leading-relaxed text-ink-muted">
+                  Tüm demo operasyonel verisini siler: siparişler, PSH partileri,
+                  <strong className="text-ink"> ürün ana kayıtları</strong> ve araştırma oturumları.
+                  <strong className="mt-1 block text-brand-soft">
+                    ✓ Mağazalar, kullanıcı hesapları ve araştırmacı kadrosu KORUNUR.
+                  </strong>
+                  <span className="mt-1 block text-ink-faint">
+                    1. seçenekten farkı: demo ürün kayıtlarını da temizler; böylece
+                    gerçekleşen ROI ölçümü hayalet ürünlerle kirlenmez.
+                  </span>
+                </p>
+              </div>
+
+              <button
+                disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
+                onClick={() => handleExecuteDatabaseTool("FRESH_START_REAL_DATA")}
+                className="w-full rounded-xl bg-brand py-3 font-mono-tech text-xs font-bold uppercase tracking-wider text-ink shadow-lg shadow-brand/20 transition hover:bg-brand-soft disabled:opacity-40"
+              >
+                {resettingDb ? "Hazırlanıyor..." : "Gerçek Veriyle Başla"}
+              </button>
+            </div>
+
+            {/* Tool 1: Clean Orders Only (Keep Users & Stores) */}
+            <div className="bg-surface-1 border border-positive/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <span className="px-2.5 py-0.5 rounded bg-positive/20 text-positive font-mono-tech text-[10px] font-bold">
+                  SADECE SİPARİŞLERİ TEMİZLE
+                </span>
+                <h4 className="text-base font-bold text-ink mt-2">
                   1. Sadece Siparişleri Temizle
                 </h4>
-                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
                   Tüm demo siparişlerini (`orders`) ve PSH sevkiyat partilerini (`psh_batches`) temizler.  
-                  <strong className="text-emerald-400 block mt-1">
+                  <strong className="text-positive block mt-1">
                     ✓ 26 Mağaza tanımınız ve kullanıcı hesaplarınız (Harun, Selin, Can, Ahmet) KORUNUR!
                   </strong>
                 </p>
@@ -830,22 +875,22 @@ export function AdminDashboard({
               <button
                 disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
                 onClick={() => handleExecuteDatabaseTool("CLEAN_ORDERS_ONLY")}
-                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-slate-950 font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-emerald-600/20"
+                className="w-full py-3 rounded-xl bg-positive hover:brightness-110 disabled:opacity-40 text-surface-base font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-positive/20"
               >
                 {resettingDb ? "Temizleniyor..." : "Siparişleri Temizle & Hazırla"}
               </button>
             </div>
 
             {/* Tool 2: Restore 38 Real Vitamin Shoppe Orders */}
-            <div className="bg-[#0F1626] border border-indigo-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+            <div className="bg-surface-1 border border-brand/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
               <div>
-                <span className="px-2.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono-tech text-[10px] font-bold">
+                <span className="px-2.5 py-0.5 rounded bg-brand/20 text-brand-soft font-mono-tech text-[10px] font-bold">
                   REFERANS VERİYİ GERİ YÜKLE
                 </span>
-                <h4 className="text-base font-bold text-white mt-2">
+                <h4 className="text-base font-bold text-ink mt-2">
                   2. 38 Gerçek XLS Siparişi Yükle
                 </h4>
-                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
                   Paylaştığınız 40-kolonluk The Vitamin Shoppe 38 gerçek siparişini (`WO110074776` vb.), Google Drive linklerini ve PSH partilerini tek tıkla geri getirir.
                 </p>
               </div>
@@ -853,22 +898,22 @@ export function AdminDashboard({
               <button
                 disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
                 onClick={() => handleExecuteDatabaseTool("RESTORE_REAL_XLS")}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-indigo-600/20"
+                className="w-full py-3 rounded-xl bg-brand hover:bg-brand-soft disabled:opacity-40 text-ink font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-brand/20"
               >
                 {resettingDb ? "Yükleniyor..." : "38 Gerçek Siparişi Geri Yükle"}
               </button>
             </div>
 
             {/* Tool 3: Factory Reset Keep Admin */}
-            <div className="bg-[#0F1626] border border-rose-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+            <div className="bg-surface-1 border border-danger/40 rounded-2xl p-5 flex flex-col justify-between space-y-4">
               <div>
-                <span className="px-2.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono-tech text-[10px] font-bold">
+                <span className="px-2.5 py-0.5 rounded bg-danger/20 text-danger font-mono-tech text-[10px] font-bold">
                   TAM SIFIRLAMA
                 </span>
-                <h4 className="text-base font-bold text-white mt-2">
+                <h4 className="text-base font-bold text-ink mt-2">
                   3. Fabrika Ayarlarına Dön
                 </h4>
-                <p className="text-xs text-slate-400 font-mono-tech mt-2 leading-relaxed">
+                <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
                   Tüm siparişleri, batch&rsquo;leri, mağaza kullanıcılarını (`STORE_USER`) ve denetim kayıtlarını siler. Sadece Sistem Yöneticisi (`Ahmet Erdem`) kalır.
                 </p>
               </div>
@@ -876,7 +921,7 @@ export function AdminDashboard({
               <button
                 disabled={resettingDb || confirmationInput !== "RESET-CERBERUS"}
                 onClick={() => handleExecuteDatabaseTool("NUKE_ALL_KEEP_ADMIN")}
-                className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-rose-600/20"
+                className="w-full py-3 rounded-xl bg-danger hover:bg-rose-500 disabled:opacity-40 text-ink font-mono-tech text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-rose-600/20"
               >
                 {resettingDb ? "Sıfırlanıyor..." : "Tüm Verileri Sıfırla"}
               </button>
@@ -890,36 +935,36 @@ export function AdminDashboard({
       {/* ========================================================================= */}
       {isNewStoreModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0F1626] border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="bg-surface-1 border border-line rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div className="flex items-center gap-2">
-                <Store className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-bold text-white">Yeni Mağaza Tanımla</h3>
+                <Store className="w-5 h-5 text-brand-soft" />
+                <h3 className="text-base font-bold text-ink">Yeni Mağaza Tanımla</h3>
               </div>
               <button onClick={() => setIsNewStoreModalOpen(false)}>
-                <XCircle className="w-5 h-5 text-slate-400 hover:text-white" />
+                <XCircle className="w-5 h-5 text-ink-muted hover:text-ink" />
               </button>
             </div>
 
             <form onSubmit={handleCreateStore} className="space-y-3.5 text-xs font-mono-tech">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Mağaza Kodu (Benzersiz)</label>
+                  <label className="block text-ink-muted mb-1">Mağaza Kodu (Benzersiz)</label>
                   <input
                     type="text"
                     required
                     placeholder="Örn: WMT-01, AMZ-03"
                     value={storeCode}
                     onChange={(e) => setStoreCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink font-bold"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Pazar Yeri</label>
+                  <label className="block text-ink-muted mb-1">Pazar Yeri</label>
                   <select
                     value={marketplace}
                     onChange={(e) => setMarketplace(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                   >
                     <option value="AMAZON">AMAZON FBA</option>
                     <option value="WALMART">WALMART</option>
@@ -930,63 +975,63 @@ export function AdminDashboard({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Mağaza Resmi Adı</label>
+                <label className="block text-ink-muted mb-1">Mağaza Resmi Adı</label>
                 <input
                   type="text"
                   required
                   placeholder="Örn: Vanguard Retail Amazon Storefront"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Alıcı Sorumlusu (Buyer)</label>
+                  <label className="block text-ink-muted mb-1">Alıcı Sorumlusu (Buyer)</label>
                   <input
                     type="text"
                     placeholder="Örn: Selin Yılmaz"
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Ödeme Kartı Son 4</label>
+                  <label className="block text-ink-muted mb-1">Ödeme Kartı Son 4</label>
                   <input
                     type="text"
                     maxLength={4}
                     value={defaultCard}
                     onChange={(e) => setDefaultCard(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink font-bold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Mağaza Sipariş E-posta Adresi</label>
+                <label className="block text-ink-muted mb-1">Mağaza Sipariş E-posta Adresi</label>
                 <input
                   type="email"
                   placeholder="amz03@cerberus-commerce.io"
                   value={defaultEmail}
                   onChange={(e) => setDefaultEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewStoreModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-ink-muted hover:text-ink"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
                   disabled={savingStore}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold uppercase transition"
+                  className="px-5 py-2 bg-brand hover:bg-brand-soft text-ink rounded-xl font-bold uppercase transition"
                 >
                   {savingStore ? "Kaydediliyor..." : "Mağazayı Oluştur"}
                 </button>
@@ -1001,61 +1046,61 @@ export function AdminDashboard({
       {/* ========================================================================= */}
       {isNewUserModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0F1626] border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="bg-surface-1 border border-line rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-bold text-white">Yeni Kullanıcı &amp; Mağaza Tanımla</h3>
+                <Users className="w-5 h-5 text-brand-soft" />
+                <h3 className="text-base font-bold text-ink">Yeni Kullanıcı &amp; Mağaza Tanımla</h3>
               </div>
               <button onClick={() => setIsNewUserModalOpen(false)}>
-                <XCircle className="w-5 h-5 text-slate-400 hover:text-white" />
+                <XCircle className="w-5 h-5 text-ink-muted hover:text-ink" />
               </button>
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-3.5 text-xs font-mono-tech">
               <div>
-                <label className="block text-slate-400 mb-1">Ad Soyad</label>
+                <label className="block text-ink-muted mb-1">Ad Soyad</label>
                 <input
                   type="text"
                   required
                   placeholder="Örn: Ece Demir"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">E-posta Adresi (Giriş İçin)</label>
+                <label className="block text-ink-muted mb-1">E-posta Adresi (Giriş İçin)</label>
                 <input
                   type="email"
                   required
                   placeholder="ece@cerberus-commerce.io"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                  className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-400 mb-1">Yetki Rolü</label>
+                  <label className="block text-ink-muted mb-1">Yetki Rolü</label>
                   <select
                     value={newUserRole}
                     onChange={(e) => setNewUserRole(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                   >
                     <option value="STORE_USER">Mağaza Sorumlusu</option>
                     <option value="ADMIN">Sistem Yöneticisi</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">Atanacak Mağaza</label>
+                  <label className="block text-ink-muted mb-1">Atanacak Mağaza</label>
                   <select
                     disabled={newUserRole === "ADMIN"}
                     value={newUserStore}
                     onChange={(e) => setNewUserStore(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white"
+                    className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink"
                   >
                     {stores.map((s) => (
                       <option key={s.storeCode} value={s.storeCode}>
@@ -1067,27 +1112,27 @@ export function AdminDashboard({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Başlangıç Parolası</label>
+                <label className="block text-ink-muted mb-1">Başlangıç Parolası</label>
                 <input
                   type="text"
                   value={newUserPass}
                   onChange={(e) => setNewUserPass(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#080C14] border border-slate-700 rounded-xl text-white font-bold"
+                  className="w-full px-3 py-2 bg-surface-base border border-line rounded-xl text-ink font-bold"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewUserModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl text-ink-muted hover:text-ink"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
                   disabled={savingUser}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold uppercase transition"
+                  className="px-5 py-2 bg-brand hover:bg-brand-soft text-ink rounded-xl font-bold uppercase transition"
                 >
                   {savingUser ? "Ekleniyor..." : "Kullanıcıyı Kaydet"}
                 </button>
