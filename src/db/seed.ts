@@ -5,6 +5,7 @@ import {
   researchers,
   researchSessions,
   productMasters,
+  products,
   orders,
   pshBatches,
   auditLogs,
@@ -203,6 +204,20 @@ export async function ensureCerberusSeeded() {
     await db.transaction(async (tx) => {
       await insertOrdersWithProducts(tx, orders, ALL_38_XLS_ORDERS as any[]);
     });
+  }
+
+  // Aşama 3: ASIN kesişen kasa kayıtlarını kataloğa bağla (kesişim yoksa no-op).
+  const catalog = await db.select({ id: products.id, asin: products.asin }).from(products);
+  const asinToId = new Map(catalog.map((p) => [p.asin, p.id]));
+  const masters = await db
+    .select({ id: productMasters.id, asin: productMasters.asin, productId: productMasters.productId })
+    .from(productMasters);
+  for (const m of masters) {
+    if (m.productId) continue;
+    const pid = asinToId.get(String(m.asin || "").trim().toUpperCase());
+    if (pid) {
+      await db.update(productMasters).set({ productId: pid }).where(eq(productMasters.id, m.id));
+    }
   }
 
   // 8. Initial Audit Log

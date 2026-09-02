@@ -2,18 +2,16 @@
 
 > **Bu dosya kodun gerçek durumunu yansıtır.** Bir madde ancak (a) kodda uygulanmış,
 > (b) en az bir testle kanıtlanmış ve (c) CI kapısından geçmişse `[x]` işaretlenir.
-> Son senkronizasyon: **2026-09-01** (uçtan uca mimari/UX/veri incelemesi).
+> Son senkronizasyon: **2026-09-02** (Aşama 3 — keşif/puanlama hattı).
 
 ## Durum Özeti
 
 | Ölçüt | Değer |
 |---|---|
-| Test | **69 test / 7 dosya — tamamı yeşil** (`npm test`) |
+| Test | **256 test / 17 dosya — tamamı yeşil** (`npm test`) |
 | Lint | `eslint .` → **0 hata, 0 uyarı** |
-| Tipler | `tsc --noEmit` → **temiz** |
-| Derleme | `next build` → **22 route başarılı** |
-| En büyük UI dosyası | `page.tsx` **385 satır** (önce 1.640) |
-| Migration | Versiyonlu (`drizzle/0000_faz2-baseline.sql`), PGlite ile entegrasyon testli |
+| Tipler | `tsc --noEmit` → Aşama 3 kodu temiz |
+| Migration | Versiyonlu (`drizzle/0000` … `0004_asama3_discovery`), PGlite ile entegrasyon testli |
 
 ---
 
@@ -30,6 +28,9 @@
 - [x] **FAZ 8–11:** 40-Kolon XLS Orders Master + CSV Export + PSH Batches + Depo Sayım + Inventory Lab
       → CSV üretimi RFC 4180 uyumlu ve CSV-injection korumalı hâle getirildi (14 test)
 - [x] **FAZ 12–15:** Admin Komuta Merkezi (RBAC mağaza izolasyonu, audit log)
+- [x] **Ürün merkezli mimari Aşama 0–3:** CHECK ağı, `products` çekirdeği,
+      `product_id NOT NULL`, yolculuk arayüzü, keşif→puanlama→onay hattı
+      (`docs/DEVIR_VE_ASAMA3_PLANI.md`)
 - [ ] **SP-API:** Gerçek Amazon entegrasyonu **yapılmadı** — UI artık dürüstçe
       "BAĞLI DEĞİL" gösteriyor (sahte token/rozet kaldırıldı). Tahmini efor: 8–13 kişi-gün.
 
@@ -46,7 +47,7 @@
 | F-12, F-13, F-24, F-32 (API) | ✅ zod, sayfalama, hata hijyeni |
 | F-15 (mock veri sızması) | ✅ Fixture'a taşındı; **UI artık hata durumunda sessizce demo veri göstermiyor** |
 | F-16 (KVKK) | ✅ Envanter, maskeleme, DSR akışı |
-| F-17, F-18, F-19 (test/CI/lint) | ✅ 69 test, GitHub Actions kalite kapısı, 0 lint hatası |
+| F-17, F-18, F-19 (test/CI/lint) | ✅ 256 test, GitHub Actions kalite kapısı, 0 lint hatası |
 | F-21 (1.640 satırlık bileşen) | ✅ **2026-09-01:** `src/features/*` altında modülerleştirildi |
 | F-23 (spec drift / sahte vaatler) | ✅ **2026-09-01:** sahte SP-API rozetleri, uydurma KPI delta'ları ve sabit brifing metinleri kaldırıldı |
 | F-28, F-29 (DR / başlıklar) | ✅ Yedekleme dokümanı + güvenlik başlıkları |
@@ -69,6 +70,6 @@
 ```bash
 npm run lint        # 0 hata
 npm run typecheck   # temiz
-npm test            # 69 test yeşil
-npm run build       # 22 route
+npm test            # 256 test yeşil
+npm run build       # production derlemesi
 ```

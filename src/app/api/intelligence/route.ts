@@ -6,15 +6,18 @@ import {
   researchSessions,
   auditLogs,
   orders,
+  products,
 } from "@/db/schema";
 import { count, desc, eq, sql } from "drizzle-orm";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
-import { calculateLandedCostAndProfit, computeDecisionEngine } from "@/domain/decisionEngine";
+import { computeDecisionEngine } from "@/domain/decisionEngine";
 import { buildMorningBriefing } from "@/domain/briefing";
 import { computeRealizedRoi, computeRoiVariance } from "@/domain/realizedRoi";
 import { computeFreshness, summarizeFreshness } from "@/domain/dataFreshness";
 import { parseBody, intelligenceCreateSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { captureDiscoveredProduct } from "@/db/captureDiscoveredProduct";
+import { STAGE_META, type LifecycleStage } from "@/domain/productIntelligence";
 
 
 export async function GET(req: Request) {
@@ -96,6 +99,12 @@ export async function GET(req: Request) {
           .from(orders),
       ]);
 
+    const catalog = await db
+      .select({ id: products.id, asin: products.asin, lifecycleStage: products.lifecycleStage })
+      .from(products);
+    const catalogById = new Map(catalog.map((p) => [p.id, p]));
+    const catalogByAsin = new Map(catalog.map((p) => [p.asin, p]));
+
     const toCounts = (rows: Array<{ key: string; n: number }>) =>
       rows.reduce<Record<string, number>>((acc, r) => {
         acc[r.key] = Number(r.n);
@@ -144,8 +153,16 @@ export async function GET(req: Request) {
       );
       const freshness = computeFreshness(m.observedAt, now);
 
+      const linked =
+        (m.productId != null ? catalogById.get(m.productId) : undefined) ??
+        catalogByAsin.get(asinKey);
+      const catalogStage = (linked?.lifecycleStage ?? null) as LifecycleStage | null;
+
       return {
         ...m,
+        productId: m.productId ?? linked?.id ?? null,
+        catalogStage,
+        catalogStageLabel: catalogStage ? STAGE_META[catalogStage]?.label ?? catalogStage : null,
         // Ölçülemiyorsa null kalır — arayüz "henüz ölçülmedi" gösterir.
         actualRoiPercent:
           realized.realizedRoiPercent === null
@@ -216,149 +233,51 @@ export async function POST(req: Request) {
     const parsed = await parseBody(req, intelligenceCreateSchema);
     if ("response" in parsed) return parsed.response;
     const body = parsed.data;
-    const {
-      sourceUrl,
-      title,
-      brand = "GENERIC BRAND",
-      category = "General Retail",
-      upc = "000000000000",
-      asin = "B0" + Math.random().toString(36).substring(2, 10).toUpperCase(),
-      sourcePrice = 45,
-      sellingPrice = 79.99,
-      prepCost = 1.35,
-      researcherName = "Ahmet Kaya (SRC-01)",
-      supplierName = "US Sourcing Vendor",
-      notes = "",
-    } = body;
 
-    let sourceDomain = "us-retail.com";
+    let captured;
     try {
-      if (sourceUrl) {
-        const u = new URL(sourceUrl);
-        sourceDomain = u.hostname.replace("www.", "");
-      }
-    } catch {
-      // fallback
+      captured = await db.transaction((tx) =>
+        captureDiscoveredProduct(tx, {
+          title: body.title,
+          asin: body.asin,
+          brand: body.brand,
+          category: body.category,
+          upc: body.upc,
+          sourceUrl: body.sourceUrl,
+          sourcePrice: body.sourcePrice,
+          sellingPrice: body.sellingPrice,
+          prepCost: body.prepCost,
+          researcherName: body.researcherName,
+          researcherCode: body.researcherCode,
+          supplierName: body.supplierName,
+          notes: body.notes,
+          actorName: currentUser.name || currentUser.email,
+        })
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Keşif kaydı yazılamadı.";
+      return NextResponse.json({ error: message }, { status: 422 });
     }
-
-    const existingMasters = await db.select().from(productMasters);
-    let duplicateScore = 12;
-    let duplicateStatus = "CLEAR";
-    for (const item of existingMasters) {
-      if (
-        (upc && upc.length > 5 && item.upc === upc) ||
-        (asin && item.asin.toUpperCase() === asin.toUpperCase()) ||
-        (sourceUrl && item.sourceUrl === sourceUrl)
-      ) {
-        duplicateScore = 96;
-        duplicateStatus = "EXACT_DUPLICATE";
-        break;
-      }
-    }
-
-    const numericSourcePrice = Number(sourcePrice) || 1;
-    const numericSellingPrice = Number(sellingPrice) || numericSourcePrice * 1.6;
-
-    const landed = calculateLandedCostAndProfit(
-      numericSourcePrice,
-      numericSellingPrice,
-      Number(prepCost) || 1.35
-    );
-
-    const radar = computeDecisionEngine(landed.roiPercent, sourceDomain, duplicateScore);
-    const productCode = `CRB-2026-${Math.floor(9055 + Math.random() * 900)}`;
-
-    const [inserted] = await db
-      .insert(productMasters)
-      .values({
-        productCode,
-        title,
-        brand: brand.toUpperCase(),
-        category,
-        upc,
-        asin: asin.toUpperCase(),
-        msku: `${brand.slice(0, 3).toUpperCase()}-${Math.floor(100 + Math.random() * 899)}`,
-        sourceUrl: sourceUrl || "https://www.homedepot.com",
-        sourceDomain,
-        supplierName,
-        researcherCode: researcherName.includes("(")
-          ? researcherName.split("(")[1].replace(")", "")
-          : "SRC-01",
-        researcherName,
-        lifecycleStage: duplicateStatus === "EXACT_DUPLICATE" ? "DUPLICATE_CHECK" : "APPROVED",
-        dataQualityStatus: duplicateStatus === "EXACT_DUPLICATE" ? "CONFLICTING" : "VALID",
-        // Tazelik elle "FRESH" ilan edilmez; observedAt'ten hesaplanır.
-        // Yeni kayıt için yaş 0 gündür, dolayısıyla doğal olarak FRESH çıkar.
-        dataFreshnessStatus: computeFreshness(new Date()).status,
-        observedAt: new Date(),
-        decisionAction: radar.decisionAction,
-        confidenceScore: radar.confidenceScore,
-        riskLevel: radar.riskLevel,
-        policyStatus: radar.policyStatus,
-        sourcePrice: numericSourcePrice.toFixed(2),
-        prepCost: Number(prepCost).toFixed(2),
-        marketplaceFee: landed.marketplaceFee.toFixed(2),
-        fulfillmentFee: landed.fulfillmentFee.toFixed(2),
-        landedCost: landed.landedCost.toFixed(2),
-        sellingPrice: numericSellingPrice.toFixed(2),
-        estimatedNetProfit: landed.estimatedNetProfit.toFixed(2),
-        roiPercent: landed.roiPercent.toFixed(2),
-        // Gerçekleşen ROI burada UYDURULMAZ. Ürün henüz satılmadığı için
-        // ölçülecek veri yoktur; null kalır ve ilk sevkiyat kapandığında
-        // computeRealizedRoi() ile gerçek siparişlerden hesaplanır.
-        actualRoiPercent: null,
-        duplicateScore,
-        duplicateStatus,
-        profitabilityScore: radar.profitabilityScore,
-        demandScore: radar.demandScore,
-        competitionScore: radar.competitionScore,
-        priceStabilityScore: radar.priceStabilityScore,
-        supplierRiskScore: radar.supplierRiskScore,
-        operationalRiskScore: radar.operationalRiskScore,
-        opportunityScore: radar.opportunityScore,
-        evidenceChain: [
-          {
-            claim: `Landed Cost $${landed.landedCost} ve %${landed.roiPercent} tahmini net ROI ile Decision Engine önerisi: ${radar.decisionAction}`,
-            source: `${sourceDomain} Sourcing Feed`,
-            observedAt: new Date().toISOString(),
-            confidence: `${radar.confidenceScore}%`,
-          },
-        ],
-        channelListings: [
-          {
-            storeCode: "HRN",
-            storeName: "HRN Amazon US Storefront",
-            price: numericSellingPrice,
-            status: "ACTIVE",
-            stock: 45,
-          },
-        ],
-        costHistory: [
-          {
-            date: new Date().toISOString().split("T")[0],
-            sourcePrice: numericSourcePrice,
-            landedCost: landed.landedCost,
-            sellingPrice: numericSellingPrice,
-            roi: landed.roiPercent,
-          },
-        ],
-        notes,
-      })
-      .returning();
 
     await db.insert(auditLogs).values({
       actorName: currentUser.name,
       storeCode: currentUser.storeCode === "ALL" ? "HRN" : currentUser.storeCode,
       actionType: "DECISION_ENGINE_CAPTURE",
-      targetEntity: `${productCode} (${title.slice(0, 32)})`,
-      beforeState: "NEW_CAPTURE",
-      afterState: `${radar.decisionAction} (${radar.confidenceScore}% Conf)`,
-      details: `Decision Engine kararı: ${radar.decisionAction}. ROI: %${landed.roiPercent}, Dup Score: %${duplicateScore}`,
+      targetEntity: `product:${captured.productId} master:${captured.masterId}`,
+      beforeState: captured.createdProduct ? "NEW_DISCOVERY" : "EXISTING_PRODUCT",
+      afterState: `${captured.decision.decisionAction} @ ${captured.lifecycleStage}`,
+      details: `Keşif kaydı. Karar: ${captured.decision.decisionAction}. Durak: ${captured.lifecycleStage}. Mükerrer: ${captured.duplicate}`,
     });
 
     return NextResponse.json({
-      message: `Product Master oluşturuldu. Decision Engine Kararı: ${radar.decisionAction}`,
-      master: inserted,
+      message: `Keşif kaydı oluşturuldu. Decision Engine: ${captured.decision.decisionAction}`,
+      productId: captured.productId,
+      masterId: captured.masterId,
+      lifecycleStage: captured.lifecycleStage,
+      decision: captured.decision.decisionAction,
+      decisionEngine: captured.decision,
+      createdProduct: captured.createdProduct,
+      duplicate: captured.duplicate,
     });
   } catch (error: unknown) {
     return handleRouteError("POST /api/intelligence", error);

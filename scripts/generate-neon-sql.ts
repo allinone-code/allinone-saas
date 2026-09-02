@@ -9,7 +9,7 @@
  * Üretilen dosya: docs/neon-kurulum.sql
  *
  * İçerik sırası:
- *   1. drizzle/*.sql migration'ları (0000 → 0003), doğru sırayla
+ *   1. drizzle/*.sql migration'ları (0000 → 0004), doğru sırayla
  *   2. drizzle takip tablosu (sonradan `npm run db:migrate` çakışmasın)
  *   3. Başlangıç verisi: mağazalar, kullanıcılar, siparişler
  *   4. Sipariş satırlarından ürün kataloğu + fiyat gözlemleri + olay defteri

@@ -14,11 +14,13 @@ export function DecisionVaultTable({
   decisionFilter,
   onDecisionFilterChange,
   onSelect,
+  onOpenProduct,
 }: {
   masters: ProductMasterView[];
   decisionFilter: string;
   onDecisionFilterChange: (value: string) => void;
   onSelect: (master: ProductMasterView) => void;
+  onOpenProduct?: (productId: number) => void;
 }) {
   const visible =
     decisionFilter === "ALL"
@@ -80,6 +82,11 @@ export function DecisionVaultTable({
                       <span className="text-brand-soft font-bold block">{m.productCode}</span>
                       <span className="text-[10px] text-ink-muted block">ASIN: {m.asin}</span>
                       <span className="text-[10px] text-ink-faint block">UPC: {m.upc}</span>
+                      {m.catalogStageLabel && (
+                        <span className="mt-1 inline-block text-[10px] font-bold text-brand-soft">
+                          Katalog: {m.catalogStageLabel}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3.5 max-w-sm font-sans">
                       <div className="flex items-center gap-1.5 mb-1">

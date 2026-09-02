@@ -656,3 +656,23 @@ altında açıkça hata verir.
 `DISCOVERED → ANALYZING → SCORED → APPROVED` başlangıcı henüz bir ekrana
 bağlı değil. Karar Kasası'ndaki puanlama mantığı bu duraklarla birleştirilirse
 yolculuk baştan sona tek akış olur.
+
+---
+
+## EK — AŞAMA 3 UYGULANDI (2026-09-02)
+
+Keşif ve puanlama artık katalog durak makinesinin parçası. Karar kasası
+(`product_masters`) ürünün gölgesi değil, ürünün puanlama kaydıdır.
+
+### Kurulan bağ
+
+| Önce | Sonra |
+|---|---|
+| `POST /api/intelligence` yalnızca kasa satırı yazardı, sahte ASIN üretebilirdi | ASIN zorunlu; `products` DISCOVERED doğar, motor puanlar, durak yürür |
+| `product_masters` ↔ `products` ASIN metniyle "umutla" | `product_masters.product_id` FK, bir ürüne en fazla bir kasa |
+| Sipariş her yeni ASIN'i PURCHASING'de doğururdu | Keşfedilmiş ürünü PURCHASING'e çeker; SELLING geri gitmez |
+| Keşif hattı UI'da yoktu | Ürün Portföyü: keşif hattı + "Ürün keşfet" |
+
+Karar eşlemesi: `BUY`/`TEST` → `APPROVED`, `REJECT` → `REJECTED`, `WAIT` → `SCORED`.
+
+Orijinal rapordaki envanter olay defteri (`inventory_movements`) hâlâ sonraki pakettir.

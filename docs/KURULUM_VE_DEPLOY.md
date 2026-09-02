@@ -9,10 +9,9 @@ izlenecek sırayı anlatır.
 
 | Katman | Durum |
 |---|---|
-| GitHub (`arena/01a05ea7-allinone-saas`) | Tüm çalışma push edilmiş |
-| `main` | PR #13 açık, henüz merge edilmedi |
-| Vercel | `main`'i deploy ettiği için eski kodu gösterir |
-| Neon | Yeni tablolar/migration'lar **uygulanmadı** |
+| GitHub | Aşama 0–2 `main`'de (PR #13). Aşama 3 bu dalda. |
+| Vercel | `main` deploy eder; Aşama 3 merge sonrası yeni kodu alır |
+| Neon | Aşama 3 için `0004_asama3_discovery` migration gerekir |
 
 ---
 
@@ -24,7 +23,7 @@ kurmanız gerekmez.
 ## A1. SQL dosyasını açın
 
 Depodaki **`docs/neon-kurulum.sql`** dosyasını açın ve **tamamını** kopyalayın
-(483 satır).
+(521 satır; `0004_asama3_discovery` dahil).
 
 GitHub'dan da alabilirsiniz: depo → `docs/neon-kurulum.sql` → **Raw** → tümünü
 seçip kopyalayın.
@@ -82,7 +81,7 @@ Node.js kuruluysa ve depoyu klonladıysanız bu yol daha esnektir.
 ```bash
 git clone https://github.com/allinone-code/allinone-saas.git
 cd allinone-saas
-git checkout arena/01a05ea7-allinone-saas
+git checkout arena/01a061bb-allinone-saas
 npm install
 ```
 
@@ -193,7 +192,7 @@ Ardından arayüzde:
 | `npm run db:bootstrap -- --no-seed` | Şema kurar, başlangıç verisi yüklemez |
 | `npm run db:migrate` | Yalnızca migration (elle kontrol için) |
 | `npx tsx scripts/backfill-products.ts --dry-run` | Yazmadan analiz |
-| `npm test` | 221 test |
+| `npm test` | 256 test |
 
 ---
 
