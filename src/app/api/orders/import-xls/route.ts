@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { orders, auditLogs } from "@/db/schema";
+import { orders, auditLogs, stores } from "@/db/schema";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { resolveProduct, normalizeAsin } from "@/db/resolveProduct";
 import { parseBody, importXlsSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { validateImportRow, detectDuplicatePairs, pgErrorCode, normalizeMoney, type ImportRowProblem } from "@/lib/importValidation";
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +27,17 @@ export async function POST(req: Request) {
     const scopedStore = resolveStoreScope(currentUser, defaultStore);
     const actorName = currentUser.name;
 
+    const resolveRowStore = (r: Record<string, any>): string => currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL" ? currentUser.storeCode : (scopedStore !== "ALL" ? (r.buyerStore || scopedStore) : (r.buyerStore || "HRN"));
+    const validStoreCodes = new Set((await db.select({ storeCode: stores.storeCode }).from(stores)).map(s => s.storeCode));
+    const problems: ImportRowProblem[] = [];
+    for (const [i, r] of rows.entries()) {
+      const store = resolveRowStore(r);
+      if (!validStoreCodes.has(store)) problems.push({ row: i + 1, field: "Satın Alan (mağaza)", message: `"${store}" tanımlı bir mağaza kodu değil.` });
+      problems.push(...validateImportRow(r, i));
+    }
+    problems.push(...detectDuplicatePairs(rows, resolveRowStore));
+    if (problems.length) { const shown=problems.slice(0,10), first=shown[0]; return NextResponse.json({ error: `İçe aktarılamadı: ${shown.length} satırda sorun var. İlk sorun: ${first.row}. satır — ${first.field}: ${first.message}`, details: shown }, { status: 400 }); }
+
     // T2.7: Coklu INSERT tek transaction'da — kismi hata butun importu geri alir
     const insertedOrders = await db.transaction(async (tx) => {
       const accumulator: (typeof orders.$inferSelect)[] = [];
@@ -46,11 +58,11 @@ export async function POST(req: Request) {
         currentUser.role === "STORE_USER" && currentUser.storeCode !== "ALL"
           ? currentUser.storeCode
           : buyerStore;
-      const unitCost = String(r.unitCost || "0").replace(",", ".");
-      const sellingPrice = String(r.sellingPrice || "0").replace(",", ".");
-      const totalCost = String(r.totalCost || "0").replace(",", ".");
-      const correctedCost = String(r.correctedCost || totalCost).replace(",", ".");
-      const refundAmount = String(r.refundAmount || "0").replace(",", ".");
+      const unitCost = String(normalizeMoney(r.unitCost) ?? 0);
+      const sellingPrice = String(normalizeMoney(r.sellingPrice) ?? 0);
+      const totalCost = String(normalizeMoney(r.totalCost) ?? 0);
+      const correctedCost = String(normalizeMoney(r.correctedCost) ?? Number(totalCost));
+      const refundAmount = String(normalizeMoney(r.refundAmount) ?? 0);
 
         const { productId } = await resolveProduct(tx, {
           asin: rowAsin,
@@ -142,6 +154,10 @@ export async function POST(req: Request) {
       importedCount: insertedOrders.length,
     });
   } catch (error: unknown) {
+    const code = pgErrorCode(error);
+    if (code === "23505") return NextResponse.json({ error: "Mükerrer sipariş: aynı Orderno bu mağazada zaten kayıtlı.", code }, { status: 409 });
+    if (code === "23503") return NextResponse.json({ error: "Başvuru hatası: satırdaki bir kod veritabanında tanımlı değil.", code }, { status: 400 });
+    if (code === "23514") return NextResponse.json({ error: "Satır değerleri veritabanı kurallarını ihlal etti.", code }, { status: 400 });
     return handleRouteError("POST /api/orders/import-xls", error);
   }
 }
