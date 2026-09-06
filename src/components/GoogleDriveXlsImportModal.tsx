@@ -220,7 +220,9 @@ export function GoogleDriveXlsImportModal({
           onClose();
         }, 1200);
       } else {
-        setErrorMsg(data.error || "Veritabanına aktarım başarısız oldu.");
+        const details = Array.isArray(data.details) ? data.details : [];
+        const msg = data.error || "Veritabanına aktarım başarısız oldu.";
+        setErrorMsg(details.length ? msg + "\n" + details.map((d: any) => `• ${d.row}. satır — ${d.field}: ${d.message}`).join("\n") : msg);
       }
     } catch (err: any) {
       setErrorMsg(err.message);
@@ -374,9 +376,9 @@ export function GoogleDriveXlsImportModal({
 
         {/* Error or Success notification */}
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-danger/15 border border-danger/40 text-danger text-xs font-mono-tech flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-danger/15 border border-danger/40 text-danger text-xs font-mono-tech flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
+            <span className="whitespace-pre-line">{errorMsg}</span>
           </div>
         )}
 
