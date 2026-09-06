@@ -115,7 +115,7 @@ export async function POST(req: Request) {
           auditNote: r.auditNote || "",
           periodCode: r.periodCode || "O26",
           correctedCost: Number(correctedCost).toFixed(2),
-          pshBatchNo: r.pshBatchNo || "PSH-BATCH-2026-02",
+          pshBatchNo: r.pshBatchNo || null,
           pshStatus: r.pshStatus || "BEKLIYOR",
           inventoryLabStatus: r.inventoryLabStatus || "GIRILMEDI",
         })
