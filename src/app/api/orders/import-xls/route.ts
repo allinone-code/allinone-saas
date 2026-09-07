@@ -234,6 +234,36 @@ export async function POST(req: Request) {
     });
 
     const skippedCount = skippedRows.length;
+
+    // ── Hiç kayıt giremediyse BAŞARI DEĞİL, HATA ──
+    // Tüm geçerli satırların DB aşamasında başarısız olması (ör. hepsi
+    // mükerrer) 200 + "0 adet başarıyla kaydedildi" olarak gösterilemez;
+    // 400 + anlaşılır hata + satır bazlı details döner.
+    if (insertedOrders.length === 0) {
+      const first = skippedRows[0];
+      await db.insert(auditLogs).values({
+        actorName,
+        storeCode: scopedStore === "ALL" ? "HRN" : scopedStore,
+        actionType: "XLS_BATCH_IMPORT",
+        targetEntity: "Google Drive XLS (0 Sipariş)",
+        beforeState: "EXCEL_TABLOSU",
+        afterState: "CERBERUS_VERITABANI",
+        details: `İçe aktarma başarısız: 0 satır aktarıldı, ${skippedCount} satır atlandı, ${createdStores.length} mağaza otomatik oluşturuldu (${createdStores.join(", ") || "yok"}).`,
+      });
+      return NextResponse.json(
+        {
+          error: `İçe aktarılamadı: ${rows.length} satırdan hiçbiri kaydedilemedi. ${skippedCount} satır veritabanı aşamasında başarısız oldu. İlk sorun: ${first.row}. satır — ${first.field}: ${first.message}`,
+          code: "NO_ROWS_INSERTED",
+          importedCount: 0,
+          skippedCount,
+          skipped: skippedRows.slice(0, 100),
+          details: skippedRows.slice(0, 100),
+          createdStores,
+        },
+        { status: 400 }
+      );
+    }
+
     let message = `${insertedOrders.length} adet sipariş başarıyla veritabanına aktarıldı.`;
     if (createdStores.length) {
       message += ` ${createdStores.length} tanımsız mağaza kodu otomatik oluşturuldu (${createdStores.join(", ")}).`;
