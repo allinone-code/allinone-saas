@@ -10,8 +10,11 @@ import {
   partitionRows,
   pgErrorCode,
   normalizeMoney,
+  normalizeCount,
+  normalizeFulfillmentType,
   type ImportRowProblem,
 } from "@/lib/importValidation";
+import { normalizeExcelDate } from "@/lib/xlsRowParse";
 
 /** storeCreateSchema ile uyumlu mağaza kodu üst sınırı */
 const MAX_STORE_CODE_LENGTH = 32;
@@ -141,6 +144,13 @@ export async function POST(req: Request) {
               throw new Error(`Satır ${row}: ASIN boş. Her sipariş bir ürüne bağlanmalıdır.`);
             }
 
+            // Tarih tek yerden kanonikleşir: Excel serisi (46043), Date
+            // nesnesi, ISO ve GG.AA.YYYY biçimleri YYYY-MM-DD'ye çevrilir.
+            // Çözülemeyen metinler doğrulama aşamasında elenmiştir; boş
+            // tarih bugün olur (mevcut davranış).
+            const orderDate =
+              normalizeExcelDate(r.orderDate) || new Date().toISOString().split("T")[0];
+
             const unitCost = String(normalizeMoney(r.unitCost) ?? 0);
             const sellingPrice = String(normalizeMoney(r.sellingPrice) ?? 0);
             const totalCost = String(normalizeMoney(r.totalCost) ?? 0);
@@ -155,16 +165,16 @@ export async function POST(req: Request) {
               brandName: r.brandName,
               imageUrl: r.imageUrl,
               amazonUrl: r.amazonUrl,
-              packCount: Number(r.packCount) || 1,
+              packCount: normalizeCount(r.packCount) || 1,
               isFragile: r.isFragile,
               isMultiPack: r.isMultiPack,
               isBundle: r.isBundle,
-              countPerBundle: Number(r.countPerBundle) || null,
+              countPerBundle: normalizeCount(r.countPerBundle) ?? null,
               supplierName: r.supplierName,
               supplierCode: r.supplierCode,
               supplierUrl: r.supplierUrl,
               unitCost,
-              observedAt: r.orderDate,
+              observedAt: orderDate, // kanonikleşmiş tarih — fiyat gözlemi doğru güne yazılır
               sourceType: "XLS_IMPORT",
             });
 
@@ -173,9 +183,9 @@ export async function POST(req: Request) {
               .values({
                 productId,
                 buyerStore,
-                orderDate: r.orderDate || new Date().toISOString().split("T")[0],
+                orderDate,
                 imageUrl: r.imageUrl || "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=200&auto=format&fit=crop&q=80",
-                fulfillmentType: r.fulfillmentType || "FBA",
+                fulfillmentType: normalizeFulfillmentType(r.fulfillmentType) || "FBA",
                 productTitle: r.productTitle || "Amazon Ürünü",
                 asin: rowAsin,
                 msku: (r.msku || "").trim() || `${buyerStore}-${rowAsin}`,
@@ -185,19 +195,19 @@ export async function POST(req: Request) {
                 amazonUrl: r.amazonUrl || `https://www.amazon.com/dp/${rowAsin}`,
                 orderNumber: (r.orderNumber || "").trim(),
                 driveLink: r.driveLink || "",
-                packCount: Number(r.packCount) || 1,
-                quantity: Number(r.quantity) || 1,
+                packCount: normalizeCount(r.packCount) || 1,
+                quantity: normalizeCount(r.quantity) || 1,
                 unitCost: Number(unitCost).toFixed(2),
                 sellingPrice: Number(sellingPrice).toFixed(2),
                 totalCost: Number(totalCost).toFixed(2),
                 orderEmail: r.orderEmail || "",
                 // Kargo durumu serbest metin: XLS'teki değer olduğu gibi yazılır
                 cargoStatus: String(r.cargoStatus || "").trim() || "Tam Geldi",
-                shippedToAmazon: Number(r.shippedToAmazon) || 0,
-                p1CancelQty: Number(r.p1CancelQty) || 0,
-                p2MissingQty: Number(r.p2MissingQty) || 0,
-                p3DefectiveQty: Number(r.p3DefectiveQty) || 0,
-                p4ExpiredQty: Number(r.p4ExpiredQty) || 0,
+                shippedToAmazon: normalizeCount(r.shippedToAmazon) || 0,
+                p1CancelQty: normalizeCount(r.p1CancelQty) || 0,
+                p2MissingQty: normalizeCount(r.p2MissingQty) || 0,
+                p3DefectiveQty: normalizeCount(r.p3DefectiveQty) || 0,
+                p4ExpiredQty: normalizeCount(r.p4ExpiredQty) || 0,
                 problemAction: r.problemAction || "",
                 problemResult: r.problemResult || "",
                 refundAmount: Number(refundAmount).toFixed(2),
@@ -205,7 +215,7 @@ export async function POST(req: Request) {
                 isFragile: r.isFragile || "NO",
                 isMultiPack: r.isMultiPack || "NO",
                 isBundle: r.isBundle || "NO",
-                countPerBundle: Number(r.countPerBundle) || null,
+                countPerBundle: normalizeCount(r.countPerBundle) ?? null,
                 condition: r.condition || "New",
                 brandName: r.brandName || "General",
                 description1: r.description1 || "",

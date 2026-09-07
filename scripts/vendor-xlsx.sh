@@ -36,8 +36,17 @@ if [ -f "$TARBALL" ]; then
   echo "✓ $TARBALL zaten mevcut, indirme atlanıyor."
 else
   echo "→ $URL indiriliyor..."
-  curl -fSL --retry 3 --connect-timeout 20 -o "$TARBALL" "$URL"
-  echo "✓ indirildi: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+  if curl -fSL --retry 3 --connect-timeout 20 -o "$TARBALL" "$URL" 2>/dev/null; then
+    echo "✓ resmî CDN'den indirildi: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+  else
+    # cdn.sheetjs.com erişilemiyorsa (egress kısıtlı ortamlar) aynı sürümün
+    # npm aynasına düş: @e965/xlsx, resmî CE build'inin bire bir kopyasıdır.
+    MIRROR="@e965/xlsx@${VERSION}"
+    echo "⚠ CDN erişilemedi, npm aynası deneniyor: $MIRROR"
+    npm pack "$MIRROR" --pack-destination "$VENDOR_DIR"
+    mv "$VENDOR_DIR/e965-xlsx-${VERSION}.tgz" "$TARBALL"
+    echo "✓ npm aynasından indirildi: $TARBALL ($(du -h "$TARBALL" | cut -f1))"
+  fi
 fi
 
 # npm, package.json'daki xlsx girdisini `file:` URL'ine çevirir ve lock'u günceller.

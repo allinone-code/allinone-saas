@@ -155,4 +155,44 @@ describe("normalizeMoney — sayıya çevrilemeyenler sorun üretir", () => {
     expect(normalizeMoney("abc")).toBeNull();
     expect(normalizeMoney("-5")).toBeNull();
   });
+
+  it("NUMERIC(10,2) üst sınırını aşan değer reddedilir (DB taşması yerine net rapor)", () => {
+    expect(normalizeMoney("99.999.999,99")).toBe(99_999_999.99);
+    expect(normalizeMoney("100.000.000,00")).toBeNull();
+    expect(normalizeMoney(200_000_000)).toBeNull();
+  });
+});
+
+describe("fulfillmentType — büyük/küçük harf esnekliği", () => {
+  it("küçük harf 'fba'/'fbm' kabul edilir (route kanonikleştirir)", () => {
+    expect(validateImportRow({ ...baseRow(), fulfillmentType: "fba" }, 0)).toHaveLength(0);
+    expect(validateImportRow({ ...baseRow(), fulfillmentType: " fbm " }, 0)).toHaveLength(0);
+  });
+
+  it("enum dışı değer hâlâ reddedilir", () => {
+    const p = validateImportRow({ ...baseRow(), fulfillmentType: "dhl express" }, 0);
+    expect(p.some((x) => x.field === "FBM/FBA")).toBe(true);
+  });
+});
+
+describe("orderDate — tarih doğrulaması", () => {
+  it("Excel seri numarası ve Türkçe biçimler kabul edilir", () => {
+    for (const v of ["46043", "21.01.2026", "21/01/2026", "2026-01-21", 46043]) {
+      expect(
+        validateImportRow({ ...baseRow(), orderDate: v }, 0).filter((p) => p.field === "Tarih"),
+        `orderDate=${v} sorun üretmemeli`
+      ).toHaveLength(0);
+    }
+  });
+
+  it("boş tarih sorun değildir (sunucu bugünü yazar)", () => {
+    expect(
+      validateImportRow({ ...baseRow(), orderDate: "" }, 0).filter((p) => p.field === "Tarih")
+    ).toHaveLength(0);
+  });
+
+  it("çözülemeyen tarih açık gerekçeyle raporlanır (sessiz bozulma yerine)", () => {
+    const p = validateImportRow({ ...baseRow(), orderDate: "ocak ortası" }, 0);
+    expect(p.some((x) => x.field === "Tarih")).toBe(true);
+  });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { parseXlsMatrix } from "@/lib/xlsRowParse";
 import {
   X,
   FileSpreadsheet,
@@ -55,63 +56,9 @@ export function GoogleDriveXlsImportModal({
 
   if (!isOpen) return null;
 
-  // Convert raw 2D matrix array to 40-col objects
-  const parseMatrixToRows = (rawMatrix: any[][]) => {
-    if (!rawMatrix || rawMatrix.length < 2) return [];
-    const dataRows = rawMatrix.slice(1);
-    const parsed: any[] = [];
-
-    for (const cols of dataRows) {
-      if (!cols || cols.length < 3) continue;
-      const productTitle = String(cols[4] || cols[2] || "").trim();
-      const orderNumber = String(cols[11] || cols[5] || "").trim();
-      if (!productTitle && !orderNumber) continue;
-
-      parsed.push({
-        buyerStore: String(cols[0] || store).trim() || store,
-        orderDate: String(cols[1] || new Date().toISOString().split("T")[0]).trim(),
-        imageUrl: String(cols[2] || "").trim(),
-        fulfillmentType: String(cols[3] || "FBA").trim(),
-        productTitle: productTitle || "Excel Siparişi",
-        asin: String(cols[5] || "").trim().toUpperCase(),
-        msku: String(cols[6] || "").trim(),
-        supplierName: String(cols[7] || "THE VITAMINSHOPPE").trim(),
-        supplierCode: String(cols[8] || "A198").trim(),
-        supplierUrl: String(cols[9] || "").trim(),
-        amazonUrl: String(cols[10] || "").trim(),
-        orderNumber: orderNumber || `WO-${Math.floor(10000000 + Math.random() * 90000000)}`,
-        driveLink: String(cols[12] || "").trim(),
-        packCount: Number(cols[13]) || 1,
-        quantity: Number(cols[14]) || 1,
-        unitCost: String(cols[15] || "0").replace(",", "."),
-        sellingPrice: String(cols[16] || "0").replace(",", "."),
-        totalCost: String(cols[17] || "0").replace(",", "."),
-        orderEmail: String(cols[18] || "").trim(),
-        cargoStatus: String(cols[19] || "Tam Geldi").trim(),
-        shippedToAmazon: Number(cols[20]) || 0,
-        p1CancelQty: Number(cols[21]) || 0,
-        p2MissingQty: Number(cols[22]) || 0,
-        p3DefectiveQty: Number(cols[23]) || 0,
-        p4ExpiredQty: Number(cols[24]) || 0,
-        problemAction: String(cols[25] || "").trim(),
-        problemResult: String(cols[26] || "").trim(),
-        refundAmount: String(cols[27] || "0").replace(",", "."),
-        creditCard: String(cols[28] || "1753").trim(),
-        isFragile: String(cols[29] || "NO").trim(),
-        isMultiPack: String(cols[30] || "NO").trim(),
-        isBundle: String(cols[31] || "NO").trim(),
-        condition: String(cols[33] || "New").trim(),
-        brandName: String(cols[34] || "General").trim(),
-        description1: String(cols[35] || "").trim(),
-        description2: String(cols[36] || "").trim(),
-        auditNote: String(cols[37] || "").trim(),
-        periodCode: String(cols[38] || "Ş26").trim(),
-        correctedCost: String(cols[39] || cols[17] || "0").replace(",", "."),
-      });
-    }
-
-    return parsed;
-  };
+  // Ham 2B matris → içe aktarım satırları (ortak ayrıştırıcı, xlsRowParse)
+  const parseMatrixToRows = (rawMatrix: any[][]) =>
+    parseXlsMatrix(rawMatrix, { defaultStore: store }).rows;
 
   // 1. Handle local Excel / CSV file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +73,10 @@ export function GoogleDriveXlsImportModal({
         // ~800 KB'lık ayrıştırıcı yalnızca dosya yüklendiğinde gelir (bundle bölmesi)
         const XLSX = await import("xlsx");
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        // cellDates:true — gerçek Excel tarih hücreleri seri numarası
+        // ("46043") yerine Date olarak gelir (xlsRowParse her iki hâli de
+        // normalize eder; bu birinci savunma hattıdır)
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const rawMatrix: any[][] = XLSX.utils.sheet_to_json(firstSheet, {
           header: 1,
@@ -478,8 +428,11 @@ export function GoogleDriveXlsImportModal({
                         />
                       </td>
                       <td className="p-2">
+                        {/* text + inputMode: type="number" Türkçe virgüllü
+                            değerleri ("25,50") geçersiz sayıp BOŞ gösterirdi */}
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={row.quantity}
                           onChange={(e) => handleCellChange(idx, "quantity", e.target.value)}
                           className="w-14 px-1.5 py-1 bg-surface-1 border border-line rounded text-center text-ink font-bold"
@@ -487,8 +440,8 @@ export function GoogleDriveXlsImportModal({
                       </td>
                       <td className="p-2">
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={row.unitCost}
                           onChange={(e) => handleCellChange(idx, "unitCost", e.target.value)}
                           className="w-20 px-1.5 py-1 bg-surface-1 border border-line rounded text-caution font-bold"
@@ -496,8 +449,8 @@ export function GoogleDriveXlsImportModal({
                       </td>
                       <td className="p-2">
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           value={row.sellingPrice}
                           onChange={(e) => handleCellChange(idx, "sellingPrice", e.target.value)}
                           className="w-20 px-1.5 py-1 bg-surface-1 border border-line rounded text-positive font-bold"

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { parseBody, driveUrlSchema } from "@/lib/validation";
+import { parseXlsMatrix } from "@/lib/xlsRowParse";
 import { handleRouteError } from "@/lib/apiResponse";
 
 function extractSpreadsheetId(url: string): string | null {
@@ -64,7 +65,10 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await fetchResponse.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+    // cellDates:true — gerçek Excel tarih hücreleri Date nesnesi olarak gelir
+    // (aksi hâlde "46043" gibi seri numaraları okunuyordu; xlsRowParse her
+    // iki hâli de normalize eder, bu yalnızca ikinci savunma hattıdır)
+    const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
     const firstSheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[firstSheetName];
 
@@ -81,59 +85,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // First row is headers
+    // First row is headers (yanıtta bilgilendirme amaçlı döner)
     const headers = rawMatrix[0].map((h: any) => String(h || "").trim());
-    const dataRows = rawMatrix.slice(1);
 
-    const parsedRows = [];
+    // Kolon eşleme tek doğruluk noktasından (xlsRowParse): başlık tespiti +
+    // konumsal geri dönüş, Türkçe para biçimi ham bırakılır, CountPerBundle
+    // (kolon 33) artık kaybolmaz.
+    const { rows: parsedRows } = parseXlsMatrix(rawMatrix, {
+      defaultStore,
+      driveLinkFallback: driveUrl,
+    });
 
-    for (const cols of dataRows) {
-      if (!cols || cols.length < 3) continue;
-      const productTitle = String(cols[4] || cols[2] || "").trim();
-      const orderNumber = String(cols[11] || cols[5] || "").trim();
-      if (!productTitle && !orderNumber) continue;
-
-      parsedRows.push({
-        buyerStore: String(cols[0] || defaultStore).trim() || defaultStore,
-        orderDate: String(cols[1] || new Date().toISOString().split("T")[0]).trim(),
-        imageUrl: String(cols[2] || "").trim(),
-        fulfillmentType: String(cols[3] || "FBA").trim(),
-        productTitle: productTitle || "Google Drive Ürünü",
-        asin: String(cols[5] || "").trim().toUpperCase(),
-        msku: String(cols[6] || "").trim(),
-        supplierName: String(cols[7] || "THE VITAMINSHOPPE").trim(),
-        supplierCode: String(cols[8] || "A198").trim(),
-        supplierUrl: String(cols[9] || "").trim(),
-        amazonUrl: String(cols[10] || "").trim(),
-        orderNumber: orderNumber || `WO-${Math.floor(10000000 + Math.random() * 90000000)}`,
-        driveLink: String(cols[12] || driveUrl).trim(),
-        packCount: Number(cols[13]) || 1,
-        quantity: Number(cols[14]) || 1,
-        unitCost: String(cols[15] || "0").replace(",", "."),
-        sellingPrice: String(cols[16] || "0").replace(",", "."),
-        totalCost: String(cols[17] || "0").replace(",", "."),
-        orderEmail: String(cols[18] || "").trim(),
-        cargoStatus: String(cols[19] || "Tam Geldi").trim(),
-        shippedToAmazon: Number(cols[20]) || 0,
-        p1CancelQty: Number(cols[21]) || 0,
-        p2MissingQty: Number(cols[22]) || 0,
-        p3DefectiveQty: Number(cols[23]) || 0,
-        p4ExpiredQty: Number(cols[24]) || 0,
-        problemAction: String(cols[25] || "").trim(),
-        problemResult: String(cols[26] || "").trim(),
-        refundAmount: String(cols[27] || "0").replace(",", "."),
-        creditCard: String(cols[28] || "1753").trim(),
-        isFragile: String(cols[29] || "NO").trim(),
-        isMultiPack: String(cols[30] || "NO").trim(),
-        isBundle: String(cols[31] || "NO").trim(),
-        condition: String(cols[33] || "New").trim(),
-        brandName: String(cols[34] || "General").trim(),
-        description1: String(cols[35] || "").trim(),
-        description2: String(cols[36] || "").trim(),
-        auditNote: String(cols[37] || "").trim(),
-        periodCode: String(cols[38] || "Ş26").trim(),
-        correctedCost: String(cols[39] || cols[17] || "0").replace(",", "."),
-      });
+    if (parsedRows.length === 0) {
+      return NextResponse.json(
+        { error: "Google E-Tabloda içe aktarılacak satır bulunamadı." },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({

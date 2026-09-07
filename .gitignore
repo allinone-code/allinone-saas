@@ -43,4 +43,4 @@ yarn-error.log*
 .idea/
 
 # Yerel geliştirme veritabanı (PGlite) — sürüm kontrolüne girmez
-.pglite-dev/
+.pglite-*/
