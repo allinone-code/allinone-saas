@@ -371,7 +371,7 @@ export const orders = pgTable(
 
   // Kolon 19-21: Sipariş Maili, Kargo & Gönderim
   orderEmail: text("order_email").notNull(), // 19. Mail adresi (cerberusnisan@gmail.com vb.)
-  cargoStatus: text("cargo_status").notNull().default("Yolda"), // 20. Kargo durumu ('İPTAL', 'Tam Geldi', 'Kayıp Depoya gelmiş', 'Yolda')
+  cargoStatus: text("cargo_status").notNull().default("Yolda"), // 20. Kargo durumu — SERBEST METİN ('Yolda', 'Tam Geldi', 'İPTAL', 'Kayıp Depoya gelmiş', kargo firması notu vb.)
   shippedToAmazon: integer("shipped_to_amazon").notNull().default(0), // 21. Amazona gönderilen adet
 
   // Kolon 22-28: P1-P4 Fire / Problem Yönetimi
@@ -426,7 +426,10 @@ export const orders = pgTable(
 },
 // T2.3: Sorgu desenlerine gore indexler + mukerrer import engeli
 (t) => [
-  uniqueIndex("orders_order_number_store_uq").on(t.orderNumber, t.buyerStore),
+  // Aynı order number altında FARKLI ASIN'ler geçerlidir (tek siparişte
+  // birden çok ürün). Mükerrerlik ancak mağaza + sipariş no + ASIN
+  // üçlüsü tekrar ederse engellenir.
+  uniqueIndex("orders_order_number_store_asin_uq").on(t.orderNumber, t.buyerStore, t.asin),
   index("orders_buyer_store_date_idx").on(t.buyerStore, t.orderDate),
   index("orders_asin_idx").on(t.asin),
   index("orders_product_id_idx").on(t.productId),
@@ -458,8 +461,9 @@ export const orders = pgTable(
 
   // Durum alanları serbest metin olmaktan çıkar (B-05). Türkçe karakterli
   // string karşılaştırması artık yazım hatasına karşı korunur.
-  check("orders_cargo_status_enum", sql`${t.cargoStatus} in
-    ('Yolda', 'Tam Geldi', 'İPTAL', 'Kayıp Depoya gelmiş')`),
+  // NOT: Kargo durumu (cargo_status) bilinçli olarak serbest metindir —
+  // kargo firmalarının XLS'e serbest yazabildiği bir alandır ve enum'a
+  // zorlamak içe aktarımda satır kaybına yol açıyordu.
   check("orders_psh_status_enum", sql`${t.pshStatus} in
     ('BEKLIYOR', 'BATCH_OLUSTURULDU', 'DEPO_SAYILDI', 'AMAZONA_SEVK')`),
   check("orders_inventory_lab_status_enum", sql`${t.inventoryLabStatus} in
