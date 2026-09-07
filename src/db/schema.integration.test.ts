@@ -88,7 +88,7 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
     expect(row.buyerStore).toBe("HRN");
   });
 
-  it("UNIQUE(orders.order_number, buyer_store): mükerrer import engellenir", async () => {
+  it("UNIQUE(order_number, buyer_store, asin): aynı trio mükerrerse engellenir", async () => {
     await expectPgError(db.insert(orders).values({ ...orderBase(), buyerStore: "HRN" }), "23505");
 
     // aynı orderNumber farklı mağazada sorun değil
@@ -98,6 +98,40 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
       .values({ ...orderBase(), buyerStore: "SEL" })
       .returning();
     expect(row.buyerStore).toBe("SEL");
+  });
+
+  it("Aynı order number altında FARKLI ASIN'lere izin verilir", async () => {
+    await insertStore("MULTI");
+    const [first] = await db
+      .insert(orders)
+      .values({ ...orderBase(), buyerStore: "MULTI", orderNumber: "WO-MULTI-001" })
+      .returning();
+    expect(first.orderNumber).toBe("WO-MULTI-001");
+
+    // aynı mağaza + aynı sipariş no, FARKLI ASIN → kabul edilir
+    const [second] = await db
+      .insert(orders)
+      .values({
+        ...orderBase(),
+        buyerStore: "MULTI",
+        orderNumber: "WO-MULTI-001",
+        asin: "B0DIFFERENT",
+        msku: "TST-002",
+      })
+      .returning();
+    expect(second.asin).toBe("B0DIFFERENT");
+    expect(second.orderNumber).toBe("WO-MULTI-001");
+
+    // aynı mağaza + aynı sipariş no + AYNI ASIN → reddedilir
+    await expectPgError(
+      db.insert(orders).values({
+        ...orderBase(),
+        buyerStore: "MULTI",
+        orderNumber: "WO-MULTI-001",
+        asin: "B0DIFFERENT",
+      }),
+      "23505"
+    );
   });
 
   it("FK(psh_batch_no): var olmayan batch reddedilir", async () => {
@@ -146,7 +180,8 @@ describe("DB kısıtları (T2.2/T2.3) — gerçek migration üzerinde", () => {
       sql.raw(`SELECT indexname FROM pg_indexes WHERE tablename = 'orders'`)
     );
     const names = result.rows.map((r) => r.indexname);
-    expect(names).toContain("orders_order_number_store_uq");
+    expect(names).toContain("orders_order_number_store_asin_uq");
+    expect(names).not.toContain("orders_order_number_store_uq");
     expect(names).toContain("orders_buyer_store_date_idx");
     expect(names).toContain("orders_asin_idx");
   });
@@ -207,9 +242,21 @@ describe("CHECK kısıtları — fiziksel olarak imkânsız veri reddedilir", ()
     );
   });
 
-  it("tanımsız kargo durumu reddedilir (yazım hatasına karşı koruma)", async () => {
-    // "IPTAL" != "İPTAL" — Türkçe karakter farkı sessizce geçmemeli
-    await expectPgError(db.insert(orders).values(base({ cargoStatus: "IPTAL" })), "23514");
+  it("kargo durumu SERBEST METİN: enum dışı değer kabul edilir", async () => {
+    // Eski davranışta "IPTAL" (Türkçe İ'siz) 23514 ile reddediliyordu.
+    // Kargo firmaları XLS'e serbest yazabildiği için artık kabul edilir.
+    const [row] = await db
+      .insert(orders)
+      .values(base({ cargoStatus: "IPTAL - kargo firmasina iade" }))
+      .returning();
+    expect(row.cargoStatus).toBe("IPTAL - kargo firmasina iade");
+
+    // Eski enum değerleri de çalışmaya devam eder
+    const [row2] = await db
+      .insert(orders)
+      .values(base({ cargoStatus: "Kayıp Depoya gelmiş" }))
+      .returning();
+    expect(row2.cargoStatus).toBe("Kayıp Depoya gelmiş");
   });
 
   it("tanımsız PSH durumu reddedilir", async () => {
