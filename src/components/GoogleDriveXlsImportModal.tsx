@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Upload,
   AlertCircle,
+  AlertTriangle,
   CloudDownload,
   FileUp,
   ClipboardPaste,
@@ -47,6 +48,7 @@ export function GoogleDriveXlsImportModal({
   // Submission state
   const [importing, setImporting] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [resultWarning, setResultWarning] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -201,6 +203,7 @@ export function GoogleDriveXlsImportModal({
     if (previewRows.length === 0) return;
     setImporting(true);
     setErrorMsg(null);
+    setResultWarning(null);
     try {
       const res = await fetch("/api/orders/import-xls", {
         method: "POST",
@@ -215,10 +218,23 @@ export function GoogleDriveXlsImportModal({
       const data = await res.json();
       if (res.ok) {
         setResultMessage(data.message);
-        setTimeout(() => {
+        const skippedCount: number = data.skippedCount ?? 0;
+        const skipped: any[] = Array.isArray(data.skipped) ? data.skipped : [];
+        if (skippedCount > 0) {
+          // Kısmi başarı: atlanan satırlar (warnings) kullanıcıya gösterilir ve
+          // modal otomatik kapanmaz — hatalı satırlar düzeltilip yeniden denenebilir.
+          const lines = skipped.slice(0, 5).map((d) => `• ${d.row}. satır — ${d.field}: ${d.message}`);
+          const more = skippedCount > 5 ? `\n• ... ve ${skippedCount - 5} satır daha` : "";
+          setResultWarning(
+            `${skippedCount} satır atlandı (warnings):\n${lines.join("\n")}${more}\nDüzelttikten sonra kalan satırları yeniden aktarabilirsiniz.`
+          );
           onImportSuccess();
-          onClose();
-        }, 1200);
+        } else {
+          setTimeout(() => {
+            onImportSuccess();
+            onClose();
+          }, 1200);
+        }
       } else {
         const details = Array.isArray(data.details) ? data.details : [];
         const msg = data.error || "Veritabanına aktarım başarısız oldu.";
@@ -386,6 +402,13 @@ export function GoogleDriveXlsImportModal({
           <div className="p-3 rounded-xl bg-positive/15 border border-positive/40 text-positive text-xs font-mono-tech flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{resultMessage}</span>
+          </div>
+        )}
+
+        {resultWarning && (
+          <div className="p-3 rounded-xl bg-caution/15 border border-caution/40 text-caution text-xs font-mono-tech flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="whitespace-pre-line">{resultWarning}</span>
           </div>
         )}
 
