@@ -36,9 +36,9 @@ let db: NodePgDatabase;
 let pool: Pool | undefined;
 
 if (isPglite) {
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !process.env.ALLOW_PGLITE_BUILD) {
     throw new Error(
-      "pglite: sürücüsü yalnızca geliştirme içindir; üretimde postgres:// kullanın."
+      "pglite: sürücüsü yalnızca geliştirme içindir; üretimde postgres:// kullanın. (Build testi için ALLOW_PGLITE_BUILD=1 ekleyin)"
     );
   }
 
