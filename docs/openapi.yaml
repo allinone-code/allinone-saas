@@ -1,13 +1,14 @@
 openapi: 3.0.3
 info:
-  title: CERBERUS Commerce OS — API Sözleşmesi (T3.5)
-  version: "3.0-faz3"
+  title: CERBERUS Commerce OS — API Sözleşmesi (T3.5 + Arbitraj V2)
+  version: "4.0-arbitraj-v2"
   description: >
     Tüm uçlar `cerberus_session` imzalı JWT çerezi ile korunur (açık uçlar: /api/auth/login, /api/health).
     Kimliksiz istek 401; rol/storeCode ihlali 403; doğrulama hatası 422; sunucu hatası 500 + correlationId döner.
+    V2 ekleri: Crawler (Scrapling-hybrid), Keepa (BSR/Keepa), Analitik, Ayarlar.
 servers:
   - url: /
-tags: [auth, orders, intelligence, batches, admin, system]
+tags: [auth, orders, intelligence, batches, admin, system, crawler, keepa, analytics, settings]
 
 paths:
   /api/health:
@@ -233,3 +234,115 @@ paths:
       responses:
         "200": { description: başarılı }
         "404": { description: Üretimde kapalı }
+
+  /api/crawler/scrape:
+    post:
+      tags: [crawler]
+      summary: "Kaynak URL'i çek (Scrapling-hybrid stealth) — vitaminshoppe.com + generic JSON-LD, 6 saat cache"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri, maxLength: 2000, example: "https://www.vitaminshoppe.com/p/..." }
+                storeCode: { type: string, maxLength: 32 }
+                maxPages: { type: integer, minimum: 1, maximum: 3 }
+      responses:
+        "200": { description: "jobId, sourceDomain, products[], warnings, cached, fetchedAt, isListingPage" }
+        "401": { description: Oturum gerekli }
+        "422": { description: "Sayfadan ürün çıkarılamadı — tek ürün sayfası deneyin" }
+        "502": { description: "Site hatası / timeout / bot koruması" }
+
+  /api/crawler/import:
+    post:
+      tags: [crawler]
+      summary: "Seçilen scraped ürünleri kataloğa aktar (products + supplierOffers + lifecycle)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scrapedIds]
+              properties:
+                scrapedIds: { type: array, items: { type: integer }, minItems: 1, maxItems: 50 }
+                storeCode: { type: string, maxLength: 32 }
+      responses:
+        "200": { description: "imported, results[], warnings" }
+        "401": { description: Oturum gerekli }
+        "404": { description: Ürün bulunamadı }
+        "409": { description: Hepsi zaten aktarıldı }
+
+  /api/keepa/analyze:
+    get:
+      tags: [keepa]
+      summary: "Keepa cache oku (24 saat taze ise DB'den)"
+      parameters:
+        - { name: asin, in: query, required: true, schema: { type: string, pattern: "^[A-Z0-9]{10}$" } }
+        - { name: domain, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        "200": { description: "cached, isExpired, asin, salesRank, amazonPrice, buyBoxPrice, offerCount, data" }
+        "400": { description: Geçersiz ASIN }
+    post:
+      tags: [keepa]
+      summary: "Keepa çek + Decision Engine 2.0 (cache-first, mock fallback, 24s önbellek)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [asin]
+              properties:
+                asin: { type: string, maxLength: 10, example: "B0XXXXXX" }
+                domain: { type: integer, default: 1 }
+                sourcePrice: { type: number }
+                sellingPrice: { type: number }
+                sourceDomain: { type: string }
+                duplicateScore: { type: integer, minimum: 0, maximum: 100 }
+      responses:
+        "200": { description: "asin, keepa, summary, decision, fromCache, cachedUntil" }
+        "401": { description: Oturum gerekli }
+        "422": { description: Doğrulama hatası }
+        "429": { description: "Keepa kotası doldu — Retry-After" }
+
+  /api/analytics/decision-support:
+    get:
+      tags: [analytics]
+      summary: "Karar Destek Analitik — tek aggregate: KPI + trend + mağaza kıyas + PnL + fırsat + alarm"
+      parameters:
+        - { name: storeCode, in: query, schema: { type: string } }
+        - { name: period, in: query, schema: { type: string, enum: [7d, 30d, 90d, all], default: 30d } }
+      responses:
+        "200": { description: "kpis, trend, storeComparison, opportunities, alerts, pnl" }
+        "401": { description: Oturum gerekli }
+
+  /api/settings:
+    get:
+      tags: [settings]
+      summary: "Sistem ayarları — ROI eşikleri + Keepa var/yok (anahtar düz metin dönmez)"
+      responses:
+        "200": { description: "thresholds {rejectRoi, testRoi}, keepa {hasEnvKey, hasDbKey, effectiveHasKey}" }
+        "401": { description: Oturum gerekli }
+    put:
+      tags: [settings]
+      summary: "ROI eşiklerini ve Keepa anahtarını güncelle (ADMIN/MANAGER, audit SETTINGS_UPDATE)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rejectRoi, testRoi]
+              properties:
+                rejectRoi: { type: number, minimum: 0, maximum: 100, example: 25 }
+                testRoi: { type: number, minimum: 0, maximum: 100, example: 38 }
+                keepaKey: { type: string, maxLength: 100, description: "Boş string DB'den siler, gönderilmezse değişmez" }
+      responses:
+        "200": { description: "ok, thresholds, keepaUpdated" }
+        "400": { description: "reject >= test veya anahtar çok kısa" }
+        "401": { description: Oturum gerekli }
+        "403": { description: Yetki yetersiz }
