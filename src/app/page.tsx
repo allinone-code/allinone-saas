@@ -12,6 +12,9 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
 import { ProductPortfolio } from "@/features/products/ProductPortfolio";
 import { ProductJourneyDrawer } from "@/features/products/ProductJourneyDrawer";
+import { CrawlerPanel } from "@/features/crawler/CrawlerPanel";
+import { KeepaAnalysisPanel } from "@/features/keepa/KeepaAnalysisPanel";
+import { DecisionSupportDashboard } from "@/features/analytics/DecisionSupportDashboard";
 
 import { useCerberusData } from "@/features/useCerberusData";
 import { Sidebar, buildNavGroups } from "@/features/shell/Sidebar";
@@ -39,6 +42,18 @@ const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
     title: "Sabah Brifingi & Karar Kasası",
     subtitle: "Ne değişti, ne önemli, ne yapmalıyım — canlı veriden hesaplanır",
   },
+  ANALYTICS: {
+    title: "Karar Destek Analitik",
+    subtitle: "XLS’ten kurtuluş: kârlılık, trend, mağaza kıyas ve fırsat sinyali — canlı",
+  },
+  CRAWLER: {
+    title: "Crawler Keşif Masası",
+    subtitle: "Kaynak site URL’sini yapıştırın, ürünleri otomatik çekip kataloğa ekleyin",
+  },
+  KEEPA: {
+    title: "Keepa Analiz & Karar",
+    subtitle: "ASIN → Keepa BSR / fiyat geçmişi / BuyBox → Decision Engine 2.0",
+  },
   PRODUCTS: {
     title: "Ürün Portföyü",
     subtitle: "Keşiften satışa ürün yolculuğu, fiyat trendi ve kâr sağlığı",
@@ -49,7 +64,7 @@ const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
   },
   XLS_MASTER: {
     title: "Siparişler",
-    subtitle: "40 kolonluk Google Drive XLS ana tablosu",
+    subtitle: "40 kolonluk Google Drive XLS ana tablosu — XLS Rescue Hub",
   },
   PSH_BATCHES: {
     title: "PSH Envanter Partileri",
@@ -271,6 +286,18 @@ export default function CerberusApp() {
                 onSelect={setSelectedMaster}
               />
             </div>
+          )}
+
+          {activeTab === "ANALYTICS" && (
+            <DecisionSupportDashboard storeCode={selectedStore} />
+          )}
+
+          {activeTab === "CRAWLER" && (
+            <CrawlerPanel defaultStore={selectedStore} />
+          )}
+
+          {activeTab === "KEEPA" && (
+            <KeepaAnalysisPanel defaultStore={selectedStore} />
           )}
 
           {activeTab === "PRODUCTS" && (

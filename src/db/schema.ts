@@ -515,3 +515,77 @@ export type NewProduct = typeof products.$inferInsert;
 export type SupplierOffer = typeof supplierOffers.$inferSelect;
 export type NewSupplierOffer = typeof supplierOffers.$inferInsert;
 export type ProductLifecycleEvent = typeof productLifecycleEvents.$inferSelect;
+
+// ============================================================================
+// AŞAMA 5 — ARİTRAJ CRAWLER + KEEPA KARAR ZEKÂSI (2026-09-08)
+// Mevcut kilit şema BOZULMAZ; bu tablolar ek genişletmedir.
+// ============================================================================
+
+/**
+ * 12. SCRAPE_JOBS — Kaynak site tarama oturumu
+ */
+export const scrapeJobs = pgTable("scrape_jobs", {
+  id: serial("id").primaryKey(),
+  sourceUrl: text("source_url").notNull(),
+  sourceDomain: text("source_domain").notNull(),
+  storeCode: text("store_code").notNull().default("HRN"),
+  status: text("status").notNull().default("PENDING"),
+  productCount: integer("product_count").notNull().default(0),
+  error: text("error"),
+  createdBy: text("created_by").notNull().default("SYSTEM"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+}, (t) => [
+  index("scrape_jobs_domain_idx").on(t.sourceDomain),
+  index("scrape_jobs_store_idx").on(t.storeCode),
+  check("scrape_jobs_status_enum", sql`${t.status} in ('PENDING','DONE','FAILED')`),
+]);
+
+/**
+ * 13. SCRAPED_PRODUCTS — Ham keşif havuzu
+ */
+export const scrapedProducts = pgTable("scraped_products", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull().references(() => scrapeJobs.id, { onDelete: "cascade" }),
+  sourceUrl: text("source_url").notNull(),
+  sourceDomain: text("source_domain").notNull(),
+  title: text("title").notNull(),
+  brand: text("brand").notNull().default("BILINMIYOR"),
+  price: numeric("price", { precision: 10, scale: 2 }),
+  currency: text("currency").notNull().default("USD"),
+  imageUrl: text("image_url"),
+  availability: text("availability").notNull().default("UNKNOWN"),
+  asinCandidate: text("asin_candidate"),
+  status: text("status").notNull().default("PENDING"),
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+}, (t) => [
+  index("scraped_products_job_idx").on(t.jobId),
+  index("scraped_products_domain_idx").on(t.sourceDomain),
+  index("scraped_products_status_idx").on(t.status),
+  check("scraped_products_availability_enum", sql`${t.availability} in ('IN_STOCK','OUT_OF_STOCK','UNKNOWN')`),
+  check("scraped_products_status_enum", sql`${t.status} in ('PENDING','IMPORTED','REJECTED')`),
+]);
+
+/**
+ * 14. KEEPA_CACHE — Keepa API kotasını koruyan önbellek
+ */
+export const keepaCache = pgTable("keepa_cache", {
+  id: serial("id").primaryKey(),
+  asin: text("asin").notNull(),
+  domain: integer("domain").notNull().default(1),
+  data: jsonb("data").notNull().default({}),
+  salesRank: integer("sales_rank"),
+  amazonPrice: numeric("amazon_price", { precision: 10, scale: 2 }),
+  buyBoxPrice: numeric("buy_box_price", { precision: 10, scale: 2 }),
+  offerCount: integer("offer_count"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (t) => [
+  uniqueIndex("keepa_cache_asin_domain_uq").on(t.asin, t.domain),
+  index("keepa_cache_expires_idx").on(t.expiresAt),
+  index("keepa_cache_sales_rank_idx").on(t.salesRank),
+]);
+
+export type ScrapeJob = typeof scrapeJobs.$inferSelect;
+export type ScrapedProduct = typeof scrapedProducts.$inferSelect;
+export type KeepaCache = typeof keepaCache.$inferSelect;

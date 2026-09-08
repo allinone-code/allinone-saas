@@ -228,3 +228,29 @@ export const dbResetSchema = z.object({
   actionType: z.enum(["CLEAN_ORDERS_ONLY", "RESTORE_REAL_XLS", "NUKE_ALL_KEEP_ADMIN"]),
   confirmationCode: z.literal("RESET-CERBERUS"),
 });
+
+// ── Crawler & Keepa (Arbitraj V2) ──
+export const crawlerScrapeSchema = z.object({
+  url: z.string().trim().url().max(2000),
+  storeCode: shortText(32).optional(),
+  maxPages: z.coerce.number().int().min(1).max(3).optional(),
+});
+
+export const crawlerImportSchema = z.object({
+  scrapedIds: z.array(z.coerce.number().int().positive()).min(1).max(50),
+  storeCode: shortText(32).optional(),
+});
+
+export const keepaAnalyzeSchema = z.object({
+  asin: shortText(20).min(10).max(10),
+  domain: z.coerce.number().int().min(1).max(11).optional(),
+  sourcePrice: money.optional(),
+  sellingPrice: money.optional(),
+  sourceDomain: shortText(200).optional(),
+  duplicateScore: z.coerce.number().int().min(0).max(100).optional(),
+});
+
+export const analyticsQuerySchema = z.object({
+  storeCode: shortText(32).optional(),
+  period: z.enum(["7d", "30d", "90d", "all"]).optional(),
+});
