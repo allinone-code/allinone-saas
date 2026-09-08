@@ -176,6 +176,9 @@ export interface MorningBriefingView {
 
 export type TabId =
   | "BRIEFING_DECISION"
+  | "ANALYTICS"
+  | "CRAWLER"
+  | "KEEPA"
   | "PRODUCTS"
   | "RESEARCHERS"
   | "XLS_MASTER"

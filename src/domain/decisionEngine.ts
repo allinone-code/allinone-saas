@@ -101,10 +101,14 @@ export interface DecisionEngineResult {
  * bağlandığında yapılacak tek şey ilgili eksenin provenance'ını MEASURED'a
  * çevirip ağırlığını yükseltmektir.
  */
+export interface DecisionThresholds { rejectRoi: number; testRoi: number; }
+export const DEFAULT_THRESHOLDS: DecisionThresholds = { rejectRoi: 25, testRoi: 38 };
+
 export function computeDecisionEngine(
   roiPercent: number,
   sourceDomain: string,
-  duplicateScore: number
+  duplicateScore: number,
+  thresholds: DecisionThresholds = DEFAULT_THRESHOLDS
 ): DecisionEngineResult {
   // --- ÖLÇÜLEN: kârlılık, gerçek landed-cost ROI'den türer ---
   const profitabilityScore = Math.min(99, Math.max(30, Math.round(55 + roiPercent * 0.55)));
@@ -210,12 +214,12 @@ export function computeDecisionEngine(
     policyStatus = "REQUIRES_MANAGER_APPROVAL";
     riskLevel = "HIGH";
     confidenceScore = 68;
-  } else if (roiPercent < 25) {
+  } else if (roiPercent < thresholds.rejectRoi) {
     decisionAction = "REJECT";
     policyStatus = "FLAGGED_IP_RISK";
     riskLevel = "HIGH";
     confidenceScore = 89;
-  } else if (roiPercent < 38) {
+  } else if (roiPercent < thresholds.testRoi) {
     decisionAction = "TEST";
     policyStatus = "APPROVED_BY_POLICY";
     riskLevel = "MEDIUM";

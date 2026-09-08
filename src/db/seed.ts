@@ -8,6 +8,7 @@ import {
   orders,
   pshBatches,
   auditLogs,
+  appSettings,
 } from "@/db/schema";
 import { count, eq } from "drizzle-orm";
 import {
@@ -220,5 +221,24 @@ export async function ensureCerberusSeeded() {
           "Google Drive XLS tablosundaki 40 kolonlu gerçek siparişler aktarıldı. PSH ve Inventory Lab entegrasyonu sağlandı.",
       },
     ]);
+  }
+
+  // 9. Varsayılan sistem ayarları (ROI eşikleri) — tek satır, idempotent
+  try {
+    const existingThreshold = await db
+      .select({ key: appSettings.key })
+      .from(appSettings)
+      .where(eq(appSettings.key, "roi_thresholds"))
+      .limit(1);
+    if (existingThreshold.length === 0) {
+      await db.insert(appSettings).values({
+        key: "roi_thresholds",
+        value: JSON.stringify({ rejectRoi: 25, testRoi: 38 }),
+        updatedBy: "SYSTEM_SEED",
+      });
+    }
+  } catch (e) {
+    // Tablo henüz yoksa (eski DB, migration öncesi) sessizce geç — bootstrap sonrası tekrar denenecek
+    log.warn("db/seed", "app_settings seed atlandı (tablo yok?)", { err: String(e) });
   }
 }

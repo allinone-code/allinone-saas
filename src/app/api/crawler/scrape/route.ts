@@ -1,0 +1,148 @@
+import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { scrapeJobs, scrapedProducts } from "@/db/schema";
+import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
+import { parseBody, crawlerScrapeSchema } from "@/lib/validation";
+import { handleRouteError } from "@/lib/apiResponse";
+import { scrapeUrl } from "@/lib/crawler/scraper";
+import { desc, eq, and, gte } from "drizzle-orm";
+
+/**
+ * POST /api/crawler/scrape — URL'i çek, ürünleri çıkar, DB'ye yaz
+ * Cache: aynı URL 6 saat içinde tekrar tarandıysa DB'den dön (kotayı korur)
+ */
+export async function POST(req: Request) {
+  try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const user = gate.user;
+
+    const parsed = await parseBody(req, crawlerScrapeSchema);
+    if ("response" in parsed) return parsed.response;
+    const { url, storeCode: requestedStore } = parsed.data;
+    const storeCode = resolveStoreScope(user, requestedStore || "HRN");
+
+    // Basit rate-limit: IP başına 10/dk (bellek içi, Vercel'de prod'da Redis gerekir — şimdilik DB ile)
+    // Burada yalnızca DB cache kontrolü yapıyoruz; gerçek rate limit faz 2
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const recent = await db
+      .select()
+      .from(scrapeJobs)
+      .where(and(eq(scrapeJobs.sourceUrl, url), gte(scrapeJobs.createdAt, sixHoursAgo)))
+      .orderBy(desc(scrapeJobs.createdAt))
+      .limit(1);
+
+    if (recent.length && recent[0].status === "DONE") {
+      const cached = await db.select().from(scrapedProducts).where(eq(scrapedProducts.jobId, recent[0].id));
+      return NextResponse.json({
+        jobId: recent[0].id,
+        sourceUrl: recent[0].sourceUrl,
+        sourceDomain: recent[0].sourceDomain,
+        products: cached,
+        warnings: ["Bu URL 6 saat içinde taranmıştı — önbellekten döndü."],
+        cached: true,
+        fetchedAt: recent[0].completedAt?.toISOString() || new Date().toISOString(),
+        isListingPage: cached.length > 3,
+      });
+    }
+
+    // Yeni iş kaydı
+    const normalizedDomain = (() => {
+      try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "unknown"; }
+    })();
+
+    const [job] = await db.insert(scrapeJobs).values({
+      sourceUrl: url,
+      sourceDomain: normalizedDomain,
+      storeCode,
+      status: "PENDING",
+      createdBy: user.name,
+    }).returning();
+
+    try {
+      const result = await scrapeUrl(url);
+
+      // Ürünleri yaz
+      const toInsert = result.products.map((p) => ({
+        jobId: job.id,
+        sourceUrl: p.sourceUrl,
+        sourceDomain: p.sourceDomain,
+        title: p.title,
+        brand: p.brand,
+        price: p.price !== null ? p.price.toFixed(2) : null,
+        currency: p.currency,
+        imageUrl: p.imageUrl,
+        availability: p.availability,
+        asinCandidate: p.asinCandidate,
+        status: "PENDING" as const,
+      }));
+
+      let inserted: typeof scrapedProducts.$inferSelect[] = [];
+      if (toInsert.length) {
+        inserted = await db.insert(scrapedProducts).values(toInsert).returning();
+      }
+
+      await db.update(scrapeJobs).set({
+        status: "DONE",
+        productCount: inserted.length,
+        completedAt: new Date(),
+      }).where(eq(scrapeJobs.id, job.id));
+
+      // Audit
+      const { auditLogs } = await import("@/db/schema");
+      await db.insert(auditLogs).values({
+        actorName: user.name,
+        storeCode,
+        actionType: "CRAWL_CAPTURE",
+        targetEntity: `${normalizedDomain} (${inserted.length} ürün)`,
+        beforeState: url,
+        afterState: "SCRAPED",
+        details: `Crawler: ${url} → ${inserted.length} ürün, ${result.warnings.length} uyarı`,
+      });
+
+      return NextResponse.json({
+        jobId: job.id,
+        sourceUrl: result.sourceUrl,
+        sourceDomain: result.sourceDomain,
+        products: inserted,
+        warnings: result.warnings,
+        cached: false,
+        fetchedAt: result.fetchedAt,
+        isListingPage: result.isListingPage,
+      });
+    } catch (scrapeErr: unknown) {
+      const msg = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr);
+      await db.update(scrapeJobs).set({ status: "FAILED", error: msg.slice(0, 1000), completedAt: new Date() }).where(eq(scrapeJobs.id, job.id));
+      return NextResponse.json({ error: msg, jobId: job.id }, { status: msg.includes("taranamadı") || msg.includes("çıkarılamadı") ? 422 : 502 });
+    }
+  } catch (error: unknown) {
+    return handleRouteError("POST /api/crawler/scrape", error);
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const gate = await requireUser();
+    if (isDenied(gate)) return gate.response;
+    const user = gate.user;
+    const { searchParams } = new URL(req.url);
+    const requestedStore = searchParams.get("storeCode") || "ALL";
+    const effectiveStore = resolveStoreScope(user, requestedStore);
+    const limit = Math.min(20, Math.max(1, Number(searchParams.get("limit")) || 10));
+
+    const where = effectiveStore !== "ALL" ? eq(scrapeJobs.storeCode, effectiveStore) : undefined;
+    const jobs = where
+      ? await db.select().from(scrapeJobs).where(where).orderBy(desc(scrapeJobs.createdAt)).limit(limit)
+      : await db.select().from(scrapeJobs).orderBy(desc(scrapeJobs.createdAt)).limit(limit);
+
+    // Her job için ürün count zaten var, ama detay da lazım olabilir
+    const jobIds = jobs.map((j) => j.id);
+    const products = jobIds.length
+      ? await db.select().from(scrapedProducts).where(eq(scrapedProducts.jobId, jobIds[0]))
+      : [];
+
+    return NextResponse.json({ storeScope: effectiveStore, jobs, recentProducts: products });
+  } catch (error: unknown) {
+    return handleRouteError("GET /api/crawler/scrape", error);
+  }
+}
