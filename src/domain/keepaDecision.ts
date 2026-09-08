@@ -23,6 +23,7 @@ export interface KeepaDecisionInput {
   sourceDomain: string;
   duplicateScore: number;
   keepa: KeepaProductStats | null;
+  thresholds?: { rejectRoi: number; testRoi: number };
 }
 
 export interface KeepaDecisionResult extends DecisionEngineResult {
@@ -112,13 +113,13 @@ function scoreStabilityFromKeepa(k: KeepaProductStats): ScoredSignal {
 }
 
 export function computeKeepaDecision(input: KeepaDecisionInput): KeepaDecisionResult {
-  const { sourcePrice, sellingPrice, prepCost = 1.35, sourceDomain, duplicateScore, keepa } = input;
+  const { sourcePrice, sellingPrice, prepCost = 1.35, sourceDomain, duplicateScore, keepa, thresholds = { rejectRoi: 25, testRoi: 38 } } = input;
   const landed = calculateLandedCostAndProfit(sourcePrice, sellingPrice, prepCost);
   const roi = landed.roiPercent;
 
   // Keepa yoksa eski motora düş (coverage %45)
   if (!keepa) {
-    const base = computeDecisionEngine(roi, sourceDomain, duplicateScore);
+    const base = computeDecisionEngine(roi, sourceDomain, duplicateScore, thresholds);
     return { ...base, keepa: null, landed, keepaEnriched: false };
   }
 
@@ -195,12 +196,12 @@ export function computeKeepaDecision(input: KeepaDecisionInput): KeepaDecisionRe
     policyStatus = "REQUIRES_MANAGER_APPROVAL";
     riskLevel = "HIGH";
     confidenceScore = 68;
-  } else if (roi < 25) {
+  } else if (roi < thresholds.rejectRoi) {
     decisionAction = "REJECT";
     policyStatus = "FLAGGED_IP_RISK";
     riskLevel = "HIGH";
     confidenceScore = 89;
-  } else if (roi < 38) {
+  } else if (roi < thresholds.testRoi) {
     decisionAction = "TEST";
     policyStatus = "APPROVED_BY_POLICY";
     riskLevel = "MEDIUM";

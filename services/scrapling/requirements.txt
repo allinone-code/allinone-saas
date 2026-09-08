@@ -1,0 +1,7 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+scrapling==0.4.15
+curl_cffi==0.16.3
+playwright==1.62.0
+browserforge==1.2.4
+pydantic==2.8.0

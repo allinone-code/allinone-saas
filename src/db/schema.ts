@@ -589,3 +589,15 @@ export const keepaCache = pgTable("keepa_cache", {
 export type ScrapeJob = typeof scrapeJobs.$inferSelect;
 export type ScrapedProduct = typeof scrapedProducts.$inferSelect;
 export type KeepaCache = typeof keepaCache.$inferSelect;
+
+// ============================================================================
+// AŞAMA 6 — KULLANICI AYARLARI (ROI EŞİKLERİ + KEEPA + GENEL)
+// Tek satırlık key-value store — ağır ayar tablosu değil, esnek.
+// ============================================================================
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedBy: text("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type AppSetting = typeof appSettings.$inferSelect;

@@ -84,12 +84,15 @@ export async function POST(req: Request) {
       }
     }
 
+    const { getThresholds } = await import("@/lib/settings");
+    const thresholds = await getThresholds();
     const decision = computeKeepaDecision({
       sourcePrice: Number(sourcePrice) || 20,
       sellingPrice: Number(sellingPrice) || 45,
       sourceDomain: sourceDomain || keepa.salesRank?.toString() || "amazon.com",
       duplicateScore: Number(duplicateScore) || 12,
       keepa,
+      thresholds,
     });
 
     const summary = summarizeKeepa(keepa);

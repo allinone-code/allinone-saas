@@ -115,6 +115,8 @@ export async function GET(req: Request) {
       else rowsByAsin.set(key, [r]);
     }
 
+    const { getThresholds } = await import("@/lib/settings");
+    const thresholds = await getThresholds();
     const enrichedMasters = masters.map((m) => {
       const asinKey = (m.asin || "").toUpperCase();
       const realized = computeRealizedRoi(
@@ -140,7 +142,8 @@ export async function GET(req: Request) {
       const engine = computeDecisionEngine(
         Number(m.roiPercent) || 0,
         m.sourceDomain || "",
-        Number(m.duplicateScore) || 0
+        Number(m.duplicateScore) || 0,
+        thresholds
       );
       const freshness = computeFreshness(m.observedAt, now);
 
@@ -265,7 +268,9 @@ export async function POST(req: Request) {
       Number(prepCost) || 1.35
     );
 
-    const radar = computeDecisionEngine(landed.roiPercent, sourceDomain, duplicateScore);
+    const { getThresholds: getThresholdsPost } = await import("@/lib/settings");
+    const thresholdsPost = await getThresholdsPost();
+    const radar = computeDecisionEngine(landed.roiPercent, sourceDomain, duplicateScore, thresholdsPost);
     const productCode = `CRB-2026-${Math.floor(9055 + Math.random() * 900)}`;
 
     const [inserted] = await db

@@ -178,11 +178,24 @@ function parseKeepaResponse(raw: unknown, asin: string, domain: number): KeepaPr
   };
 }
 
+async function resolveKeepaKey(): Promise<string | null> {
+  const envKey = process.env.KEEPA_API_KEY?.trim();
+  if (envKey) return envKey;
+  try {
+    const { db } = await import("@/db");
+    const { appSettings } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const rows = await db.select().from(appSettings).where(eq(appSettings.key, "keepa_api_key")).limit(1);
+    if (rows.length && rows[0].value.trim()) return rows[0].value.trim();
+  } catch {}
+  return null;
+}
+
 export async function fetchKeepaProduct(
   asin: string,
   domain = 1
 ): Promise<KeepaProductStats> {
-  const key = process.env.KEEPA_API_KEY?.trim();
+  const key = await resolveKeepaKey();
   const normalized = asin.trim().toUpperCase();
   if (!/^[A-Z0-9]{10}$/.test(normalized)) {
     throw new Error(`Geçersiz ASIN: ${asin}`);

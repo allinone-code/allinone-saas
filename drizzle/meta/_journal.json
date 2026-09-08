@@ -43,6 +43,13 @@
       "when": 1788857314612,
       "tag": "0005_polite_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788858604434,
+      "tag": "0006_lush_newton_destine",
+      "breakpoints": true
     }
   ]
 }

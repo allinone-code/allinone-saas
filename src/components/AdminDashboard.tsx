@@ -23,7 +23,9 @@ import {
   FileSpreadsheet,
   Package,
   Layers,
+  SlidersHorizontal,
 } from "lucide-react";
+import { ThresholdSettings } from "@/features/settings/ThresholdSettings";
 
 interface AdminDashboardProps {
   onStoreSelected?: (storeCode: string) => void;
@@ -37,7 +39,7 @@ export function AdminDashboard({
   onDataRefresh,
 }: AdminDashboardProps) {
   const [activeSubTab, setActiveSubTab] = useState<
-    "STORES" | "USERS" | "ORDERS_CRUD" | "SP_API" | "AUDIT" | "DB_TOOLS"
+    "STORES" | "USERS" | "ORDERS_CRUD" | "SP_API" | "AUDIT" | "DB_TOOLS" | "SETTINGS"
   >("STORES");
 
   const [stores, setStores] = useState<any[]>([]);
@@ -431,6 +433,17 @@ export function AdminDashboard({
         >
           <Database className="w-4 h-4 text-danger" />
           <span>6. 🧹 Veritabanı Temizleme &amp; Sıfırlama Araçları</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("SETTINGS")}
+          className={`px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 whitespace-nowrap border ${
+            activeSubTab === "SETTINGS"
+              ? "bg-brand text-ink border-brand shadow-lg shadow-brand/25"
+              : "bg-surface-2 text-ink-muted border-line hover:text-ink hover:bg-surface-3"
+          }`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          <span>7. ⚙️ Eşikler &amp; Keepa Ayarları</span>
         </button>
       </div>
 
