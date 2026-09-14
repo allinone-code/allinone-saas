@@ -21,8 +21,7 @@
     "db:clean-demo": "tsx scripts/clean-demo-data.ts",
     "preflight": "tsx scripts/preflight.ts",
     "openapi:lint": "redocly lint docs/openapi.yaml --format=stylish",
-    "vendor:xlsx": "bash scripts/vendor-xlsx.sh",
-    "prebuild": "tsx scripts/reconcile-migrations.ts --apply --preview-build"
+    "vendor:xlsx": "bash scripts/vendor-xlsx.sh"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",

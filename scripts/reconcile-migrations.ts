@@ -3,30 +3,11 @@ import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { readMigrationFiles, type MigrationMeta } from "drizzle-orm/migrator";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 
 const MIGRATIONS_FOLDER = "drizzle";
-const PREVIEW_REPORT_PATH = "public/.well-known/migration-reconciliation.json";
 const apply = process.argv.includes("--apply");
-const previewBuild = process.argv.includes("--preview-build");
-
-function writePreviewReport(status: "ok" | "blocked", message: string): void {
-  if (!previewBuild) return;
-  mkdirSync(dirname(PREVIEW_REPORT_PATH), { recursive: true });
-  writeFileSync(
-    PREVIEW_REPORT_PATH,
-    `${JSON.stringify({ status, message, commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null })}\n`
-  );
-}
-
-if (previewBuild && process.env.VERCEL_ENV !== "preview") {
-  console.log("Migration reconciliation skipped: this is not a Vercel Preview build.");
-  process.exit(0);
-}
 
 if (!process.env.DATABASE_URL) {
-  if (previewBuild) throw new Error("Preview migration requires DATABASE_URL.");
   throw new Error("DATABASE_URL tanımlı değil.");
 }
 
@@ -237,22 +218,13 @@ async function main(): Promise<void> {
     const finalLedger = await pool.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations"
     );
-    const message = `Migration apply tamamlandı: ${finalLedger.rows[0]?.count} kayıt.`;
-    console.log(message);
-    writePreviewReport("ok", message);
+    console.log(`Migration apply tamamlandı: ${finalLedger.rows[0]?.count} kayıt.`);
   } finally {
     await pool.end();
   }
 }
 
 main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  if (previewBuild) {
-    // Keep one diagnostic Preview deploy available when reconciliation blocks.
-    // The generated report contains no credentials or query payloads.
-    writePreviewReport("blocked", message);
-    process.exit(0);
-  }
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

@@ -4,7 +4,7 @@
 
 **Branch:** `arena/01a09cb2-allinone-saas`
 
-**Durum:** Uygulama kalite kapıları geçiyor; staging ve son dokümantasyon işleri devam ediyor.
+**Durum:** Uygulama kalite kapıları ve Preview readiness kontrolü geçiyor; son tarayıcı/crawler doğrulamaları devam ediyor.
 
 ## Tamamlanan ana iyileştirmeler
 
@@ -29,6 +29,7 @@
 - [x] Database reset işlemlerinin FK sıralı transaction'a taşınması
 - [x] Fixture gerçeklerinin düzeltilmesi: 24 sipariş, 4 başlangıç mağazası
 - [x] Migration count + head hash drift kontrolü
+- [x] Geliştirme DB'sindeki migration ledger drift'inin şema etkisi doğrulanarak 4'ten 8'e uzlaştırılması
 - [x] README ve yaşayan mimari sözleşmesinin güncellenmesi
 - [x] XLSX üçüncü taraf provenance ve checksum dokümantasyonu
 - [x] OpenAPI pagination/export/admin/readiness sözleşmesinin güncellenmesi
@@ -52,18 +53,17 @@
 | GitHub Actions quality job | PASS — PR #23 |
 | Vercel preview deployment | PASS |
 | Preview liveness `/api/health` | PASS — 200 |
-| Preview readiness `/api/health/ready` | BLOCKED — DB ledger 4, beklenen 8 migration |
+| Preview readiness `/api/health/ready` | PASS — 200, DB ledger 8/8 ve beklenen head hash eşleşiyor |
 
 ## Açık işler
 
 - [ ] OpenAPI'de kalan operationId/4xx dokümantasyon uyarılarını aşamalı kapatmak
 - [ ] Gerçek browser içeren Scrapling container smoke testi yapmak
-- [ ] Preview/staging PostgreSQL migration ledger'ını güvenli release adımıyla 4'ten 8'e taşımak; ardından readiness'i tekrar doğrulamak
 - [ ] Son kullanıcı akışlarını tarayıcı üzerinden erişilebilirlik ve responsive davranış açısından doğrulamak
 
-## Yayın engeli: migration ledger
+## Migration uzlaştırma sonucu
 
-Vercel preview deployment'ı çalışıyor ve liveness sağlıklı; ancak bağlı veritabanında migration ledger **4**, bu sürümün beklediği değer **8** olduğu için readiness doğru biçimde `503` dönüyor. Veritabanının 0004–0007 etkilerini kısmen elle/`db:push` ile alıp almadığı doğrulanmadan migration'lar körlemesine uygulanmamalıdır. Backup/PITR alındıktan sonra release runbook'u izlenmelidir.
+Vercel Preview'ın bağlı olduğu geliştirme veritabanında 0004 etkisi eski hâlde, 0005–0007 etkileri ise ledger dışında uygulanmıştı. `scripts/reconcile-migrations.ts` migration dosyalarının hash'lerini ve bilinen şema etkilerini doğruladı; 0004 etkisini idempotent olarak onardı ve doğrulanmış 0004–0007 kayıtlarını ledger'a ekledi. Son durumda ledger **8/8**, head hash `0007_icy_payback` ile eşleşiyor ve `/api/health/ready` **200** dönüyor. Tek seferlik Preview `prebuild` çağrısı başarıdan sonra kaldırıldı; normal build artık veritabanını değiştirmiyor.
 
 ## Bilinen, engelleyici olmayan konu
 
@@ -71,4 +71,4 @@ Tam bağımlılık audit'inde yalnız geliştirme araç zincirinden gelen 4 adet
 
 ## Canlıya çıkış kararı
 
-Kod kalite kapıları yeşildir; ancak staging migration/readiness ve tarayıcı smoke testleri tamamlanmadan “canlıya hazır” kararı verilmemelidir.
+Kod kalite kapıları, Vercel Preview deployment ve veritabanı readiness kontrolü yeşildir. Gerçek tarayıcıyla son kullanıcı akışları ve container tabanlı crawler smoke testi tamamlanmadan nihai “canlıya hazır” kararı verilmemelidir.
