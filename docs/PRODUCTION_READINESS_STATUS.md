@@ -49,13 +49,21 @@
 | Python syntax (`py_compile`) | PASS |
 | OpenAPI structural lint | PASS — geçerli sözleşme, dokümantasyon uyarıları açık |
 | Git whitespace kontrolü | PASS |
+| GitHub Actions quality job | PASS — PR #23 |
+| Vercel preview deployment | PASS |
+| Preview liveness `/api/health` | PASS — 200 |
+| Preview readiness `/api/health/ready` | BLOCKED — DB ledger 4, beklenen 8 migration |
 
 ## Açık işler
 
 - [ ] OpenAPI'de kalan operationId/4xx dokümantasyon uyarılarını aşamalı kapatmak
 - [ ] Gerçek browser içeren Scrapling container smoke testi yapmak
-- [ ] Staging PostgreSQL üzerinde migration + seed + readiness + temel API smoke testi yapmak
+- [ ] Preview/staging PostgreSQL migration ledger'ını güvenli release adımıyla 4'ten 8'e taşımak; ardından readiness'i tekrar doğrulamak
 - [ ] Son kullanıcı akışlarını tarayıcı üzerinden erişilebilirlik ve responsive davranış açısından doğrulamak
+
+## Yayın engeli: migration ledger
+
+Vercel preview deployment'ı çalışıyor ve liveness sağlıklı; ancak bağlı veritabanında migration ledger **4**, bu sürümün beklediği değer **8** olduğu için readiness doğru biçimde `503` dönüyor. Veritabanının 0004–0007 etkilerini kısmen elle/`db:push` ile alıp almadığı doğrulanmadan migration'lar körlemesine uygulanmamalıdır. Backup/PITR alındıktan sonra release runbook'u izlenmelidir.
 
 ## Bilinen, engelleyici olmayan konu
 
