@@ -12,11 +12,13 @@ StealthyFetcher + adaptif parser — JS katmanıyla birebir aynı ürün şemas�
 """
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, HttpUrl
-import hmac
-import ipaddress
-import os
-import re, json, socket, urllib.parse
+import re, json, urllib.parse
 from datetime import datetime, timezone
+from security import (
+    OutboundSecurityError,
+    require_service_token as enforce_service_token,
+    validate_outbound_url as enforce_outbound_url,
+)
 
 app = FastAPI(title="Cerberus Scrapling Service", version="1.1.0")
 MAX_HTML_BYTES = 3 * 1024 * 1024
@@ -34,45 +36,18 @@ def extract_domain(url: str) -> str:
 
 
 def validate_outbound_url(url: str, enforce_allowlist: bool = True) -> None:
-    """Reject unsafe targets before each browser request/redirect hop."""
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        raise HTTPException(status_code=400, detail="Yalnızca geçerli http/https URL kullanılabilir.")
-    if parsed.username or parsed.password:
-        raise HTTPException(status_code=400, detail="Kimlik bilgisi içeren URL kullanılamaz.")
+    """Map dependency-free security policy failures to FastAPI responses."""
     try:
-        port = parsed.port
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Geçersiz port.")
-    if port not in (None, 80, 443):
-        raise HTTPException(status_code=400, detail="Yalnızca 80/443 portları kullanılabilir.")
-
-    hostname = parsed.hostname.rstrip(".").lower()
-    if hostname == "localhost" or hostname == "metadata.google.internal" or hostname.endswith((".local", ".internal", ".localhost")):
-        raise HTTPException(status_code=403, detail="Bu host güvenlik politikası gereği kullanılamaz.")
-
-    allowed = [h.strip().lower().lstrip(".") for h in os.getenv("CRAWLER_ALLOWED_HOSTS", "").split(",") if h.strip()]
-    if enforce_allowlist and allowed and not any(hostname == h or hostname.endswith("." + h) for h in allowed):
-        raise HTTPException(status_code=403, detail="Bu alan adı crawler izin listesinde değil.")
-
-    try:
-        answers = socket.getaddrinfo(hostname, port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
-    except socket.gaierror:
-        raise HTTPException(status_code=400, detail="Alan adı çözümlenemedi.")
-    if not answers:
-        raise HTTPException(status_code=400, detail="Alan adı çözümlenemedi.")
-    for answer in answers:
-        address = ipaddress.ip_address(answer[4][0].split("%")[0])
-        if not address.is_global:
-            raise HTTPException(status_code=403, detail="Özel veya ayrılmış ağ adreslerine erişim engellendi.")
+        enforce_outbound_url(url, enforce_allowlist)
+    except OutboundSecurityError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
 
 def require_service_token(provided: str | None) -> None:
-    expected = os.getenv("SCRAPLING_SERVICE_TOKEN", "").strip()
-    if len(expected) < 32:
-        raise HTTPException(status_code=503, detail="Servis kimlik doğrulaması yapılandırılmamış.")
-    if not provided or not hmac.compare_digest(provided, expected):
-        raise HTTPException(status_code=401, detail="Geçersiz servis kimliği.")
+    try:
+        enforce_service_token(provided)
+    except OutboundSecurityError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
 
 
 def extract_asin_candidate(url: str, html: str):
