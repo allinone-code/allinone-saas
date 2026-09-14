@@ -10,6 +10,8 @@
     "test:python": "node scripts/test-python.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:audit-migrations": "tsx scripts/reconcile-migrations.ts",
+    "db:reconcile-migrations": "tsx scripts/reconcile-migrations.ts --apply",
     "db:push": "drizzle-kit push   # YALNIZ lokal geliştirme; prod eşitlemesi için tek seferlik",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
@@ -19,7 +21,8 @@
     "db:clean-demo": "tsx scripts/clean-demo-data.ts",
     "preflight": "tsx scripts/preflight.ts",
     "openapi:lint": "redocly lint docs/openapi.yaml --format=stylish",
-    "vendor:xlsx": "bash scripts/vendor-xlsx.sh"
+    "vendor:xlsx": "bash scripts/vendor-xlsx.sh",
+    "prebuild": "tsx scripts/reconcile-migrations.ts --apply --preview-build"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.73.0",
