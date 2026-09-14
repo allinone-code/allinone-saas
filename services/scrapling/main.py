@@ -10,12 +10,16 @@ POST /scrape  { "url": "https://..." }
 Scrapling dokümantasyonu: https://github.com/D4Vinci/Scrapling
 StealthyFetcher + adaptif parser — JS katmanıyla birebir aynı ürün şemasını döner.
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, HttpUrl
-import re, json, urllib.parse
+import hmac
+import ipaddress
+import os
+import re, json, socket, urllib.parse
 from datetime import datetime, timezone
 
-app = FastAPI(title="Cerberus Scrapling Service", version="1.0.0")
+app = FastAPI(title="Cerberus Scrapling Service", version="1.1.0")
+MAX_HTML_BYTES = 3 * 1024 * 1024
 
 class ScrapeReq(BaseModel):
     url: HttpUrl
@@ -27,6 +31,49 @@ def extract_domain(url: str) -> str:
         return urllib.parse.urlparse(url).hostname or "unknown"
     except:
         return "unknown"
+
+
+def validate_outbound_url(url: str, enforce_allowlist: bool = True) -> None:
+    """Reject unsafe targets before each browser request/redirect hop."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Yalnızca geçerli http/https URL kullanılabilir.")
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="Kimlik bilgisi içeren URL kullanılamaz.")
+    try:
+        port = parsed.port
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Geçersiz port.")
+    if port not in (None, 80, 443):
+        raise HTTPException(status_code=400, detail="Yalnızca 80/443 portları kullanılabilir.")
+
+    hostname = parsed.hostname.rstrip(".").lower()
+    if hostname == "localhost" or hostname == "metadata.google.internal" or hostname.endswith((".local", ".internal", ".localhost")):
+        raise HTTPException(status_code=403, detail="Bu host güvenlik politikası gereği kullanılamaz.")
+
+    allowed = [h.strip().lower().lstrip(".") for h in os.getenv("CRAWLER_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    if enforce_allowlist and allowed and not any(hostname == h or hostname.endswith("." + h) for h in allowed):
+        raise HTTPException(status_code=403, detail="Bu alan adı crawler izin listesinde değil.")
+
+    try:
+        answers = socket.getaddrinfo(hostname, port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="Alan adı çözümlenemedi.")
+    if not answers:
+        raise HTTPException(status_code=400, detail="Alan adı çözümlenemedi.")
+    for answer in answers:
+        address = ipaddress.ip_address(answer[4][0].split("%")[0])
+        if not address.is_global:
+            raise HTTPException(status_code=403, detail="Özel veya ayrılmış ağ adreslerine erişim engellendi.")
+
+
+def require_service_token(provided: str | None) -> None:
+    expected = os.getenv("SCRAPLING_SERVICE_TOKEN", "").strip()
+    if len(expected) < 32:
+        raise HTTPException(status_code=503, detail="Servis kimlik doğrulaması yapılandırılmamış.")
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Geçersiz servis kimliği.")
+
 
 def extract_asin_candidate(url: str, html: str):
     m = re.search(r"/p/([^/?#]+)", url, re.I)
@@ -121,23 +168,75 @@ def parse_generic(html: str, base_url: str, domain: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "scrapling", "version": "1.0.0"}
+    return {"ok": True, "engine": "scrapling", "version": "1.1.0"}
 
 @app.post("/scrape")
-def scrape(req: ScrapeReq):
+def scrape(req: ScrapeReq, x_scrapling_token: str | None = Header(default=None)):
+    require_service_token(x_scrapling_token)
     url = str(req.url)
+    validate_outbound_url(url)
     domain = extract_domain(url).replace("www.","")
     # --- Scrapling çekimi ---
     try:
         from scrapling.fetchers import StealthyFetcher  # type: ignore
-        # adaptive=True → parser otomatik en sağlam selector stratejisini seçer
-        page = StealthyFetcher.get(url, headless=req.headless, network_idle=True, adaptive=True)  # type: ignore
+
+        oversized_document = {"detected": False}
+
+        def secure_page_setup(browser_page):
+            # Playwright bu route'u ilk navigasyondan önce kurar. Böylece ana
+            # isteğin yanı sıra her redirect ve alt kaynak URL'si DNS/IP
+            # politikasından geçer. Allowlist yalnız navigasyon hedeflerine
+            # uygulanır; güvenli public CDN alt kaynakları çalışmaya devam eder.
+            def secure_route(route):
+                request = route.request
+                try:
+                    validate_outbound_url(
+                        request.url,
+                        enforce_allowlist=request.is_navigation_request(),
+                    )
+                    route.continue_()
+                except HTTPException:
+                    route.abort("blockedbyclient")
+
+            def inspect_response(response):
+                try:
+                    if response.request.resource_type != "document":
+                        return
+                    content_length = int(response.headers.get("content-length", "0"))
+                    if content_length > MAX_HTML_BYTES:
+                        oversized_document["detected"] = True
+                except (TypeError, ValueError):
+                    return
+
+            browser_page.route("**/*", secure_route)
+            browser_page.on("response", inspect_response)
+
+        # v0.4.15 API'si `fetch` kullanır. page_setup navigasyondan önce çalışır.
+        page = StealthyFetcher.fetch(
+            url,
+            headless=req.headless,
+            network_idle=True,
+            adaptive=True,
+            disable_resources=True,
+            timeout=30_000,
+            page_setup=secure_page_setup,
+        )  # type: ignore
+
+        final_url = str(getattr(page, "url", "") or url)
+        validate_outbound_url(final_url)
+        url = final_url
+        domain = extract_domain(final_url).replace("www.", "")
+        if oversized_document["detected"]:
+            raise HTTPException(status_code=413, detail="HTML yanıtı 3 MB sınırını aşıyor.")
+
         # Scrapling page.html_content / page.html olarak döner — versiyona göre değişir
         html = getattr(page, "html_content", None) or getattr(page, "html", None) or getattr(page, "text", "")
         if callable(html): html = html()
         if not html or len(str(html)) < 500:
             raise HTTPException(status_code=422, detail="Sayfa boş veya engellendi (Scrapling).")
         html = str(html)
+        if len(html.encode("utf-8")) > MAX_HTML_BYTES:
+            raise HTTPException(status_code=413, detail="HTML yanıtı 3 MB sınırını aşıyor.")
     except HTTPException:
         raise
     except Exception as e:

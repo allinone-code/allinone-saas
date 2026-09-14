@@ -17,6 +17,7 @@
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "db:clean-demo": "tsx scripts/clean-demo-data.ts",
     "preflight": "tsx scripts/preflight.ts",
+    "openapi:lint": "redocly lint docs/openapi.yaml --format=stylish",
     "vendor:xlsx": "bash scripts/vendor-xlsx.sh"
   },
   "dependencies": {
@@ -33,11 +34,12 @@
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "server-only": "^0.0.1",
-    "xlsx": "^0.18.5",
+    "xlsx": "file:vendor/e965-xlsx-0.20.3.tgz",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@redocly/cli": "^2.53.0",
     "@tailwindcss/postcss": "4.1.17",
     "@types/node": "22.19.15",
     "@types/pg": "8.18.0",
