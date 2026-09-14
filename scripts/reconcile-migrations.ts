@@ -107,6 +107,21 @@ async function migrationEffectState(
   return "absent";
 }
 
+async function repairKnownEffect(pool: Pool, index: number): Promise<boolean> {
+  if (index !== 4) return false;
+
+  // 0004 is intentionally safe to replay: the old two-column uniqueness is
+  // stricter than the new three-column key, so existing rows cannot collide.
+  await pool.query(
+    'alter table "orders" drop constraint if exists "orders_cargo_status_enum"'
+  );
+  await pool.query('drop index if exists "orders_order_number_store_uq"');
+  await pool.query(
+    'create unique index if not exists "orders_order_number_store_asin_uq" on "orders" ("order_number", "buyer_store", "asin")'
+  );
+  return true;
+}
+
 async function ensureLedger(pool: Pool): Promise<void> {
   await pool.query("create schema if not exists drizzle");
   await pool.query(`
@@ -154,8 +169,30 @@ async function main(): Promise<void> {
 
     let reconciled = ledger.rows.length;
     while (reconciled < migrations.length) {
-      const state = await migrationEffectState(pool, reconciled);
+      let state = await migrationEffectState(pool, reconciled);
       console.log(`Migration ${reconciled}: schema effect=${state}`);
+
+      if (state === "absent" && apply) {
+        await pool.query("begin");
+        try {
+          await pool.query("select pg_advisory_xact_lock($1)", [741_304_2026]);
+          const repaired = await repairKnownEffect(pool, reconciled);
+          if (!repaired) {
+            await pool.query("rollback");
+            break;
+          }
+          state = await migrationEffectState(pool, reconciled);
+          if (state !== "applied") {
+            throw new Error(`Migration ${reconciled} onarımı doğrulanamadı.`);
+          }
+          await pool.query("commit");
+          console.log(`Migration ${reconciled}: bilinen şema etkisi onarıldı.`);
+        } catch (error) {
+          await pool.query("rollback");
+          throw error;
+        }
+      }
+
       if (state === "partial") {
         throw new Error(
           `Migration ${reconciled} kısmen uygulanmış. Manuel inceleme olmadan ledger değiştirilmeyecek.`
