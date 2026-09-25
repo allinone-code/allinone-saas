@@ -116,14 +116,20 @@ async function main() {
 
   let applied = 0;
   try {
+    const { MIGRATION_MANIFEST } = await import("@/db/migrationManifest");
     const mig = rowsOf(
-      await db.execute(sql`select hash from drizzle.__drizzle_migrations`)
+      await db.execute(sql`select hash from drizzle.__drizzle_migrations order by created_at asc`)
     );
     applied = mig.length;
+    const headHash = applied > 0 ? String(mig[applied - 1]?.hash ?? "") : "";
+    const countOk = applied === MIGRATION_MANIFEST.count;
+    const headOk = headHash === MIGRATION_MANIFEST.latestHash;
     out(
-      applied >= 4 ? "PASS" : "FAIL",
+      countOk && headOk ? "PASS" : "FAIL",
       "Migration",
-      `${applied}/4 migration uygulanmış${applied >= 4 ? "" : " — npm run db:bootstrap çalıştırın"}.`
+      countOk && headOk
+        ? `${applied}/${MIGRATION_MANIFEST.count} migration uygulanmış, head ${MIGRATION_MANIFEST.latestTag} ile eşleşiyor.`
+        : `${applied}/${MIGRATION_MANIFEST.count} migration, head ${headHash ? "uyumsuz" : "yok"} — beklenen ${MIGRATION_MANIFEST.latestTag}. Önce 'npm run db:migrate', ledger drift varsa 'npm run db:audit-migrations'.`
     );
   } catch {
     out("FAIL", "Migration", "drizzle.__drizzle_migrations bulunamadı — şema hiç kurulmamış.");

@@ -65,8 +65,11 @@ Kurulum şu hesapları oluşturur:
 
 **Başlangıç parolası (hepsi için):** `CerberusKurulum2026!`
 
-> 🔐 Bu parola kod deposunda açık yazılıdır, yani herkese açıktır.
-> **İlk girişten hemen sonra değiştirin.**
+> 🔐 Bu parola kod deposunda açık yazılıdır, yani herkese açıktır. Bu yüzden
+> sistem bu parolayla **oturum açmaz**: ilk girişte ekrana kalıcı parola
+> belirleme adımı gelir (en az 12 karakter). Kurulum parolası girilmeden
+> panele erişilemez; parola değiştikten sonra bu mekanizma kendiliğinden
+> kapanır (`/api/auth/first-password`, tek kullanımlık).
 
 Bu hash bir testle doğrulanır (`src/setup/neonSetupPassword.test.ts`) —
 yanlış hash yüzünden "kurulum başarılı ama giriş çalışmıyor" durumu olamaz.
@@ -82,7 +85,6 @@ Node.js kuruluysa ve depoyu klonladıysanız bu yol daha esnektir.
 ```bash
 git clone https://github.com/allinone-code/allinone-saas.git
 cd allinone-saas
-git checkout arena/01a05ea7-allinone-saas
 npm install
 ```
 
@@ -170,15 +172,21 @@ Ters sırada yeni kod olmayan tabloları sorgular ve hata verir.
 ## 3. Deploy sonrası doğrulama
 
 ```bash
-curl -s https://<site>/api/health/ready
+BASE_URL=https://<site> npm run smoke
 ```
+
+Bu betik üretime dokunmadan 10 kontrol koşar: liveness, readiness (8/8
+migration + bütünlük), kimliksiz erişim reddi, yanlış parola davranışı, giriş
+sayfası, KVKK metinleri, robots.txt ve yönlendirmeler.
 
 Ardından arayüzde:
 
-1. Giriş yapın (`SEED_ADMIN_PASSWORD` ile belirlediğiniz parola).
+1. Giriş yapın (`SEED_ADMIN_PASSWORD` ile belirlediğiniz parola; Neon SQL
+   kurulumunda ilk girişte kalıcı parola belirleme ekranı gelir).
 2. Sol menü → **Ürün → Ürün Portföyü**: 12 ürün listelenmeli.
 3. Bir satıra tıklayın: fiyat serisi, tedarikçi kıyası, olay defteri görünmeli.
 4. Bir ürünün durağını değiştirmeyi deneyin — gerekçe zorunludur.
+5. Sağ üst menüden parolanızı değiştirebildiğinizi doğrulayın.
 
 ---
 
@@ -193,7 +201,7 @@ Ardından arayüzde:
 | `npm run db:bootstrap -- --no-seed` | Şema kurar, başlangıç verisi yüklemez |
 | `npm run db:migrate` | Yalnızca migration (elle kontrol için) |
 | `npx tsx scripts/backfill-products.ts --dry-run` | Yazmadan analiz |
-| `npm test` | 221 test |
+| `npm test` | 297 test (Vitest + Python + OpenAPI lint) |
 
 ---
 

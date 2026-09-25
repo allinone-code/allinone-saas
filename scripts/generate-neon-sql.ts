@@ -9,7 +9,7 @@
  * Üretilen dosya: docs/neon-kurulum.sql
  *
  * İçerik sırası:
- *   1. drizzle/*.sql migration'ları (0000 → 0003), doğru sırayla
+ *   1. drizzle/*.sql migration'ları (tümü, dosya adına göre sıralı), doğru sırayla
  *   2. drizzle takip tablosu (sonradan `npm run db:migrate` çakışmasın)
  *   3. Başlangıç verisi: mağazalar, kullanıcılar, siparişler
  *   4. Sipariş satırlarından ürün kataloğu + fiyat gözlemleri + olay defteri
@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { ALL_38_XLS_ORDERS, INITIAL_STORES } from "../fixtures/mockData";
-import { DEFAULT_SYSTEM_USERS } from "../src/lib/auth";
+import { DEFAULT_SYSTEM_USERS } from "../src/lib/systemUsers";
 import { backfillProductsFromOrders } from "../src/domain/productBackfill";
 import { SETUP_PASSWORD, SETUP_PASSWORD_HASH } from "../src/setup/neonSetupPassword";
 

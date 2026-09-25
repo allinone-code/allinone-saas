@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Download, ExternalLink, PackageCheck, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, ExternalLink, FileSpreadsheet, PackageCheck, Plus, Search } from "lucide-react";
 import type { BatchView, OrderPagination, OrderView } from "../types";
 
 export function OrdersTable({
@@ -18,6 +18,8 @@ export function OrdersTable({
   exportingCsv,
   onExportCsv,
   onOpenWarehouse,
+  onOpenImport,
+  onOpenNewOrder,
   onSelect,
 }: {
   orders: OrderView[];
@@ -34,6 +36,8 @@ export function OrdersTable({
   exportingCsv: boolean;
   onExportCsv: () => void;
   onOpenWarehouse: () => void;
+  onOpenImport?: () => void;
+  onOpenNewOrder?: () => void;
   onSelect: (order: OrderView) => void;
 }) {
   return (
@@ -121,9 +125,35 @@ export function OrdersTable({
             <tbody className="divide-y divide-line text-xs font-mono-tech">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="p-8 text-center text-ink-faint">
-                    Bu filtrede sipariş kaydı bulunmuyor. &quot;Yeni Sipariş&quot; veya &quot;Excel /
-                    Google Drive Yükle&quot; ile ekleyebilirsiniz.
+                  <td colSpan={14} className="p-8 text-center">
+                    <p className="text-[13px] font-bold text-ink">
+                      {pagination.total === 0 && !searchQuery && cargoFilter === "ALL" && batchFilter === "ALL"
+                        ? "Henüz sipariş kaydı yok — ilk verinizi yükleyin"
+                        : "Bu filtrede sipariş kaydı bulunmuyor"}
+                    </p>
+                    <p className="mx-auto mt-1.5 max-w-md text-[12px] leading-relaxed text-ink-faint">
+                      {pagination.total === 0 && !searchQuery && cargoFilter === "ALL" && batchFilter === "ALL"
+                        ? "Excel/CSV dosyanızı veya Google Drive bağlantınızı içe aktarın; 40 kolonlu şema otomatik eşleşir ve önizlemeden sonra kaydedilir."
+                        : "Arama metnini kısaltmayı veya kargo/batch filtrelerini gevşetmeyi deneyin."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      {onOpenImport && (
+                        <button
+                          onClick={onOpenImport}
+                          className="flex items-center gap-1.5 rounded-xl border border-positive/30 bg-positive/10 px-3.5 py-2 font-mono-tech text-[11px] font-bold text-positive transition hover:bg-positive/20"
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5" /> Excel / Drive&apos;dan içe aktar
+                        </button>
+                      )}
+                      {onOpenNewOrder && (
+                        <button
+                          onClick={onOpenNewOrder}
+                          className="flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 font-mono-tech text-[11px] font-bold text-white transition hover:bg-brand-soft"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Tek sipariş ekle
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (

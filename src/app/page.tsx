@@ -4,6 +4,7 @@ import React, { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 
 import { OrderDetailDrawer } from "@/components/OrderDetailDrawer";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { NewOrderModal } from "@/components/NewOrderModal";
 import { GoogleDriveXlsImportModal } from "@/components/GoogleDriveXlsImportModal";
 import { PshBatchModal } from "@/components/PshBatchModal";
@@ -140,6 +141,7 @@ export default function CerberusApp() {
   const [isXlsImportOpen, setIsXlsImportOpen] = useState(false);
   const [isPshBatchOpen, setIsPshBatchOpen] = useState(false);
   const [isWarehouseReconOpen, setIsWarehouseReconOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
 
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER";
   const isStoreLocked = Boolean(
@@ -177,15 +179,28 @@ export default function CerberusApp() {
       applyOrderPatch(id, updates);
       setSelectedOrder((prev) => (prev && prev.id === id ? { ...prev, ...updates } : prev));
       try {
-        await fetch(`/api/orders/${id}`, {
+        const res = await fetch(`/api/orders/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
         });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          const message =
+            typeof body?.error === "string" && body.error
+              ? body.error
+              : "Sipariş güncelleme sunucu tarafından reddedildi; değişiklik geri alındı.";
+          setActionError(message);
+          clientLog.error("orders/update", "Sipariş güncelleme reddedildi", {
+            status: res.status,
+          });
+        }
         // Güncelleme KPI, brifing ve ürün P&L'ını etkileyebilir; sunucu tekrar
-        // okunarak iyimser görünüm kesin sonuçla uzlaştırılır.
+        // okunarak iyimser görünüm kesin sonuçla uzlaştırılır (hata durumunda
+        // bu aynı zamanda iyimser yamayı geri alır).
         await refresh();
       } catch (err) {
+        setActionError("Sipariş güncellenemedi (bağlantı hatası); değişiklik geri alındı.");
         clientLog.error("orders/update", "Sipariş güncelleme başarısız", { err: String(err) });
         await refresh();
       }
@@ -201,13 +216,25 @@ export default function CerberusApp() {
       });
       setSelectedMaster((prev) => (prev && prev.id === id ? { ...prev, decisionAction } : prev));
       try {
-        await fetch(`/api/intelligence/${id}`, {
+        const res = await fetch(`/api/intelligence/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decisionAction, sellingPrice }),
         });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          const message =
+            typeof body?.error === "string" && body.error
+              ? body.error
+              : "Karar güncelleme sunucu tarafından reddedildi; değişiklik geri alındı.";
+          setActionError(message);
+          clientLog.error("intelligence/update", "Karar güncelleme reddedildi", {
+            status: res.status,
+          });
+        }
         await refresh();
       } catch (err) {
+        setActionError("Karar güncellenemedi (bağlantı hatası); değişiklik geri alındı.");
         clientLog.error("intelligence/update", "Karar güncelleme başarısız", { err: String(err) });
         await refresh();
       }
@@ -261,6 +288,7 @@ export default function CerberusApp() {
         onCloseMobile={() => setMobileNavOpen(false)}
         currentUser={currentUser}
         onLogout={logout}
+        onChangePassword={() => setIsPasswordOpen(true)}
       />
 
       {/* Sağ çalışma alanı.
@@ -385,6 +413,8 @@ export default function CerberusApp() {
               exportingCsv={exportingCsv}
               onExportCsv={handleExportCsv}
               onOpenWarehouse={() => setIsWarehouseReconOpen(true)}
+              onOpenImport={() => setIsXlsImportOpen(true)}
+              onOpenNewOrder={() => setIsNewOrderOpen(true)}
               onSelect={setSelectedOrder}
             />
           )}
@@ -424,6 +454,23 @@ export default function CerberusApp() {
               onDataRefresh={refresh}
             />
           )}
+
+          <footer className="flex flex-col items-center justify-between gap-2 border-t border-line pt-4 pb-2 font-mono-tech text-[10px] text-ink-faint sm:flex-row">
+            <span>CERBERUS Commerce OS • Kurumsal iç panel</span>
+            <span className="flex items-center gap-3">
+              <a href="/yasal/aydinlatma" className="transition hover:text-ink">
+                Aydınlatma Metni
+              </a>
+              <span aria-hidden="true">•</span>
+              <a href="/yasal/cerez" className="transition hover:text-ink">
+                Çerez Bildirimi
+              </a>
+              <span aria-hidden="true">•</span>
+              <a href="/api/health/ready" target="_blank" rel="noreferrer" className="transition hover:text-ink">
+                Sistem durumu
+              </a>
+            </span>
+          </footer>
         </main>
       </div>
 
@@ -478,6 +525,11 @@ export default function CerberusApp() {
         onClose={() => setIsWarehouseReconOpen(false)}
         onSaved={refresh}
         orders={filteredOrders}
+      />
+
+      <ChangePasswordModal
+        isOpen={isPasswordOpen}
+        onClose={() => setIsPasswordOpen(false)}
       />
     </div>
   );

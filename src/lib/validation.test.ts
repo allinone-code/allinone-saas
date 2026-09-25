@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { parseBody, storeCreateSchema } from "./validation";
+import {
+  firstPasswordSchema,
+  parseBody,
+  passwordChangeSchema,
+  storeCreateSchema,
+} from "./validation";
 
 const schema = z.object({ name: z.string() });
 
@@ -64,5 +69,52 @@ describe("storeCreateSchema", () => {
 
   it("mağaza e-postasının biçimini doğrular", () => {
     expect(storeCreateSchema.safeParse({ ...base, defaultEmail: "not-an-email" }).success).toBe(false);
+  });
+});
+
+describe("passwordChangeSchema", () => {
+  it("mevcut + en az 12 karakterlik farklı yeni parola kabul eder", () => {
+    const r = passwordChangeSchema.safeParse({
+      currentPassword: "eski-parola-1234",
+      newPassword: "yepyeni-parola-5678",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("12 karakterden kısa yeni parolayı reddeder", () => {
+    const r = passwordChangeSchema.safeParse({
+      currentPassword: "eski-parola-1234",
+      newPassword: "kisa",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("mevcut parolayla aynı yeni parolayı reddeder", () => {
+    const r = passwordChangeSchema.safeParse({
+      currentPassword: "ayni-parola-1234",
+      newPassword: "ayni-parola-1234",
+    });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe("firstPasswordSchema", () => {
+  it("e-postayı normalize eder ve geçerli rotasyonu kabul eder", () => {
+    const r = firstPasswordSchema.safeParse({
+      email: "  ADMIN@Cerberus.io ",
+      currentPassword: "kurulum-parolasi",
+      newPassword: "kalici-parola-1234",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.email).toBe("admin@cerberus.io");
+  });
+
+  it("kurulum parolasıyla aynı yeni parolayı reddeder", () => {
+    const r = firstPasswordSchema.safeParse({
+      email: "a@b.co",
+      currentPassword: "ayni-kaliyor-12",
+      newPassword: "ayni-kaliyor-12",
+    });
+    expect(r.success).toBe(false);
   });
 });

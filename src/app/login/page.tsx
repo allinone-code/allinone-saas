@@ -28,6 +28,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Kurulum parolasıyla gelen hesaplar için ilk-parola belirleme adımı
+  const [needsFirstPassword, setNeedsFirstPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordRepeat, setNewPasswordRepeat] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,15 +45,68 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
         router.push("/");
         router.refresh();
-      } else {
-        // Hesabın var olup olmadığını sızdırmayan tek tip mesaj
-        setErrorMsg(data.error || "E-posta veya parola hatalı.");
-        setLoading(false);
+        return;
       }
+      if (res.status === 403 && data.code === "PASSWORD_CHANGE_REQUIRED") {
+        // Bilinen kurulum parolası: oturum açılmadı, kalıcı parola gerekli.
+        setNeedsFirstPassword(true);
+        setErrorMsg(null);
+        setLoading(false);
+        return;
+      }
+      if (res.status === 429) {
+        const retry = res.headers.get("Retry-After");
+        const wait = retry ? ` ${retry} saniye sonra tekrar deneyin.` : "";
+        setErrorMsg(`Çok fazla başarısız deneme.${wait}`);
+        setLoading(false);
+        return;
+      }
+      // Hesabın var olup olmadığını sızdırmayan tek tip mesaj
+      setErrorMsg(data.error || "E-posta veya parola hatalı.");
+      setLoading(false);
+    } catch {
+      setErrorMsg("Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+      setLoading(false);
+    }
+  };
+
+  const handleFirstPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    if (newPassword.length < 12) {
+      setErrorMsg("Yeni parola en az 12 karakter olmalıdır.");
+      return;
+    }
+    if (newPassword !== newPasswordRepeat) {
+      setErrorMsg("Yeni parolalar birbirini tutmuyor.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/first-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, currentPassword: password, newPassword }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        router.push("/");
+        router.refresh();
+        return;
+      }
+      if (res.status === 429) {
+        const retry = res.headers.get("Retry-After");
+        setErrorMsg(
+          `Çok fazla deneme.${retry ? ` ${retry} saniye sonra tekrar deneyin.` : ""}`
+        );
+      } else {
+        setErrorMsg(data.error || "İlk parola belirlenemedi.");
+      }
+      setLoading(false);
     } catch {
       setErrorMsg("Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.");
       setLoading(false);
@@ -136,7 +193,21 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            {needsFirstPassword && (
+              <div
+                role="status"
+                className="mb-5 flex items-start gap-2.5 rounded-xl border border-caution/40 bg-caution/10 px-3.5 py-3 text-[12px] text-caution"
+              >
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Bu hesap hâlâ kurulum parolasını kullanıyor. Güvenlik için devam
+                  etmeden önce kendinize özel, en az 12 karakterlik kalıcı bir parola
+                  belirleyin.
+                </span>
+              </div>
+            )}
+
+            <form onSubmit={needsFirstPassword ? handleFirstPassword : handleLogin} className="space-y-4">
               <div>
                 <label
                   htmlFor="email"
@@ -190,6 +261,47 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {needsFirstPassword && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="new-password"
+                      className="mb-1.5 block font-mono-tech text-[11px] font-bold uppercase tracking-wider text-ink-muted"
+                    >
+                      Yeni kalıcı parola (en az 12 karakter)
+                    </label>
+                    <input
+                      id="new-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full rounded-xl border border-line bg-surface-1 px-3.5 py-3 text-[13px] text-ink placeholder:text-ink-faint/60 transition focus:border-brand focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="new-password-repeat"
+                      className="mb-1.5 block font-mono-tech text-[11px] font-bold uppercase tracking-wider text-ink-muted"
+                    >
+                      Yeni parola (tekrar)
+                    </label>
+                    <input
+                      id="new-password-repeat"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      autoComplete="new-password"
+                      value={newPasswordRepeat}
+                      onChange={(e) => setNewPasswordRepeat(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full rounded-xl border border-line bg-surface-1 px-3.5 py-3 text-[13px] text-ink placeholder:text-ink-faint/60 transition focus:border-brand focus:outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
@@ -198,11 +310,11 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Doğrulanıyor…
+                    {needsFirstPassword ? "Parola belirleniyor…" : "Doğrulanıyor…"}
                   </>
                 ) : (
                   <>
-                    Giriş yap
+                    {needsFirstPassword ? "Kalıcı parolayı belirle ve giriş yap" : "Giriş yap"}
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -213,8 +325,20 @@ export default function LoginPage() {
               <Lock className="h-3.5 w-3.5 shrink-0 text-positive" />
               <p className="font-mono-tech text-[10px] leading-relaxed text-ink-faint">
                 Bağlantı TLS ile şifrelenir ve başarısız denemeler hız sınırıyla korunur.
+                Giriş yaptığınızda 8 saatlik zorunlu bir oturum çerezi (
+                <span className="text-ink-muted">cerberus_session</span>) oluşturulur.
                 Hesabınız yoksa sistem yöneticinizle görüşün.
               </p>
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-4 font-mono-tech text-[11px] text-ink-faint">
+              <a href="/yasal/aydinlatma" className="transition hover:text-ink">
+                Aydınlatma Metni
+              </a>
+              <span aria-hidden="true">•</span>
+              <a href="/yasal/cerez" className="transition hover:text-ink">
+                Çerez Bildirimi
+              </a>
             </div>
           </div>
         </section>

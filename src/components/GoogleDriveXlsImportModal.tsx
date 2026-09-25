@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   X,
   FileSpreadsheet,
@@ -52,6 +53,8 @@ export function GoogleDriveXlsImportModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEscapeClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -248,8 +251,8 @@ export function GoogleDriveXlsImportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface-1 border border-line rounded-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto p-6 shadow-2xl flex flex-col space-y-4">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-surface-1 border border-line rounded-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto p-6 shadow-2xl flex flex-col space-y-4" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-line">
           <div className="flex items-center gap-2.5">

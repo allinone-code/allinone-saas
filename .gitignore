@@ -42,5 +42,5 @@ yarn-error.log*
 .vscode/
 .idea/
 
-# Yerel geliştirme veritabanı (PGlite) — sürüm kontrolüne girmez
-.pglite-dev/
+# Yerel geliştirme/doğrulama veritabanları (PGlite) — sürüm kontrolüne girmez
+.pglite-*/

@@ -18,7 +18,25 @@ export async function GET() {
       const rows = await db.select().from(appSettings).where(eq(appSettings.key, "keepa_api_key")).limit(1);
       hasDbKey = rows.length > 0 && Boolean(rows[0].value?.trim());
     } catch {}
-    return NextResponse.json({ thresholds, keepa: { hasEnvKey, hasDbKey, effectiveHasKey: hasEnvKey || hasDbKey } });
+    // Dürüst entegrasyon durumu: UI "bağlı" rozeti uydurmaz; bu uç gerçek
+    // yapılandırmayı raporlar. Sırların kendisi asla döndürülmez (var/yok).
+    const scrapingConfigured = Boolean(
+      process.env.SCRAPLING_SERVICE_URL?.trim() && process.env.SCRAPLING_SERVICE_TOKEN?.trim()
+    );
+    const crawlerHosts = (process.env.CRAWLER_ALLOWED_HOSTS || "")
+      .split(",")
+      .map((h) => h.trim())
+      .filter(Boolean);
+    return NextResponse.json({
+      thresholds,
+      keepa: { hasEnvKey, hasDbKey, effectiveHasKey: hasEnvKey || hasDbKey },
+      integrations: {
+        keepa: hasEnvKey || hasDbKey ? "CONFIGURED" : "NOT_CONFIGURED",
+        scrapingService: scrapingConfigured ? "CONFIGURED" : "NOT_CONFIGURED",
+        crawlerAllowlistCount: crawlerHosts.length,
+        amazonSpApi: "NOT_CONNECTED",
+      },
+    });
   } catch (e: unknown) {
     return handleRouteError("GET /api/settings", e);
   }

@@ -2,18 +2,20 @@
 
 > **Bu dosya kodun gerçek durumunu yansıtır.** Bir madde ancak (a) kodda uygulanmış,
 > (b) en az bir testle kanıtlanmış ve (c) CI kapısından geçmişse `[x]` işaretlenir.
-> Son senkronizasyon: **2026-09-01** (uçtan uca mimari/UX/veri incelemesi).
+> Son senkronizasyon: **2026-09-25** (PM uçtan uca yayın denetimi).
 
 ## Durum Özeti
 
 | Ölçüt | Değer |
 |---|---|
-| Test | **69 test / 7 dosya — tamamı yeşil** (`npm test`) |
+| Test | **297 test / 26 dosya — tamamı yeşil** (`npm test`: Vitest + Python + OpenAPI lint) |
 | Lint | `eslint .` → **0 hata, 0 uyarı** |
 | Tipler | `tsc --noEmit` → **temiz** |
-| Derleme | `next build` → **22 route başarılı** |
-| En büyük UI dosyası | `page.tsx` **385 satır** (önce 1.640) |
-| Migration | Versiyonlu (`drizzle/0000_faz2-baseline.sql`), PGlite ile entegrasyon testli |
+| Derleme | `next build` → **30+ route başarılı** |
+| Migration | Versiyonlu, 8 migration (`0000` → `0007_icy_payback`), manifest + head-hash drift kilitli |
+| Fixture | **24 sipariş / 4 mağaza** geliştirme verisi; dürüstlük testleriyle kilitli |
+| OpenAPI | `redocly lint` → **0 uyarı** (operationId + license + 4xx tamamlandı) |
+| Duman testi | `npm run smoke` → **10/10** (canlıya dokunmayan HTTP kontrolleri) |
 
 ---
 
@@ -55,12 +57,20 @@
 
 ## Kalan Ürün Borcu (öncelik sırasıyla)
 
-1. **SP-API entegrasyonu** — karar verildi, uygulanmadı. Ürün vaadi ile kod artık tutarlı.
-2. **E2E testleri (Playwright)** — birim/entegrasyon var; tarayıcı akışı yok.
-3. **Sunucu tarafı sayfalama UI'ı** — API sayfalı, arayüz hâlâ tek sayfa çekiyor
-   (10k+ satırda sanallaştırma veya sayfa kontrolü gerekir).
-4. **i18n (tr-TR → en-US)** — karar ADR'de, iskelet yok.
-5. **Erişilebilirlik denetimi** — kontrast ve klavye navigasyonu için WCAG AA taraması.
+1. **SP-API entegrasyonu** — karar verildi, uygulanmadı. UI dürüstçe
+   "BAĞLI DEĞİL — PLANLANAN ÖZELLİK" gösterir (Admin SP-API sekmesi +
+   Ayarlar entegrasyon durumu). Tahmini efor: 8–13 kişi-gün.
+2. **Tarayıcı E2E (Playwright)** — birim/entegrasyon + HTTP duman testi var;
+   gerçek tarayıcı akış testi yok. Kritik akışlar (giriş, sipariş CRUD, içe
+   aktarma) canlı PGlite doğrulamasıyla elle kanıtlandı.
+3. **i18n (tr-TR → en-US)** — karar ADR'de, iskelet yok. Arayüz dili Türkçe.
+4. **WCAG AA resmi taraması** — klavye/ESC/odak/dialog altyapısı eklendi;
+   bağımsız kontrast + ekran okuyucu taraması yapılmadı.
+5. **Dağıtık rate-limit** — login/first-password proses-içi sayaç kullanır;
+   çok instance'lı yayında platform rate-limit'i de açılmalıdır (runbook).
+
+Çözülen eski borçlar: sunucu tarafı sayfalama UI'ı ✅ (OrdersTable sayfalı),
+erişilebilirlik temeli ✅ (skip-link, odak halkası, ESC, dialog semantikleri).
 
 ---
 
@@ -69,6 +79,7 @@
 ```bash
 npm run lint        # 0 hata
 npm run typecheck   # temiz
-npm test            # 69 test yeşil
-npm run build       # 22 route
+npm test            # 297 test yeşil (Vitest + Python + OpenAPI)
+npm run build       # 30+ route
+BASE_URL=<adres> npm run smoke  # 10/10 duman testi
 ```

@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, KeyRound, ShieldCheck, Loader2, Check, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { SlidersHorizontal, KeyRound, ShieldCheck, Loader2, Check, AlertTriangle, Eye, EyeOff, PlugZap } from "lucide-react";
+
+interface IntegrationStatus {
+  keepa: "CONFIGURED" | "NOT_CONFIGURED";
+  scrapingService: "CONFIGURED" | "NOT_CONFIGURED";
+  crawlerAllowlistCount: number;
+  amazonSpApi: "NOT_CONNECTED";
+}
 
 export function ThresholdSettings() {
   const [rejectRoi, setRejectRoi] = useState(25);
   const [testRoi, setTestRoi] = useState(38);
   const [keepaKey, setKeepaKey] = useState("");
   const [keepaMeta, setKeepaMeta] = useState<{ hasEnvKey: boolean; hasDbKey: boolean; effectiveHasKey: boolean } | null>(null);
+  const [integrations, setIntegrations] = useState<IntegrationStatus | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,6 +30,7 @@ export function ThresholdSettings() {
       setRejectRoi(j.thresholds?.rejectRoi ?? 25);
       setTestRoi(j.thresholds?.testRoi ?? 38);
       setKeepaMeta(j.keepa || null);
+      setIntegrations(j.integrations || null);
     } catch (e: unknown) {
       setMsg({ type: "err", text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -148,6 +157,43 @@ export function ThresholdSettings() {
         </div>
         {keepaMeta?.hasDbKey && <button onClick={clearKeepa} disabled={saving} className="text-xs font-mono-tech text-danger hover:underline disabled:opacity-40">DB&apos;deki Keepa anahtarını sil (ENV kalır)</button>}
         <p className="text-[11px] font-mono-tech text-ink-faint">Anahtar asla istemciye düz metin olarak geri döndürülmez; yalnız var/yok bilgisi gösterilir. DB değeri <code className="bg-surface-2 px-1 rounded">app_settings.keepa_api_key</code> satırında tutulur.</p>
+      </div>
+
+      <div className="bg-surface-1 border border-line rounded-2xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <PlugZap className="w-4 h-4 text-caution"/>
+          <h3 className="text-sm font-bold text-ink uppercase font-mono-tech">Entegrasyon Durumu</h3>
+          <span className="text-[10px] px-2 py-0.5 rounded bg-surface-2 text-ink-muted border border-line font-mono-tech">canlı yapılandırmadan okunur</span>
+        </div>
+        {!integrations ? (
+          <p className="text-xs font-mono-tech text-ink-faint">Durum alınamadı.</p>
+        ) : (
+          <ul className="space-y-2 text-xs font-mono-tech">
+            <li className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-base px-3 py-2.5">
+              <span className="text-ink-muted">Keepa API <span className="text-ink-faint">(BSR/fiyat geçmişi)</span></span>
+              <span className={`px-2 py-0.5 rounded border font-bold ${integrations.keepa === "CONFIGURED" ? "bg-positive/15 text-positive border-positive/30" : "bg-caution/15 text-caution border-caution/30"}`}>
+                {integrations.keepa === "CONFIGURED" ? "YAPILANDIRILDI" : "YOK — MOCK"}
+              </span>
+            </li>
+            <li className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-base px-3 py-2.5">
+              <span className="text-ink-muted">Python Scrapling servisi <span className="text-ink-faint">(anti-bot fallback)</span></span>
+              <span className={`px-2 py-0.5 rounded border font-bold ${integrations.scrapingService === "CONFIGURED" ? "bg-positive/15 text-positive border-positive/30" : "bg-surface-2 text-ink-muted border-line"}`}>
+                {integrations.scrapingService === "CONFIGURED" ? "YAPILANDIRILDI" : "KAPALI — Node crawler tek başına"}
+              </span>
+            </li>
+            <li className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-base px-3 py-2.5">
+              <span className="text-ink-muted">Crawler izin listesi <span className="text-ink-faint">(CRAWLER_ALLOWED_HOSTS)</span></span>
+              <span className="px-2 py-0.5 rounded border bg-surface-2 text-ink-muted border-line font-bold">
+                {integrations.crawlerAllowlistCount > 0 ? `${integrations.crawlerAllowlistCount} host izinli` : "SINIRSIZ — daraltılması önerilir"}
+              </span>
+            </li>
+            <li className="flex items-center justify-between gap-2 rounded-xl border border-line bg-surface-base px-3 py-2.5">
+              <span className="text-ink-muted">Amazon SP-API <span className="text-ink-faint">(envanter/sipariş senkronu)</span></span>
+              <span className="px-2 py-0.5 rounded border bg-danger/15 text-danger border-danger/30 font-bold">BAĞLI DEĞİL — PLANLANAN ÖZELLİK</span>
+            </li>
+          </ul>
+        )}
+        <p className="text-[11px] font-mono-tech text-ink-faint">“Amazona sevk” adetleri ve satış fiyatları SP-API’den değil, operasyon girişleri ve içe aktarmalardan gelir.</p>
       </div>
 
       {msg && <div className={`p-3.5 rounded-xl text-xs font-mono-tech flex items-center gap-2 border ${msg.type==="ok" ? "bg-positive/10 border-positive/30 text-positive" : "bg-danger/10 border-danger/30 text-danger"}`}>

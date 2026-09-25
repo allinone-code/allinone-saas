@@ -1,6 +1,7 @@
 "use client";
 
 import { clientLog } from "@/lib/clientLogger";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import React, { useState } from "react";
 import { X, PackageCheck, AlertTriangle, CheckCircle2, Search } from "lucide-react";
 
@@ -28,6 +29,8 @@ export function WarehouseReconciliationModal({
   const [cargoStatus, setCargoStatus] = useState("Tam Geldi");
   const [problemAction, setProblemAction] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEscapeClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -99,8 +102,8 @@ export function WarehouseReconciliationModal({
     : orders.slice(0, 10);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-line rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#161C28] border border-line rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between pb-4 border-b border-line">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-info/10 border border-info/30 text-info">

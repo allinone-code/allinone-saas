@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   X,
   ExternalLink,
@@ -27,6 +28,8 @@ export function ProductMasterDrawer({
   const [updating, setUpdating] = useState(false);
   const [sellingPriceInput, setSellingPriceInput] = useState<string>("");
 
+  useEscapeClose(!!master, onClose);
+
   if (!master) return null;
 
   const handleDecisionClick = async (action: string) => {
@@ -48,8 +51,8 @@ export function ProductMasterDrawer({
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end">
-      <div className="bg-surface-1 border-l border-line w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end" onClick={onClose}>
+      <div className="bg-surface-1 border-l border-line w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-line flex items-start justify-between bg-surface-base">
           <div className="pr-4">

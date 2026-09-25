@@ -1,6 +1,7 @@
 "use client";
 
 import { clientLog } from "@/lib/clientLogger";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import React, { useState } from "react";
 import { X, Building2, CheckCircle2 } from "lucide-react";
 
@@ -29,6 +30,8 @@ export function PshBatchModal({
   );
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEscapeClose(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -69,8 +72,8 @@ export function PshBatchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#161C28] border border-line rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[#161C28] border border-line rounded-2xl max-w-2xl w-full p-6 shadow-2xl" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between pb-4 border-b border-line">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-positive/10 border border-positive/30 text-positive">
