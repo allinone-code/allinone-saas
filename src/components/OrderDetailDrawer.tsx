@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   X,
   ExternalLink,
@@ -41,6 +42,8 @@ export function OrderDetailDrawer({
   const [p3DefectiveQty, setP3DefectiveQty] = useState(order?.p3DefectiveQty || 0);
   const [p4ExpiredQty, setP4ExpiredQty] = useState(order?.p4ExpiredQty || 0);
 
+  useEscapeClose(!!order, onClose);
+
   if (!order) return null;
 
   const handleSave = async () => {
@@ -70,8 +73,8 @@ export function OrderDetailDrawer({
     Number(order.refundAmount) > 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end">
-      <div className="bg-[#161C28] border-l border-line w-full max-w-3xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex justify-end" onClick={onClose}>
+      <div className="bg-[#161C28] border-l border-line w-full max-w-3xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-line bg-[#0E1420] flex items-start justify-between">
           <div className="pr-4">

@@ -11,6 +11,7 @@ export async function proxy(request: NextRequest) {
   // (requireUser / requireRole — bkz. src/lib/guards.ts).
   const isPublicPath =
     pathname.startsWith("/login") ||
+    pathname.startsWith("/yasal") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.includes(".");

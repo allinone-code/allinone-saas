@@ -93,18 +93,21 @@ export function Topbar({
         <button
           onClick={onExportCsv}
           title="40 kolon formatında CSV indir"
-          className="hidden items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-3 py-2 font-mono-tech text-[11px] font-bold text-ink-muted transition hover:text-ink xl:flex"
+          aria-label="Filtrelenmiş CSV'yi indir"
+          className="flex items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2.5 py-2 font-mono-tech text-[11px] font-bold text-ink-muted transition hover:text-ink sm:px-3"
         >
           <Download className="h-3.5 w-3.5 text-info" />
-          CSV
+          <span className="hidden sm:inline">CSV</span>
         </button>
 
         <button
           onClick={onOpenImport}
-          className="hidden items-center gap-1.5 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 font-mono-tech text-[11px] font-bold text-positive transition hover:bg-positive/20 md:flex"
+          title="Excel/Drive'dan içe aktar"
+          aria-label="Excel veya Drive'dan içe aktar"
+          className="flex items-center gap-1.5 rounded-xl border border-positive/30 bg-positive/10 px-2.5 py-2 font-mono-tech text-[11px] font-bold text-positive transition hover:bg-positive/20 sm:px-3"
         >
           <FileSpreadsheet className="h-3.5 w-3.5" />
-          İçe aktar
+          <span className="hidden sm:inline">İçe aktar</span>
         </button>
 
         <button

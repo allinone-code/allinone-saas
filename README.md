@@ -18,7 +18,8 @@ Başlıca modüller:
 - PSH batch oluşturma, depo sayımı ve P1–P4 fire takibi;
 - gerçekleşen ROI, operasyon analitiği ve yönetici brifingi;
 - mağaza, kullanıcı ve ayar yönetimi;
-- audit log, readiness/liveness ve veri saklama araçları.
+- audit log, readiness/liveness ve veri saklama araçları;
+- KVKK aydınlatma/çerez metinleri (`/yasal/*`) ve ADMIN DSR dışa aktarım/anonimleştirme aracı.
 
 Finansal sözleşme: `refundAmount`, tedarikçinin ödeme kartına yaptığı geri ödemedir. Bu nedenle satış gelirini düşürmez; etkin maliyet `max(0, totalCost - supplierRefund)` olarak hesaplanır.
 
@@ -71,6 +72,8 @@ npm run dev
 
 Geliştirme sunucusu varsayılan olarak `http://localhost:3000` üzerinde açılır. Yayınlanmış demo parolaları iptal edilmiştir; seed parolaları yalnız environment üzerinden alınır. Üretimde parola env'i yoksa varsayılan hesap oluşturulmaz.
 
+Neon tek dosyalık kurulum (`docs/neon-kurulum.sql`) depoda yayınlanmış bilinen bir kurulum parolası yazar; güvenlik için bu parolayla oturum açılmaz. İlk girişte kalıcı parola belirleme ekranı gelir ve parola değişene kadar panele erişilemez (`POST /api/auth/first-password`, tek kullanımlık; sonrasında kendiliğinden kapanır). Oturum açmış kullanıcılar parolalarını sol menüdeki kullanıcı kartından değiştirebilir (`PATCH /api/auth/me`); değişiklik diğer cihazlardaki eski oturumları derhal geçersiz kılar.
+
 ### Fixture gerçeği
 
 Depodaki geliştirme fixture'ı **24 sipariş** ve **4 başlangıç mağazası** içerir. Fixture canlı/müşteri verisi değildir. `/api/admin/database-reset` yalnız production dışı ortamda, `ADMIN` rolü ve `RESET-CERBERUS` onayıyla çalışır.
@@ -112,7 +115,8 @@ npm audit --omit=dev --audit-level=high
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/ci_placeholder \
 SESSION_SECRET=ci-only-build-secret-min-32-characters!! \
 npm run build
-python3 -m py_compile services/scrapling/main.py
+python3 -m py_compile services/scrapling/main.py services/scrapling/security.py
+BASE_URL=https://<yayin-adresi> npm run smoke
 ```
 
 Migration manifest testi, readiness'in beklediği migration sayısı ve son SQL SHA-256 değerinin Drizzle journal ile uyumunu denetler.
@@ -123,8 +127,9 @@ Migration manifest testi, readiness'in beklediği migration sayısı ve son SQL 
 2. Uygulama sürümü deploy edilmeden önce veya ayrı release job'ında `npm run db:migrate` çalıştırın.
 3. İlk kurulumsa güçlü bootstrap parolalarıyla `npm run db:seed` çalıştırın; sonrasında seed'i rutin deploy adımı yapmayın.
 4. Uygulamayı deploy edin.
-5. `/api/health` liveness ve `/api/health/ready` readiness uçlarını platform probe'larına bağlayın.
+5. `/api/health` liveness ve `/api/health/ready` readiness uçlarını platform probe'larına bağlayın (periyodik cron ping'i değil, alarmlı uptime izlemesi).
 6. Readiness'in `200` döndüğünü; migration head, session secret, başlangıç kullanıcı/mağaza kayıtları ve order-product bütünlüğü kontrollerini geçtiğini doğrulayın.
+7. `BASE_URL=https://<yayin-adresi> npm run smoke` ile 10 maddelik duman testini koşun.
 7. Backup/PITR, alarm, log saklama ve geri dönüş prosedürünü sağlayıcı tarafında etkinleştirin.
 
 `db:push` yalnız lokal geliştirme/tek seferlik kontrollü eşitleme içindir; üretim değişiklikleri commit edilmiş migration ile yapılır.

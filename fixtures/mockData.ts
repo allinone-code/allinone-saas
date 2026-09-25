@@ -1,6 +1,6 @@
-import { ALL_38_XLS_ORDERS } from "./xlsOrdersData";
+import { ALL_38_XLS_ORDERS, ALL_XLS_ORDERS } from "./xlsOrdersData";
 
-export { ALL_38_XLS_ORDERS };
+export { ALL_38_XLS_ORDERS, ALL_XLS_ORDERS };
 
 export const INITIAL_RESEARCHERS = [
   {

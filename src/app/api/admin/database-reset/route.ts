@@ -66,6 +66,9 @@ export async function POST(req: Request) {
       });
     }
 
+    // NOT: `RESTORE_REAL_XLS` tarihsel bir action adıdır; geri yüklenen veri
+    // 24 satırlık GELİŞTİRME fixture'ıdır, gerçek müşteri verisi değildir.
+    // Ad, API sözleşmesi (OpenAPI + istemci) olduğu için korunur.
     if (actionType === "RESTORE_REAL_XLS") {
       // Siparişler psh_batches'e FK ile bağlıdır. Eski sipariş -> eski batch
       // silme ve yeni batch -> yeni sipariş ekleme sırası tek transaction'dadır.

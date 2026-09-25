@@ -125,6 +125,48 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(128),
 });
 
+const newPasswordField = z
+  .string()
+  .min(12, "Yeni parola en az 12 karakter olmalıdır.")
+  .max(128);
+
+/** Oturum açmış kullanıcının kendi parolasını değiştirmesi (PATCH /api/auth/me). */
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Mevcut parolanızı girin.").max(128),
+    newPassword: newPasswordField,
+  })
+  .superRefine((value, ctx) => {
+    if (value.currentPassword === value.newPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["newPassword"],
+        message: "Yeni parola mevcut paroladan farklı olmalıdır.",
+      });
+    }
+  });
+
+/**
+ * İlk kurulum parolası rotasyonu (POST /api/auth/first-password).
+ * Yalnızca yer tutucu hash taşıyan hesaplar için çalışır; parola değiştikten
+ * sonra bu uç aynı hesap için kendiliğinden kapanır.
+ */
+export const firstPasswordSchema = z
+  .object({
+    email: emailStr,
+    currentPassword: z.string().min(1).max(128),
+    newPassword: newPasswordField,
+  })
+  .superRefine((value, ctx) => {
+    if (value.currentPassword === value.newPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["newPassword"],
+        message: "Yeni parola kurulum parolasından farklı olmalıdır.",
+      });
+    }
+  });
+
 export const orderCreateSchema = z
   .object({
     buyerStore: shortText(32).optional(),

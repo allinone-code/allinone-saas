@@ -29,7 +29,9 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' ws: wss:",
+      // Sentry aktifse (NEXT_PUBLIC_SENTRY_DSN) tarayıcı hataları ingest'e
+      // gider; *.sentry.io izni olmadan istemci raporları CSP'ye takılır.
+      "connect-src 'self' ws: wss: https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.de.sentry.io",
       isProd ? "frame-ancestors 'none'" : "frame-ancestors *",
       "base-uri 'self'",
       "form-action 'self'",

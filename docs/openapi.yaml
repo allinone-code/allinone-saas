@@ -1,7 +1,10 @@
 openapi: 3.0.3
 info:
   title: CERBERUS Commerce OS API
-  version: "4.1-production-readiness"
+  version: "4.2-production-release"
+  license:
+    name: Tescilli — Tüm hakları saklıdır
+    url: https://example.invalid/license
   description: >
     Çekirdek route-handler sözleşmesi. Uçlar varsayılan olarak HttpOnly
     `cerberus_session` JWT çereziyle korunur. Açık uçlar `/api/auth/login`,
@@ -30,27 +33,32 @@ paths:
     get:
       tags: [system]
       summary: Canlılık + DB bağlantı kontrolü (hata detayı sızdırmaz)
+      operationId: getHealth
       security: []
       responses:
         "200": { description: healthy }
+        "405": { description: "Method not allowed (yalnız GET desteklenir)" }
         "500": { description: unhealthy (detay yalnızca sunucu logunda) }
 
   /api/health/ready:
     get:
       tags: [system]
       summary: Trafik kabulü için derin readiness kontrolü
+      operationId: getReadiness
       description: >
         DB erişimi, SESSION_SECRET, beklenen migration sayısı ve head hash'i,
         başlangıç kullanıcı/mağaza kayıtları ile order-product bütünlüğünü denetler.
       security: []
       responses:
         "200": { description: Tüm readiness kontrolleri başarılı }
+        "405": { description: "Method not allowed (yalnız GET desteklenir)" }
         "503": { description: En az bir readiness kontrolü başarısız }
 
   /api/auth/login:
     post:
       tags: [auth]
       summary: Giriş — bcrypt doğrulama, rate-limit (5/15dk), imzalı JWT çerez
+      operationId: login
       security: []
       requestBody:
         required: true
@@ -65,6 +73,7 @@ paths:
       responses:
         "200": { description: "success + kullanıcı özeti; Set-Cookie: cerberus_session (HttpOnly, SameSite=Lax, 8 saat)" }
         "401": { description: "E-posta/parola hatalı veya iptal edilmiş parola" }
+        "403": { description: "Kurulum parolası aktif — code=PASSWORD_CHANGE_REQUIRED, /api/auth/first-password gerekli" }
         "422": { description: "Zod doğrulama hatası" }
         "429": { description: "Rate limit; Retry-After başlığı" }
 
@@ -72,20 +81,79 @@ paths:
     post:
       tags: [auth]
       summary: Çerezi siler
-      responses: { "200": { description: "success" } }
+      operationId: logout
+      responses:
+        "200": { description: "success" }
+        "405":
+          description: "Method not allowed (yalnız POST desteklenir)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /api/auth/me:
     get:
       tags: [auth]
       summary: Mevcut oturum bilgisi
+      operationId: getSession
       responses:
         "200": { description: "authenticated + user" }
         "401": { description: "Oturum yok/geçersiz" }
+    patch:
+      tags: [auth]
+      summary: Kendi parolanı değiştir (mevcut parola doğrulamalı, min 12 kr.)
+      operationId: changeOwnPassword
+      description: >
+        Başarıda hash değişir; authVersion fingerprint'i yenilendiği için diğer
+        cihazlardaki eski oturumlar bir sonraki API çağrısında 401 olur.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, minLength: 1, maxLength: 128 }
+                newPassword: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        "200": { description: Parola güncellendi }
+        "401": { description: "Oturum geçersiz veya mevcut parola hatalı" }
+        "404": { description: Kullanıcı bulunamadı }
+        "422": { description: Doğrulama hatası }
+
+  /api/auth/first-password:
+    post:
+      tags: [auth]
+      summary: Kurulum parolasını kalıcı parolayla değiştir (ilk giriş rotasyonu)
+      operationId: setFirstPassword
+      security: []
+      description: >
+        Yalnızca yer tutucu (kurulum) hash taşıyan hesaplar için çalışır; parola
+        değiştikten sonra aynı hesap için kendiliğinden kapanır. Başarıda oturum
+        çerezi de üretilir. Rate-limit: IP+hesap 5/15dk, IP geneli 20/15dk.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, currentPassword, newPassword]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                currentPassword: { type: string, minLength: 1, maxLength: 128 }
+                newPassword: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        "200": { description: "success + kullanıcı özeti + oturum çerezi" }
+        "401": { description: Kurulum parolası hatalı }
+        "404": { description: Bu hesap için ilk parola hakkı yok }
+        "422": { description: Doğrulama hatası }
+        "429": { description: "Rate limit; Retry-After başlığı" }
 
   /api/orders:
     get:
       tags: [orders]
       summary: Sipariş listesi + SQL KPI + sayfalama
+      operationId: listOrders
       parameters:
         - { name: storeCode, in: query, schema: { type: string } , description: "STORE_USER için yok sayılır (F-11)" }
         - { name: cargoStatus, in: query, schema: { type: string } }
@@ -99,6 +167,7 @@ paths:
     post:
       tags: [orders]
       summary: Yeni sipariş (40-kolon XLS sözleşmesi; orderCreateSchema)
+      operationId: createOrder
       responses:
         "200": { description: "message + order" }
         "401": { description: Oturum gerekli }
@@ -108,6 +177,7 @@ paths:
     get:
       tags: [orders]
       summary: Filtrelenmiş siparişlerin tamamını CSV stream olarak indir
+      operationId: exportOrdersCsv
       description: >
         GET /api/orders ile aynı storeCode, cargoStatus, pshBatchNo ve search
         filtrelerini kullanır. STORE_USER kapsamı ve hassas alan maskelemesi export'ta
@@ -134,6 +204,7 @@ paths:
     get:
       tags: [orders]
       summary: Yalnızca KPI özeti (SQL aggregate; satır dönmez)
+      operationId: getOrdersSummary
       parameters:
         - { name: storeCode, in: query, schema: { type: string } }
       responses:
@@ -144,6 +215,7 @@ paths:
     patch:
       tags: [orders]
       summary: Sipariş güncelle (beyaz liste alanlar; storeCode kapsam kontrolü)
+      operationId: updateOrder
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -154,6 +226,7 @@ paths:
     delete:
       tags: [orders]
       summary: Sipariş sil (yalnız ADMIN/MANAGER)
+      operationId: deleteOrder
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -165,6 +238,7 @@ paths:
     post:
       tags: [orders]
       summary: Toplu XLS satırı içe aktarım (transaction; 5.000 satır / 15 MB üst sınır)
+      operationId: importOrdersXls
       responses:
         "200": { description: importedCount }
         "401": { description: Oturum gerekli }
@@ -175,6 +249,7 @@ paths:
     post:
       tags: [orders]
       summary: Google Drive XLS ayrıştırma (15 sn timeout, 20 MB üst sınır)
+      operationId: importOrdersDriveUrl
       responses:
         "200": { description: "headers + rows" }
         "401": { description: Oturum gerekli }
@@ -184,12 +259,14 @@ paths:
     get:
       tags: [intelligence]
       summary: Product Master vault + araştırmacı skorları + sabah brifingi
+      operationId: listIntelligence
       responses:
         "200": { description: "productMasters, researchers, researchSessions ve morningBriefing" }
         "401": { description: Oturum gerekli }
     post:
       tags: [intelligence]
       summary: Yeni Product Master yakalama (Decision Engine hesapları sunucuda)
+      operationId: createProductMaster
       responses:
         "200": { description: "message + master" }
         "401": { description: Oturum gerekli }
@@ -199,6 +276,7 @@ paths:
     patch:
       tags: [intelligence]
       summary: Karar aksiyonu güncelle (ADMIN/MANAGER onay matrisi)
+      operationId: updateProductMasterDecision
       parameters:
         - { name: id, in: path, required: true, schema: { type: integer } }
       responses:
@@ -211,12 +289,14 @@ paths:
     get:
       tags: [batches]
       summary: PSH batch listesi (mağaza kapsamlı)
+      operationId: listBatches
       responses:
         "200": { description: batches }
         "401": { description: Oturum gerekli }
     post:
       tags: [batches]
       summary: Batch oluştur + sipariş bağla
+      operationId: createBatch
       responses:
         "200": { description: "message + batch" }
         "401": { description: Oturum gerekli }
@@ -227,6 +307,7 @@ paths:
     get:
       tags: [admin]
       summary: Kullanıcı listesi (ADMIN)
+      operationId: listUsers
       responses:
         "200": { description: "users (password_hash içermez)" }
         "401": { description: Oturum gerekli }
@@ -234,12 +315,14 @@ paths:
     post:
       tags: [admin]
       summary: Kullanıcı oluştur (ADMIN; parola bcrypt, min 12 kr.)
+      operationId: createUser
       responses:
         "200": { description: "message + user" }
         "422": { description: Doğrulama hatası }
     patch:
       tags: [admin]
       summary: Kullanıcı güncelle (ADMIN)
+      operationId: updateUser
       responses:
         "200": { description: "message + user" }
         "422": { description: Doğrulama hatası }
@@ -248,6 +331,7 @@ paths:
     get:
       tags: [admin]
       summary: Mağaza listesi + canlı istatistik
+      operationId: listStores
       description: STORE_USER yalnız kendi mağazasını; ADMIN/MANAGER tüm mağazaları görür. Hassas kart/e-posta alanları yalnız ADMIN'e açıktır.
       responses:
         "200": { description: Mağaza kapsamlı ve rol bazında maskelenmiş stores }
@@ -255,6 +339,7 @@ paths:
     post:
       tags: [admin]
       summary: Mağaza oluştur (ADMIN/MANAGER)
+      operationId: createStore
       responses:
         "200": { description: "message + store" }
         "403": { description: Yetki yetersiz }
@@ -262,6 +347,7 @@ paths:
     patch:
       tags: [admin]
       summary: Mağaza güncelle (ADMIN/MANAGER)
+      operationId: updateStore
       responses:
         "200": { description: "message + store" }
         "403": { description: Yetki yetersiz }
@@ -270,6 +356,7 @@ paths:
     delete:
       tags: [admin]
       summary: Legacy admin ekranından tek sipariş silme
+      operationId: deleteOrderLegacy
       description: >
         Generic tablo silme davranışı kaldırılmıştır. Yalnız ADMIN, yalnız `orders`
         ve pozitif tek `id` kabul edilir. Silme ve ORDER_DELETED audit kaydı aynı
@@ -296,6 +383,7 @@ paths:
     post:
       tags: [admin]
       summary: "Yıkıcı sıfırlama araçları — yalnız production dışı ortam"
+      operationId: databaseReset
       description: ADMIN ve `RESET-CERBERUS` onayı gerekir; FK sıralı transaction kullanır.
       requestBody:
         required: true
@@ -321,6 +409,7 @@ paths:
     post:
       tags: [crawler]
       summary: "Tek kaynak URL'i çek — mağaza kapsamlı 6 saat cache, kullanıcı başına 5 istek/dakika"
+      operationId: scrapeUrl
       requestBody:
         required: true
         content:
@@ -343,6 +432,7 @@ paths:
     post:
       tags: [crawler]
       summary: "Seçilen scraped ürünleri kataloğa aktar (products + supplierOffers + lifecycle)"
+      operationId: importScrapedProducts
       requestBody:
         required: true
         content:
@@ -363,6 +453,7 @@ paths:
     get:
       tags: [keepa]
       summary: "Keepa cache oku (24 saat taze ise DB'den)"
+      operationId: getKeepaCache
       parameters:
         - { name: asin, in: query, required: true, schema: { type: string, pattern: "^[A-Z0-9]{10}$" } }
         - { name: domain, in: query, schema: { type: integer, default: 1 } }
@@ -372,6 +463,7 @@ paths:
     post:
       tags: [keepa]
       summary: "Keepa çek + Decision Engine 2.0 (cache-first, mock fallback, 24s önbellek)"
+      operationId: analyzeKeepa
       requestBody:
         required: true
         content:
@@ -396,6 +488,7 @@ paths:
     get:
       tags: [analytics]
       summary: "Karar Destek Analitik — tek aggregate: KPI + trend + mağaza kıyas + PnL + fırsat + alarm"
+      operationId: getDecisionSupport
       parameters:
         - { name: storeCode, in: query, schema: { type: string } }
         - { name: period, in: query, schema: { type: string, enum: [7d, 30d, 90d, all], default: 30d } }
@@ -407,12 +500,14 @@ paths:
     get:
       tags: [settings]
       summary: "Sistem ayarları — ROI eşikleri + Keepa var/yok (anahtar düz metin dönmez)"
+      operationId: getSettings
       responses:
-        "200": { description: "thresholds {rejectRoi, testRoi}, keepa {hasEnvKey, hasDbKey, effectiveHasKey}" }
+        "200": { description: "thresholds {rejectRoi, testRoi}, keepa {hasEnvKey, hasDbKey, effectiveHasKey}, integrations {keepa, scrapingService, crawlerAllowlistCount, amazonSpApi}" }
         "401": { description: Oturum gerekli }
     put:
       tags: [settings]
       summary: "ROI eşiklerini ve Keepa anahtarını güncelle (ADMIN/MANAGER, audit SETTINGS_UPDATE)"
+      operationId: updateSettings
       requestBody:
         required: true
         content:

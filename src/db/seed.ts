@@ -194,16 +194,17 @@ export async function ensureCerberusSeeded() {
     );
   }
 
-  // 7. Seed all 38 Real Orders from the XLS data if not yet present
+  // 7. Geliştirme fixture'ı (24 satır) — YALNIZCA orders tablosu tamamen boşsa.
+  // Seed ASLA mevcut kaydı silmez: üretimde yanlışlıkla çalıştırılsa bile
+  // gerçek siparişler korunur. (Eski `< 30 ise sil + yeniden yaz` davranışı
+  // veri kaybı riski taşıdığı için kaldırıldı.)
   const existingCount = await db.select({ total: count() }).from(orders);
-  if (Number(existingCount[0]?.total || 0) < 30) {
-    if (Number(existingCount[0]?.total || 0) > 0) {
-      await db.delete(orders);
-    }
+  if (Number(existingCount[0]?.total || 0) === 0) {
     // AŞAMA 1.2: Seed de ürün kataloğunu besler; ürünsüz sipariş yazılmaz.
     await db.transaction(async (tx) => {
       await insertOrdersWithProducts(tx, orders, ALL_38_XLS_ORDERS as any[]);
     });
+    log.info("db/seed", `Geliştirme fixture'ı yüklendi (${ALL_38_XLS_ORDERS.length} sipariş). Canlı veri değildir.`);
   }
 
   // 8. Initial Audit Log
@@ -214,11 +215,11 @@ export async function ensureCerberusSeeded() {
         actorName: "Harun (HRN Store)",
         storeCode: "HRN",
         actionType: "XLS_BATCH_IMPORT",
-        targetEntity: `HRN Master XLS (${ALL_38_XLS_ORDERS.length} Sipariş)`,
-        beforeState: "GOOGLE_DRIVE_XLS",
+        targetEntity: `Geliştirme fixture'ı (${ALL_38_XLS_ORDERS.length} sipariş)`,
+        beforeState: "FIXTURE_XLS",
         afterState: "CERBERUS_DATABASE",
         details:
-          "Google Drive XLS tablosundaki 40 kolonlu gerçek siparişler aktarıldı. PSH ve Inventory Lab entegrasyonu sağlandı.",
+          "40 kolonlu geliştirme fixture siparişleri boş veritabanına aktarıldı. Canlı/müşteri verisi değildir. PSH ve Inventory Lab entegrasyonu sağlandı.",
       },
     ]);
   }

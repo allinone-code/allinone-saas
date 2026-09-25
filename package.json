@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:audit-migrations": "tsx scripts/reconcile-migrations.ts",
     "db:reconcile-migrations": "tsx scripts/reconcile-migrations.ts --apply",
-    "db:push": "drizzle-kit push   # YALNIZ lokal geliştirme; prod eşitlemesi için tek seferlik",
+    "db:push": "drizzle-kit push",
+    "db:push:note": "echo 'YALNIZ lokal geliştirme; üretimde db:migrate kullanın.'",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "audit:checkpoint": "tsx scripts/audit-checkpoint.ts",
@@ -21,6 +22,7 @@
     "db:clean-demo": "tsx scripts/clean-demo-data.ts",
     "preflight": "tsx scripts/preflight.ts",
     "openapi:lint": "redocly lint docs/openapi.yaml --format=stylish",
+    "smoke": "node scripts/smoke.mjs",
     "vendor:xlsx": "bash scripts/vendor-xlsx.sh"
   },
   "dependencies": {

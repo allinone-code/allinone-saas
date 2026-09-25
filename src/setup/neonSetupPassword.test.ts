@@ -5,8 +5,12 @@
  * Sessiz başarısızlık en kötüsüdür; burada kilitliyoruz.
  */
 import { describe, it, expect } from "vitest";
-import { verifyPassword } from "@/lib/passwords";
-import { SETUP_PASSWORD, SETUP_PASSWORD_HASH } from "./neonSetupPassword";
+import { hashPassword, verifyPassword } from "@/lib/passwords";
+import {
+  SETUP_PASSWORD,
+  SETUP_PASSWORD_HASH,
+  isPlaceholderPasswordHash,
+} from "./neonSetupPassword";
 
 describe("Neon kurulum parolası", () => {
   it("gömülü hash, belgelenen parolayla eşleşir", async () => {
@@ -21,5 +25,12 @@ describe("Neon kurulum parolası", () => {
 
   it("hash bcrypt biçimindedir", () => {
     expect(SETUP_PASSWORD_HASH).toMatch(/^\$2[aby]\$\d{2}\$/);
+  });
+
+  it("yer tutucu hash tanınır; rotasyondan sonraki hash tanınmaz", async () => {
+    expect(isPlaceholderPasswordHash(SETUP_PASSWORD_HASH)).toBe(true);
+    const rotated = await hashPassword("tamamen-farkli-kalici-parola-123");
+    expect(isPlaceholderPasswordHash(rotated)).toBe(false);
+    expect(isPlaceholderPasswordHash("")).toBe(false);
   });
 });

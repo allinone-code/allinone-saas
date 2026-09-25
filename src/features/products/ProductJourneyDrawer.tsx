@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   X,
   ExternalLink,
@@ -259,6 +260,8 @@ export function ProductJourneyDrawer({
     }
   };
 
+  useEscapeClose(!!product, onClose);
+
   if (!product) return null;
 
   const p = detail?.product;
@@ -273,7 +276,12 @@ export function ProductJourneyDrawer({
         aria-hidden="true"
       />
 
-      <aside className="relative flex h-full w-full max-w-3xl flex-col border-l border-line bg-surface-base shadow-2xl">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ürün yolculuğu detayı"
+        className="relative flex h-full w-full max-w-3xl flex-col border-l border-line bg-surface-base shadow-2xl"
+      >
         {/* Başlık */}
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-line bg-surface-1 p-5">
           <div className="min-w-0">

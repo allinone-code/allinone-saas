@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   AlertTriangle,
   Boxes,
   Building2,
   ChevronLeft,
   FileSpreadsheet,
+  KeyRound,
   LogOut,
   Globe,
   BarChart3,
@@ -187,6 +189,7 @@ export function Sidebar({
   onCloseMobile,
   currentUser,
   onLogout,
+  onChangePassword,
 }: {
   groups: Array<{ title: string; items: NavItem[] }>;
   activeTab: TabId;
@@ -197,8 +200,19 @@ export function Sidebar({
   onCloseMobile: () => void;
   currentUser: SessionUserView | null;
   onLogout: () => void;
+  onChangePassword?: () => void;
 }) {
   const width = collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)";
+
+  // Mobil çekmecede ESC ile kapatma (WCAG 2.1.1 — klavye ile kapatılabilirlik)
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseMobile();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen, onCloseMobile]);
 
   return (
     <>
@@ -340,6 +354,16 @@ export function Sidebar({
                       : `${currentUser?.storeCode ?? ""} yetkilisi`}
                   </div>
                 </div>
+                {onChangePassword && (
+                  <button
+                    onClick={onChangePassword}
+                    title="Parolayı değiştir"
+                    aria-label="Parolayı değiştir"
+                    className="shrink-0 rounded-lg p-1.5 text-ink-faint transition hover:bg-surface-3 hover:text-ink"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </button>
+                )}
                 <button
                   onClick={onLogout}
                   title="Güvenli çıkış"

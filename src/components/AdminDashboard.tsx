@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { ThresholdSettings } from "@/features/settings/ThresholdSettings";
+import { DsrPanel } from "@/features/settings/DsrPanel";
 import type { SessionUser } from "@/lib/session";
 
 interface AdminDashboardProps {
@@ -1017,7 +1018,7 @@ export function AdminDashboard({
                   3. Fabrika Ayarlarına Dön
                 </h4>
                 <p className="text-xs text-ink-muted font-mono-tech mt-2 leading-relaxed">
-                  Tüm siparişleri, batch&rsquo;leri, mağaza kullanıcılarını (`STORE_USER`) ve denetim kayıtlarını siler. Sadece Sistem Yöneticisi (`Ahmet Erdem`) kalır.
+                  Tüm siparişleri, batch&rsquo;leri, mağaza kullanıcılarını ve denetim kayıtlarını siler. Tüm `ADMIN` hesapları ile mağaza tanımları korunur.
                 </p>
               </div>
 
@@ -1030,6 +1031,16 @@ export function AdminDashboard({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. AYARLAR — ROI eşikleri, Keepa anahtarı, entegrasyon durumu, KVKK araçları */}
+      {/* ========================================================================= */}
+      {activeSubTab === "SETTINGS" && (
+        <div className="space-y-4">
+          <ThresholdSettings />
+          {currentUser.role === "ADMIN" && <DsrPanel />}
         </div>
       )}
 

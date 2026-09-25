@@ -9,7 +9,10 @@ Aşağıdakilerin tamamı kanıtlanmadan yayın yapılmaz:
 - [ ] Onaylı staging `DATABASE_URL` üzerinde `npm run db:migrate` başarılı.
 - [ ] `/api/health/ready` staging'de `200` ve tüm `checks` değerleri `true`.
 - [ ] `npm ci`, lint, typecheck, test, OpenAPI lint, production audit ve build başarılı.
-- [ ] En az bir ADMIN hesabıyla giriş doğrulandı; bootstrap parola değiştirildi.
+- [ ] `BASE_URL=<staging> npm run smoke` 10/10 yeşil.
+- [ ] En az bir ADMIN hesabıyla giriş doğrulandı.
+- [ ] Neon SQL kurulumuysa: kurulum parolasıyla login `403 + PASSWORD_CHANGE_REQUIRED`
+      dönüyor ve ilk-parola ekranı kalıcı parolaya geçiriyor (çerezsiz denenmeli).
 - [ ] STORE_USER yabancı mağazanın sipariş, batch, crawler job ve mağaza metadata'sını göremiyor.
 - [ ] Backup/PITR etkin ve son geri yükleme noktası doğrulandı.
 - [ ] Release sahibi, DB sahibi ve geri dönüş kararı verecek kişi belirlendi.
@@ -71,14 +74,21 @@ Son migration `0007_icy_payback`, `orders.credit_card` ve `stores.default_card` 
 
 ### Sistem
 
-```text
-GET /api/health       → 200
-GET /api/health/ready → 200, bütün checks=true
+```bash
+BASE_URL=https://<yayin-adresi> npm run smoke
 ```
+
+10 kontrolün tamamı geçmelidir (liveness, readiness, kimliksiz ret, negatif
+giriş, sayfalar, KVKK metinleri, robots, yönlendirmeler). Üretim verisine
+dokunmaz.
 
 ### Kimlik ve roller
 
 - Hatalı giriş aynı generic 401 mesajını döndürür.
+- Kurulum parolası taşıyan hesap login'de 403 + `PASSWORD_CHANGE_REQUIRED` alır
+  (oturum çerezi üretilmez); `/api/auth/first-password` ile kalıcı parolaya
+  geçer ve aynı hesap için uç 404'e kapanır.
+- Kullanıcı kendi parolasını değiştirebilir; eski oturumlar 401 olur.
 - ADMIN kullanıcı/mağaza ekranlarını görür.
 - MANAGER kullanıcı ve database-reset araçlarını görmez.
 - STORE_USER `/admin` ekranına alınmaz ve API'de kendi mağazasına kilitlenir.

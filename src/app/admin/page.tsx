@@ -102,7 +102,7 @@ export default function AdminPage() {
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <span className="text-xs font-bold text-ink block leading-tight">
-              {currentUser?.name || "Ahmet Erdem"}
+              {currentUser?.name || "Yönetici"}
             </span>
             <span className="text-[10px] font-mono-tech text-brand-soft font-bold block">
               {currentUser?.role === "ADMIN" ? "SİSTEM YÖNETİCİSİ" : "OPERASYON YÖNETİCİSİ"}

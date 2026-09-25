@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   title: "CERBERUS | Karar Merkezli Ticaret İşletim Sistemi",
   description:
     "Çoklu mağaza ürün tedarik zekâsı, landed-cost kârlılık analizi, karar motoru ve pazaryeri operasyonları için kurumsal platform.",
+  icons: { icon: "/favicon.svg" },
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

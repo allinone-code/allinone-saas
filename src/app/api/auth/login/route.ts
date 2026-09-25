@@ -10,6 +10,7 @@ import {
   isSessionRole,
 } from "@/lib/session";
 import { hashPassword, isRevokedLegacyPassword, verifyPassword } from "@/lib/passwords";
+import { isPlaceholderPasswordHash } from "@/setup/neonSetupPassword";
 import { checkRateLimit, clearRateLimit } from "@/lib/rateLimit";
 import { parseBody, loginSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
@@ -86,6 +87,20 @@ export async function POST(req: Request) {
     const verification = await verifyPassword(cleanPassword, user.passwordHash);
     if (!verification.ok) {
       return genericFailure;
+    }
+
+    // Kurulum parolası rotasyonu: depoda yayınlanmış bilinen parolayla
+    // oturum AÇILMAZ. Kullanıcı ilk parolasını /api/auth/first-password
+    // üzerinden belirlemek zorundadır (tek kullanımlık mekanizma).
+    if (isPlaceholderPasswordHash(user.passwordHash)) {
+      return NextResponse.json(
+        {
+          error:
+            "Bu hesap hâlâ kurulum parolasını kullanıyor. Devam etmek için kalıcı parolanızı belirleyin.",
+          code: "PASSWORD_CHANGE_REQUIRED",
+        },
+        { status: 403 }
+      );
     }
 
     // Geçiş penceresi (F-03): düz metin kayıt başarılı giriş anında bcrypt'e yükseltilir
