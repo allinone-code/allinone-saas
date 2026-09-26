@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Globe, Search, Loader2, ExternalLink, Plus, CheckCircle2, AlertTriangle, ImageIcon, TrendingDown, Barcode, ShieldAlert } from "lucide-react";
 import { BookmarkletSetup } from "./BookmarkletSetup";
+import { PendingCaptures } from "./PendingCaptures";
 
 interface ScrapedRow {
   id: number;
@@ -120,7 +121,12 @@ export function CrawlerPanel({ defaultStore }: { defaultStore: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Birincil yol: bookmarklet. Bot korumalı sitelerde sunucu crawler'ı
+      {/* 1) Yakalananlar: eklenti/bookmarklet'in doldurduğu onay kuyruğu.
+          Eklenti tarayıcıda çalışır; bu ekran kalıcı listeyi ve katalog onayını
+          sunar. */}
+      <PendingCaptures defaultStore={defaultStore} />
+
+      {/* 2) Birincil yol: bookmarklet. Bot korumalı sitelerde sunucu crawler'ı
           çalışmayacağı için bu yol önerilir. */}
       <BookmarkletSetup defaultStore={defaultStore} />
 
