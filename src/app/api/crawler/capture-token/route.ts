@@ -4,7 +4,7 @@ import { requireUser, isDenied } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
 import { crawlerCaptureTokens } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { ensureCaptureToken, hasCaptureToken, rotateCaptureToken } from "@/lib/crawler/captureToken";
+import { ensureCaptureToken, hasCaptureToken, revealCaptureToken, rotateCaptureToken } from "@/lib/crawler/captureToken";
 import { buildBookmarkletSource } from "@/lib/crawler/bookmarklet";
 
 /**
@@ -24,26 +24,39 @@ export async function GET() {
 
     const has = await hasCaptureToken(user.email);
     if (has) {
+      // Token AES-GCM ile şifreli saklanıyor, bu yüzden tekrar GÖSTERİLEBİLİR.
+      // Bu kritik: ekipte herkes bookmarklet'ini kendi tarayıcısına kuracak.
+      // Token geri getirilemeseydi herkes "yenile"ye basar ve birbirlerinin
+      // bookmarklet'ini geçersiz kılardı.
+      const revealed = await revealCaptureToken(user.email);
+      if (revealed) {
+        return NextResponse.json({
+          hasToken: true,
+          token: revealed,
+          bookmarklet: buildBookmarkletSource({ token: revealed }),
+          message: "Mevcut token'ınız gösteriliyor.",
+        });
+      }
+      // Şifre çözülemedi (ör. SESSION_SECRET değişti). Yeni üretilecek.
+      const fresh = await rotateCaptureToken(user.email);
       return NextResponse.json({
         hasToken: true,
-        // Mevcut token geri getirilemez (hash'li saklanıyor). UI buna göre
-        // "rotasyonla yeniden al" der.
-        token: null,
-        message: "Token aktif. Metni kaybettiyseniz yenileyebilirsiniz.",
+        token: fresh,
+        bookmarklet: buildBookmarkletSource({ token: fresh }),
+        message: "Önceki token çözülemediği için yenisi oluşturuldu. Bookmarklet'lerinizi güncelleyin.",
       });
     }
 
-    const { token, created } = await ensureCaptureToken(user.email);
-    if (!created || !token) {
-      return NextResponse.json({ hasToken: true, token: null });
+    const { token } = await ensureCaptureToken(user.email);
+    if (!token) {
+      return NextResponse.json({ hasToken: false, token: null });
     }
 
     return NextResponse.json({
       hasToken: true,
       token,
-      // Kullanıcı bu değeri bookmarklet'e gömer.
       bookmarklet: buildBookmarkletSource({ token }),
-      message: "Token oluşturuldu. Bu metni bir yere kaydedin — tekrar gösterilemez.",
+      message: "Token oluşturuldu.",
     });
   } catch (error: unknown) {
     return handleRouteError("GET /api/crawler/capture-token", error);

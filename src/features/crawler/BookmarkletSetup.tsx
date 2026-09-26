@@ -89,14 +89,6 @@ export function BookmarkletSetup({ defaultStore }: { defaultStore: string }) {
           <p className="mt-2 text-xs font-mono-tech text-ink-muted">
             {state.message ?? "Token aktif. Metni kaybettiyseniz yenileyebilirsiniz."}
           </p>
-          <button
-            onClick={() => void load("POST")}
-            disabled={busy}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-bold text-ink-muted hover:text-ink disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
-            Token yenile
-          </button>
         </div>
       )}
 
@@ -173,8 +165,20 @@ export function BookmarkletSetup({ defaultStore }: { defaultStore: string }) {
             </div>
             <p className="mt-2 text-[10px] font-mono-tech text-ink-faint">
               Mağaza: <span className="text-ink-muted">{defaultStore}</span> · Token yalnız ürün
-              eklemeye yarar; okuma veya silme yetkisi vermez. Şifreli saklanır, bu metin
-              tekrar gösterilemez.
+              eklemeye yarar; okuma veya silme yetkisi vermez.
+            </p>
+            <button
+              onClick={() => void load("POST")}
+              disabled={busy}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-[11px] font-bold text-ink-muted hover:text-ink disabled:opacity-50"
+              title="Mevcut bookmarklet'leriniz geçersiz olur ve yeni token'ı kurmanız gerekir"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} />
+              Token yenile
+            </button>
+            <p className="mt-1.5 text-[10px] font-mono-tech text-ink-faint">
+              Token yenileme mevcut bookmarklet&apos;leri geçersiz kılar — yeni bağlantıyı
+              çubuğa yeniden kurmanız gerekir.
             </p>
           </div>
         </div>

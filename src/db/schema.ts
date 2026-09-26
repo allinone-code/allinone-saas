@@ -671,7 +671,15 @@ export type AppSetting = typeof appSettings.$inferSelect;
 export const crawlerCaptureTokens = pgTable("crawler_capture_tokens", {
   /** Kullanıcı e-postası (benzersiz kimlik) — JWT `sub` ile aynı. */
   userEmail: text("user_email").primaryKey(),
+  /** Doğrulama için SHA-256. Şifre çözme yapılmadan sabit zamanlı karşılaştırılır. */
   tokenHash: text("token_hash").notNull(),
+  /**
+   * AES-256-GCM şifreli token — kullanıcı bookmarklet'ini sayfayı kapattıktan
+   * sonra da tekrar görebilsin diye saklanır. Anahtar `SESSION_SECRET`'tan
+   * türetilir, kod deposunda değildir. Veritabanı sızıntısında işe yaramaz.
+   * Format: `v1:<iv-b64>:<tag-b64>:<cipher-b64>`
+   */
+  tokenEncrypted: text("token_encrypted").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastUsedAt: timestamp("last_used_at"),
   /** Rotasyon sonrası önceki token'ın geçersizleşme anı. */
