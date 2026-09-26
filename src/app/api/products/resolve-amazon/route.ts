@@ -5,7 +5,7 @@ import { requireUser, isDenied } from "@/lib/guards";
 import { parseBody, productMatchReviewSchema, productMatchSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
 import { resolveProducts } from "@/domain/productMatch";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 /**
  * POST /api/products/resolve-amazon
@@ -170,13 +170,22 @@ export async function GET(req: Request) {
       })
       .from(productMatchCandidates)
       .innerJoin(products, eq(products.id, productMatchCandidates.productId))
+      // `reviewedAt IS NULL` şart: REDDEDİLEN aday `isApplied:false` kaldığı
+      // için yalnız `isApplied:false` filtresi onu tekrar listeye döndürürdü.
+      // Kullanıcı reddedip aynı adayı tekrar görüyor, tekrar reddediyordu —
+      // kuyruk tıkanıyor ve "reddet" işlevi görünmez hâle geliyordu.
+      // Reddedilen kayıt veritabanında kalır (denetim izi), yalnız kuyruktan çıkar.
       .where(
         productId
           ? and(
               eq(productMatchCandidates.productId, Number(productId)),
-              eq(productMatchCandidates.isApplied, false)
+              eq(productMatchCandidates.isApplied, false),
+              isNull(productMatchCandidates.reviewedAt)
             )
-          : eq(productMatchCandidates.isApplied, false)
+          : and(
+              eq(productMatchCandidates.isApplied, false),
+              isNull(productMatchCandidates.reviewedAt)
+            )
       )
       .limit(100);
 

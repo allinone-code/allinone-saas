@@ -12,6 +12,7 @@ import { PrepShipImportModal } from "@/components/PrepShipImportModal";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { ProductMasterDrawer } from "@/components/ProductMasterDrawer";
 import { ProductPortfolio } from "@/features/products/ProductPortfolio";
+import { AmazonMatchPanel } from "@/features/products/AmazonMatchPanel";
 import { ProductJourneyDrawer } from "@/features/products/ProductJourneyDrawer";
 import { CrawlerPanel } from "@/features/crawler/CrawlerPanel";
 import { KeepaAnalysisPanel } from "@/features/keepa/KeepaAnalysisPanel";
@@ -165,6 +166,22 @@ export default function CerberusApp() {
   const filteredOrders = orders;
   const kpis = orderKpis;
   const problemCount = orderKpis.problemCount;
+
+  /**
+   * Amazon'a bağlanmamış, ama GTIN'i olan ürünler.
+   *
+   * GTIN olmadan Amazon'daki karşılığı bulunamaz — Keepa `code=` ucu kısmi
+   * arama motoru gibi davrandığı için başlıkla aramak yanlış ürün riski
+   * doğurur. Bu yüzden yalnız GTIN'i olanlar listelenir.
+   */
+  const unlinkedProducts = useMemo(
+    () =>
+      products
+        .filter((p) => Boolean(p.upc))
+        .filter((p) => !/^[A-Z0-9]{10}$/.test(p.asin) || p.asin.startsWith("SC"))
+        .map((p) => ({ id: p.id, title: p.title, brand: p.brand, upc: p.upc!, asin: p.asin })),
+    [products]
+  );
 
   const navGroups = useMemo(
     () =>
@@ -405,12 +422,16 @@ export default function CerberusApp() {
           )}
 
           {activeTab === "PRODUCTS" && (
-            <ProductPortfolio
-              products={products}
-              summary={productSummary}
-              loading={loading}
-              onSelect={setSelectedProduct}
-            />
+            <div className="space-y-5">
+              <ProductPortfolio
+                products={products}
+                summary={productSummary}
+                loading={loading}
+                onSelect={setSelectedProduct}
+              />
+              {/* GTIN → Keepa → ASIN: eşleştirme ve onay akışı */}
+              <AmazonMatchPanel products={unlinkedProducts} />
+            </div>
           )}
 
           {activeTab === "RESEARCHERS" && <ResearcherBoard researchers={researchers} />}
