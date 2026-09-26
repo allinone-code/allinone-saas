@@ -18,7 +18,7 @@ import { parseCapturedHtml } from "@/lib/crawler/scraper";
 const require = createRequire(import.meta.url);
 // extractor.js tarayıcı için yazıldı (window, module.exports). Test altında
 // require edilebilmesi için ortam değişkenleri sağlanır.
-const { cerberusExtract } = require("../extractor.js");
+const { cerberusExtract } = require("../../chrome-extension/extractor.js");
 
 const PRODUCT_URL = "https://www.vitaminshoppe.com/p/now-vitamin-d3";
 

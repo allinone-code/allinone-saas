@@ -10,11 +10,15 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // `chrome-extension/**` sözleşme testleri eklendi: eklentinin topladığı
+    // `tests/chrome-extension/**` sözleşme testleri: eklentinin topladığı
     // verinin sunucunun gerçekten okuyabildiği burada kanıtlanır. Aksi halde
-    // eklenti yalnız saha denemesiyle doğrulanır ve kırık olduğu ekip
-    // işe başlarken anlaşılır.
-    include: ["src/**/*.test.ts", "chrome-extension/**/*.test.ts"],
+    // eklenti yalnız saha denemesiyle doğrulanır ve kırık olduğu ekip işe
+    // başlarken anlaşılır.
+    //
+    // Testler eklenti klasörünün DIŞINDA: Chrome `_` ile başlayan dosya veya
+    // klasör adlarını reddeder ("Filenames starting with "_" are reserved"),
+    // bu yüzden `__test__` yükleme hatası veriyordu.
+    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

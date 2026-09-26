@@ -65,8 +65,8 @@ tıklayınca, yalnız o sayfanın verisini, yalnız Cerberus'a gönderir.
 ## Geliştirme
 
 ```bash
-# sözleşme testleri: eklentinin topladığı veriyi sunucu gerçekten okuyabiliyor mu
-npx vitest run chrome-extension
+# eklenti sözleşme + paket yüklenebilirlik testleri
+npx vitest run tests/chrome-extension
 
 # tüm kapı
 npm run typecheck && npm run lint && npm test
@@ -80,8 +80,14 @@ npm run typecheck && npm run lint && npm test
 | `extractor.js` | Sayfadan ham veri toplar — **saf fonksiyon**, `document` parametre alır |
 | `popup.html` / `.css` / `.js` | Araç çubuğu arayüzü ve API çağrısı |
 | `icons/` | Uzantı simgeleri |
-| `__test__/extensionContract.test.ts` | Eklenti ↔ sunucu sözleşme testleri |
-| `__test__/fakeDocument.js` | Test için minimal sahte DOM |
+| `../tests/chrome-extension/extensionContract.test.ts` | Eklenti ↔ sunucu sözleşme testleri |
+| `../tests/chrome-extension/extensionPackage.test.ts` | Paket yüklenebilirliği (manifest, izin, dosya referansları) |
+| `../tests/chrome-extension/fakeDocument.js` | Test için minimal sahte DOM |
+
+> **Testler eklenti klasörünün DIŞINDA.** Chrome `_` ile başlayan dosya ve
+> klasör adlarını reddeder: *"Cannot load extension with file or directory name
+> __test__. Filenames starting with "_" are reserved for use by the system."*
+> `extensionPackage.test.ts` bu kuralı ve benzerlerini otomatik denetler.
 
 ### Neden `extractor.js` ayrı ve saf
 
@@ -89,12 +95,3 @@ npm run typecheck && npm run lint && npm test
 sayede aynı dosya hem tarayıcıya enjekte edilir hem Node altında sahte bir
 `document` ile test edilir. Tarayıcıya özgü kod içine karıştırılsaydı bu eklenti
 yalnız saha denemesiyle doğrulanabilirdi — ki o sırada ekip işe başlamış olur.
-
-## Sınırlar
-
-- **Tek ürün sayfası.** Kategori sayfasındaki tüm ürünleri toplu göndermez.
-  (Sunucu crawler'ı bunu yapabilir ama bot korumalı sitelerde çalışmaz.)
-- **Sitenin JSON-LD ya da `og:` meta verisi olmalı.** Yoksa hata verir — sessizce
-  boş kaydetmez.
-- **Liste fiyatı gelmezse indirim hesaplanmaz.** `%` göstermek için
-  `offers.highPrice` veya eşdeğeri gerekir.
