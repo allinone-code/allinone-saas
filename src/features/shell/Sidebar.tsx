@@ -42,6 +42,15 @@ export function buildNavGroups(counts: {
   problems: number;
   stores: number;
   isAdmin: boolean;
+  /**
+   * Onay bekleyen crawler yakalaması sayısı.
+   *
+   * Rozet neden gerekli: kullanıcı eklentiyle ürün yakaladıktan sonra
+   * "kataloğa ekledim, nerede?" diye arıyor. Yanıt sidebar'da olmalı; yoksa
+   * yakalanan ürün sessizce `scraped_products`ta kalır ve katalog onayı
+   * hiç yapılmaz.
+   */
+  crawlerPending: number;
 }): Array<{ title: string; items: NavItem[] }> {
   return [
     {
@@ -73,8 +82,14 @@ export function buildNavGroups(counts: {
       items: [
         {
           id: "CRAWLER",
-          label: "Crawler Keşif Masası",
-          hint: "URL yapıştır → ürünleri otomatik çek",
+          // Ad ve konum düzeltmesi: bu ekran artık "keşif" değil, alış fiyatı
+          // takibi ve katalog onayı. Kullanıcı eklenen ürünleri buradan
+          // onaylıyor, dolayısıyla adı ne yaptığını söylemeli. Onay bekleyen
+          // sayısı rozet olarak gösterilir — "eklediğim ürün nerede?" sorusunun
+          // cevabı sidebar'da olmalı.
+          label: "İndirim Takip Masası",
+          hint: "Ürün yakala → fiyat takip et → kataloğa ekle",
+          badge: counts.crawlerPending,
           icon: Globe,
         },
         {

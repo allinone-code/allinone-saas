@@ -57,8 +57,9 @@ const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
     subtitle: "Günlük/haftalık/aylık mağaza kontrol listesi ve araç/abonelik/domain takibi — mağaza ekibi rutin belgesinden uyarlandı",
   },
   CRAWLER: {
-    title: "Crawler Keşif Masası",
-    subtitle: "Kaynak site URL’sini yapıştırın, ürünleri otomatik çekip kataloğa ekleyin",
+    title: "İndirim Takip Masası",
+    subtitle:
+      "Tarayıcı eklentisiyle ürün yakalayın, fiyat geçmişini takip edin, GTIN ile Amazon eşleştirin, kataloğa ekleyin",
   },
   KEEPA: {
     title: "Keepa Analiz & Karar",
@@ -119,6 +120,7 @@ export default function CerberusApp() {
     productMasters,
     products,
     productSummary,
+    pendingCaptures,
     researchers,
     briefing,
     loading,
@@ -175,8 +177,9 @@ export default function CerberusApp() {
         problems: problemCount,
         stores: stores.length,
         isAdmin: Boolean(isAdmin),
+        crawlerPending: pendingCaptures,
       }),
-    [productMasters.length, products.length, researchers.length, orderKpis.totalOrders, batches.length, problemCount, stores.length, isAdmin]
+    [productMasters.length, products.length, researchers.length, orderKpis.totalOrders, batches.length, problemCount, stores.length, isAdmin, pendingCaptures]
   );
 
   const navigate = useCallback((id: TabId) => {

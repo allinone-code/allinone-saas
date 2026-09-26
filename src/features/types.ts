@@ -275,6 +275,13 @@ export interface ProductView {
   brand: string;
   imageUrl?: string | null;
   amazonUrl?: string | null;
+  /**
+   * GTIN/UPC — Amazon'daki karşılığını bulmak için kullanılan kalıcı kimlik.
+   * Crawler ile eklenen ürünlerde doludur. Portföyde gösterilir çünkü
+   * eşleştirilebilirliği arayüzden görünmezse kullanıcı ürünün neden
+   * Amazon'da bulunamadığını anlamaz.
+   */
+  upc?: string | null;
   lifecycleStage: string;
   isActive: boolean;
   discoveredAt?: string | null;

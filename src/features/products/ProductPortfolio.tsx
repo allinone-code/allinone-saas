@@ -287,6 +287,21 @@ export function ProductPortfolio({
                           <span className="text-brand-soft">{p.asin}</span>
                           {p.brand ? ` · ${p.brand}` : ""}
                         </p>
+                        {/* GTIN: Amazon eşleştirmesinin anahtarı. Crawler ile
+                            eklenen ürünlerde doludur; XLS'ten gelenlerde
+                            genelde yoktur ve o durum açıkça belirtilir —
+                            "neden Amazon'da bulunmuyor?" sorusunun cevabı. */}
+                        <p className="mt-0.5 text-[10px] font-mono-tech">
+                          {p.upc ? (
+                            <span className="text-ink-muted" title="GTIN/UPC — Amazon'daki karşılığı bu numarayla bulunur">
+                              GTIN {p.upc}
+                            </span>
+                          ) : (
+                            <span className="text-ink-faint" title="GTIN yok — Amazon eşleştirmesi yapılamaz. Crawler ile eklenen ürünlerde GTIN bulunur.">
+                              GTIN yok
+                            </span>
+                          )}
+                        </p>
                       </td>
 
                       <td className="p-3.5">

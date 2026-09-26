@@ -28,6 +28,8 @@ interface CerberusData {
   productMasters: ProductMasterView[];
   products: ProductView[];
   productSummary: ProductSummaryView | null;
+  /** Onay bekleyen crawler yakalaması sayısı (sidebar rozeti için). */
+  pendingCaptures: number;
   researchers: ResearcherView[];
   briefing: MorningBriefingView | null;
   loading: boolean;
@@ -99,6 +101,14 @@ export function useCerberusData(orderQuery: OrderQuery): CerberusData {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [contextError, setContextError] = useState<string | null>(null);
   const [selectedStore, setSelectedStore] = useState<string>("ALL");
+  /**
+   * Onay bekleyen crawler yakalamaları.
+   *
+   * Sidebar rozeti için gerekiyor: kullanıcı eklentiyle ürün yakalayıp
+   * "kataloğa ekledim, nerede?" diye aradığında cevap sidebar'da görünmeli.
+   * Tam liste Crawler ekranında yüklenir; burada yalnız SAYI taşınır.
+   */
+  const [pendingCaptures, setPendingCaptures] = useState<number>(0);
 
   useEffect(() => {
     let aborted = false;
@@ -188,9 +198,10 @@ export function useCerberusData(orderQuery: OrderQuery): CerberusData {
       setContextLoading(true);
       try {
         const storeCode = encodeURIComponent(selectedStore);
-        const [intelRes, productsRes] = await Promise.all([
+        const [intelRes, productsRes, pendingRes] = await Promise.all([
           fetch(`/api/intelligence?storeCode=${storeCode}`, { cache: "no-store", signal }),
           fetch(`/api/products?storeCode=${storeCode}`, { cache: "no-store", signal }),
+          fetch(`/api/crawler/pending?storeCode=${storeCode}&limit=200`, { cache: "no-store", signal }),
         ]);
         if (intelRes.status === 401 || productsRes.status === 401) {
           router.replace("/login");
@@ -198,15 +209,18 @@ export function useCerberusData(orderQuery: OrderQuery): CerberusData {
         }
         if (!intelRes.ok || !productsRes.ok) throw new Error("context request failed");
 
-        const [intelJson, productsJson] = await Promise.all([
+        const [intelJson, productsJson, pendingJson] = await Promise.all([
           intelRes.json(),
           productsRes.json(),
+          // Bu uç yanıt vermezse ana ekran yine de açılmalı; rozet 0 kalır.
+          pendingRes.ok ? pendingRes.json() : Promise.resolve({ count: 0 }),
         ]);
         setProductMasters(intelJson.productMasters ?? []);
         setProducts(productsJson.products ?? []);
         setProductSummary(productsJson.summary ?? null);
         setResearchers(intelJson.researchers ?? []);
         setBriefing(intelJson.morningBriefing ?? null);
+        setPendingCaptures(Number(pendingJson?.count ?? 0));
         setContextError(null);
       } catch (error) {
         if ((error as Error)?.name === "AbortError") return;
@@ -267,6 +281,7 @@ export function useCerberusData(orderQuery: OrderQuery): CerberusData {
     productMasters,
     products,
     productSummary,
+    pendingCaptures,
     researchers,
     briefing,
     loading: ordersLoading || contextLoading,

@@ -106,6 +106,12 @@ export async function GET(req: Request) {
         brand: p.brand,
         imageUrl: p.imageUrl,
         amazonUrl: p.amazonUrl,
+        // GTIN/UPC — Amazon'daki karşılığını bulmak için kullanılan kalıcı
+        // kimlik. Crawler ile eklenen ürünlerde doludur. Portföyde "GTIN yok"
+        // uyarısı gösterebilmek ve Keepa eşleştirmesi yapabilmek için
+        // API yanıtında yer almalı; yoksa eklenen ürünün eşleştirilebilirliği
+        // arayüzden görünmez.
+        upc: p.upc,
         lifecycleStage: p.lifecycleStage,
         isActive: p.isActive,
         discoveredAt: p.discoveredAt,
