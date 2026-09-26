@@ -100,6 +100,60 @@ function JourneyBar({ stage }: { stage: string }) {
   );
 }
 
+/**
+ * Tepe fiyat karşılaştırması.
+ *
+ * Kullanıcının asıl sorusu "şu an indirimde miyim?" — ilk fiyata göre değişim
+ * (`changePercent`) BUNU yanıtlamaz. Ürün 100$'dan 60$'a geldiyse
+ * changePercent %-40 der ve "zam almış" izlenimi doğar; oysa tepe 100 idi ve
+ * fırsat kaçtı. Tepe ile karşılaştırma kaç indirimde olduğunu doğrudan söyler.
+ */
+function PeakCell({ product }: { product: ProductView }) {
+  const { priceTrend } = product;
+  const peak = priceTrend.peakPrice;
+  const current = priceTrend.latestPrice;
+  const discount = priceTrend.discountFromPeakPercent;
+
+  if (peak === null || current === null) {
+    return <span className="font-mono-tech text-xs text-ink-faint">—</span>;
+  }
+
+  // Tek gözlem: "tepe" ile "güncel" aynı şey; indirim iddiası yapılamaz.
+  if (priceTrend.observationCount <= 1) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="font-display text-sm font-bold tabular text-ink">{money(peak)}</span>
+        <span className="font-mono-tech text-[10px] text-ink-faint">tek gözlem</span>
+      </div>
+    );
+  }
+
+  const isDiscount = discount !== null && discount >= 1;
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={`font-display text-sm font-bold tabular ${isDiscount ? "text-ink" : "text-ink-muted"}`}>
+        {money(peak)}
+      </span>
+      {isDiscount ? (
+        <span className="inline-flex w-fit items-center gap-0.5 rounded bg-positive/20 px-1 py-px text-[10px] font-bold text-positive">
+          <TrendingDown className="h-3 w-3" />%{discount} indirimde
+        </span>
+      ) : (
+        <span className="font-mono-tech text-[10px] text-ink-faint">tepede</span>
+      )}
+      {priceTrend.peakAt && (
+        <span
+          className="font-mono-tech text-[9px] text-ink-faint"
+          title="Tepe fiyatın görüldüğü tarih"
+        >
+          {shortDate(priceTrend.peakAt)} tepe
+        </span>
+      )}
+    </div>
+  );
+}
+
 function TrendCell({ product }: { product: ProductView }) {
   const { priceTrend } = product;
   const tone = trendTone(priceTrend.direction, priceTrend.isBuyingOpportunity);
@@ -244,6 +298,12 @@ export function ProductPortfolio({
                 <th className="p-3.5">Ürün / ASIN</th>
                 <th className="p-3.5">Yolculuk</th>
                 <th className="p-3.5">Tedarikçi Fiyatı</th>
+                <th
+                  className="p-3.5"
+                  title="En yüksek kaydedilen fiyatla karşılaştırma — indirim fırsatını tek bakışta görün"
+                >
+                  Tepe Fiyat
+                </th>
                 <th className="p-3.5">Operasyon</th>
                 <th className="p-3.5">Kâr / ROI</th>
                 <th className="p-3.5">Yargı &amp; Aksiyon</th>
@@ -306,6 +366,10 @@ export function ProductPortfolio({
 
                       <td className="p-3.5">
                         <JourneyBar stage={p.lifecycleStage} />
+                      </td>
+
+                      <td className="p-3.5">
+                        <PeakCell product={p} />
                       </td>
 
                       <td className="p-3.5">

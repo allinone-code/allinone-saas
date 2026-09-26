@@ -116,7 +116,28 @@ export async function GET(req: Request) {
         isActive: p.isActive,
         discoveredAt: p.discoveredAt,
 
-        priceTrend,
+        priceTrend: {
+          changePercent: priceTrend.changePercent,
+          // Domain yönü FALLING/RISING/STABLE; arayüz UP/DOWN/FLAT bekliyor.
+          direction:
+            priceTrend.direction === "FALLING"
+              ? "DOWN"
+              : priceTrend.direction === "RISING"
+                ? "UP"
+                : priceTrend.direction === "STABLE"
+                  ? "FLAT"
+                  : "UNKNOWN",
+          latestPrice: priceTrend.latestPrice,
+          firstPrice: priceTrend.firstPrice,
+          // Tepe karşılaştırması — "kaç indirimde?" sorusunun cevabı.
+          peakPrice: priceTrend.peakPrice,
+          peakAt: priceTrend.peakAt ? priceTrend.peakAt.toISOString() : null,
+          discountFromPeakPercent: priceTrend.discountFromPeakPercent,
+          // "Tek gözlem" ayrımı için: seri tek noktaysa tepe ile güncel aynı
+          // şeydir ve indirim iddiası yapılamaz.
+          observationCount: priceTrend.observationCount,
+          isBuyingOpportunity: priceTrend.isBuyingOpportunity,
+        },
         latestPrice: priceTrend.latestPrice,
         offerCount: offers.length,
         supplierName: offers[offers.length - 1]?.supplierName ?? null,

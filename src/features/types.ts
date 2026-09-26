@@ -265,6 +265,13 @@ export interface PriceTrendView {
   direction: "UP" | "DOWN" | "FLAT" | "UNKNOWN";
   latestPrice: number | null;
   firstPrice: number | null;
+  /** Gözlenen en yüksek fiyat ve ne zaman görüldüğü. */
+  peakPrice: number | null;
+  peakAt: string | null;
+  /** Güncel fiyatın tepeye göre indirimi (yüzde). */
+  discountFromPeakPercent: number | null;
+  /** Fiyat gözlemi sayısı — 1 ise tepe/güncel aynı, indirim iddiası yok. */
+  observationCount: number;
   isBuyingOpportunity: boolean;
 }
 

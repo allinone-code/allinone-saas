@@ -247,6 +247,20 @@ export interface PriceTrend {
   changePercent: number | null;
   firstPrice: number | null;
   latestPrice: number | null;
+  /**
+   * Gözlenen EN YÜKSEK fiyat ve ne zaman görüldüğü.
+   *
+   * Neden gerekli: kullanıcının işi "indirimi erken görmek". İlk fiyata göre
+   * değişim (`changePercent`) trendi anlatır ama kaç indirimde olduğunu
+   * söylemez. Örnek: ürün 100$'dan 60$'a geldiyse changePercent %-40 der ve
+   * "zam almış" izlenimi doğar; oysa tepe 100 idi ve fırsat kaçtı. Tepe
+   * karşılaştırması, o anki fiyatın en iyi fiyatın ne kadar altında
+   * olduğunu doğrudan gösterir — alım kararı budur.
+   */
+  peakPrice: number | null;
+  peakAt: Date | null;
+  /** Güncel fiyatın tepeye göre indirimi (yüzde). 0 = tepe seviyesinde. */
+  discountFromPeakPercent: number | null;
   observationCount: number;
   /** Arbitraj sinyali: maliyet anlamlı düştüyse tekrar alım fırsatı */
   isBuyingOpportunity: boolean;
@@ -269,6 +283,9 @@ export function computePriceTrend(
       changePercent: null,
       firstPrice: null,
       latestPrice: null,
+      peakPrice: null,
+      peakAt: null,
+      discountFromPeakPercent: null,
       observationCount: 0,
       isBuyingOpportunity: false,
     };
@@ -283,6 +300,9 @@ export function computePriceTrend(
       changePercent: null,
       firstPrice,
       latestPrice,
+      peakPrice: Math.max(...sorted.map((o) => o.price)),
+      peakAt: sorted[sorted.length - 1].at,
+      discountFromPeakPercent: null,
       observationCount: sorted.length,
       isBuyingOpportunity: false,
     };
@@ -294,13 +314,24 @@ export function computePriceTrend(
   const direction =
     Math.abs(changePercent) < 2 ? "STABLE" : changePercent < 0 ? "FALLING" : "RISING";
 
+  const peakPrice = Math.max(...sorted.map((o) => o.price));
+  const peakIndex = sorted.findIndex((o) => o.price === peakPrice);
+  const peakAt = sorted[peakIndex]?.at ?? null;
+  // Yalnız tepe üstündeyse indirim vardır; %0 daima "tepede" demektir.
+  const discountFromPeakPercent = Math.round(((peakPrice - latestPrice) / peakPrice) * 100);
+
   return {
     direction,
     changePercent,
     firstPrice,
     latestPrice,
+    peakPrice,
+    peakAt,
+    discountFromPeakPercent,
     observationCount: sorted.length,
-    // %5'ten fazla düşüş = anlamlı arbitraj fırsatı
-    isBuyingOpportunity: changePercent <= -5,
+    // %5'ten fazla düşüş = anlamlı arbitraj fırsatı. Tepe bazlı indirim de
+    // hesaba katılır: seri kısaysa ilk fiyat zaten yüksek olabilir ve
+    // changePercent yanıltıcı biçimde "düşüş yok" der.
+    isBuyingOpportunity: changePercent <= -5 || discountFromPeakPercent >= 15,
   };
 }
