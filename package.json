@@ -10,6 +10,7 @@
     "test:python": "node scripts/test-python.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:check": "tsx scripts/migrate-precheck.ts",
     "db:audit-migrations": "tsx scripts/reconcile-migrations.ts",
     "db:reconcile-migrations": "tsx scripts/reconcile-migrations.ts --apply",
     "db:push": "drizzle-kit push   # YALNIZ lokal geliştirme; prod eşitlemesi için tek seferlik",
