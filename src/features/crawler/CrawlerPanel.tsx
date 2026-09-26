@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Globe, Search, Loader2, ExternalLink, Plus, CheckCircle2, AlertTriangle, ImageIcon, TrendingDown, Barcode, ShieldAlert } from "lucide-react";
+import { BookmarkletSetup } from "./BookmarkletSetup";
 
 interface ScrapedRow {
   id: number;
@@ -119,7 +120,12 @@ export function CrawlerPanel({ defaultStore }: { defaultStore: string }) {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* Birincil yol: bookmarklet. Bot korumalı sitelerde sunucu crawler'ı
+          çalışmayacağı için bu yol önerilir. */}
+      <BookmarkletSetup defaultStore={defaultStore} />
+
+      {/* İkincil yol: sunucu crawler'ı. Korumasız sitelerde toplu tarama ve
+          Scrapling servisi ile DataDome/Cloudflare aşımı için. */}
       <div className="rounded-2xl border border-brand/20 bg-surface-1 p-5">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand/15 border border-brand/30 text-brand-soft">

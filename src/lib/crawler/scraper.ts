@@ -955,6 +955,29 @@ export async function scrapeUrl(rawUrl: string): Promise<ScrapeResult> {
     throw e;
   }
 
+  return parseCapturedHtml(html, finalUrl, normalized, "js-stealth");
+}
+
+/**
+ * Ham HTML'den ürün çıkarır — indirme yolundan BAĞIMSIZ.
+ *
+ * Aynı fonksiyon iki kaynaktan beslenir:
+ *   1. `scrapeUrl` — sunucu crawler'ının indirdiği HTML
+ *   2. bookmarklet — kullanıcının kendi tarayıcısından gelen JSON-LD/meta
+ *
+ * Tek ayrıştırıcı kullanmanın nedeni: GTIN doğrulama, sahte ürün filtresi ve
+ * indirim tespiti tek yerde durmalı. Tarayıcıda ikinci bir kopya yaşarsa iki
+ * yol zamanla farklı veri üretir ve hangisinin doğru olduğu anlaşılmaz olur.
+ */
+export function parseCapturedHtml(
+  html: string,
+  finalUrl: string,
+  requestedUrl?: string,
+  engine: ScrapeResult["engine"] = "js-stealth"
+): ScrapeResult {
+  const sourceDomain = extractDomain(finalUrl);
+  const normalized = requestedUrl ?? normalizeUrl(finalUrl);
+
   const warnings: string[] = [];
   let products: ScrapedItem[] = [];
   let isListingPage = false;
@@ -1020,10 +1043,12 @@ export async function scrapeUrl(rawUrl: string): Promise<ScrapeResult> {
   }
 
   if (!products.length) {
-    // son bir şans: Scrapling servisi varsa tekrar dene
-    const svc = await tryScraplingService(rawUrl);
-    if (svc) return svc;
-    throw new Error("Bu sayfadan ürün bilgisi çıkarılamadı. Tek ürün sayfasını (örn. /p/...) deneyin veya sayfanın herkese açık olduğunu kontrol edin.");
+    // Not: bu fonksiyon indirme yapmaz, bu yüzden Scrapling fallback'i
+    // burada YOK. `scrapeUrl` yalnız `fetchWithStealth` başarısız olduğunda
+    // Scrapling'e gider; HTML elimize geldiyse iş bitmiştir.
+    throw new Error(
+      "Bu sayfadan ürün bilgisi çıkarılamadı. Ürün SAYFASINI (kategori listesi değil) kullanın — GTIN JSON-LD'de yalnız ürün sayfasında bulunur."
+    );
   }
 
   const withoutPrice = products.filter((p) => p.price === null).length;

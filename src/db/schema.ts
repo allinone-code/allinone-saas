@@ -658,6 +658,30 @@ export const appSettings = pgTable("app_settings", {
 });
 export type AppSetting = typeof appSettings.$inferSelect;
 
+/**
+ * 20. CRAWLER_CAPTURE_TOKENS — Bookmarklet yakalama kimlik bilgileri
+ *
+ * Neden ayrı tablo, `app_settings` değil:
+ *   - `app_settings` bir UYGULAMA AYARI tablosu; ROI eşiği gibi değerler
+ *     içindir ve ayarlar ekranında listelenir. Kimlik bilgisini oraya
+ *     koymak, onu bir gün yanlışlıkla ekranda göstermeye yol açar.
+ *   - Bu tablo yalnız şifreli-token ömür döngüsü içindir: üret, doğrula,
+ *     rotasyona sok. Sorgulanması yasak; okuyan tek yol doğrulama fonksiyonudur.
+ */
+export const crawlerCaptureTokens = pgTable("crawler_capture_tokens", {
+  /** Kullanıcı e-postası (benzersiz kimlik) — JWT `sub` ile aynı. */
+  userEmail: text("user_email").primaryKey(),
+  tokenHash: text("token_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  /** Rotasyon sonrası önceki token'ın geçersizleşme anı. */
+  rotatedAt: timestamp("rotated_at"),
+}, (t) => [
+  // Kullanıcı sayısı az; unique index'i primary key zaten sağlıyor, ancak
+  // hash kolonu üzerinden arama yapılabilmesi için bilinçli olarak bırakıldı.
+  index("crawler_capture_tokens_hash_idx").on(t.tokenHash),
+]);
+
 // ============================================================================
 // AŞAMA 7 — MAĞAZA RUTİN KONTROL LİSTESİ + ARAÇ/VARLIK TAKİBİ (2026-09-25)
 // Kaynak: kullanıcının yüklediği "Amazon Mağaza Ekibi Rutin" belgesi.

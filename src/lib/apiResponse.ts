@@ -6,7 +6,11 @@ import { logger } from "@/lib/logger";
  * - Ham hata mesajı/stack İSTEMCIYE ASLA dönmez (bilgi sızıntısı engeli)
  * - Her 500 için korelasyon ID üretilir; sunucu logu ile istemci yanıtı eşleştirilebilir
  */
-export function handleRouteError(scope: string, error: unknown): NextResponse {
+export function handleRouteError(
+  scope: string,
+  error: unknown,
+  extraHeaders?: Record<string, string>
+): NextResponse {
   const correlationId = crypto.randomUUID();
   const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
@@ -18,7 +22,11 @@ export function handleRouteError(scope: string, error: unknown): NextResponse {
       error: "İşlem sırasında beklenmeyen bir hata oluştu.",
       correlationId,
     },
-    { status: 500, headers: { "x-correlation-id": correlationId } }
+    {
+      status: 500,
+      // `extraHeaders` çağıran rotanın kendi başlıklarını (örn. CORS) korur.
+      headers: { ...extraHeaders, "x-correlation-id": correlationId },
+    }
   );
 }
 
