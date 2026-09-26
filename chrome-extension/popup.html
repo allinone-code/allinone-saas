@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cerberus — Ürünü Yakala</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <span class="logo">C</span>
+      <div class="head-text">
+        <strong>Ürünü Yakala</strong>
+        <span id="siteName" class="muted">—</span>
+      </div>
+    </header>
+
+    <section class="panel">
+      <button id="capture" class="primary">Bu sayfadaki ürünü kaydet</button>
+      <p id="status" class="status">Hazır.</p>
+    </section>
+
+    <section id="result" class="panel hidden">
+      <div class="result-head">
+        <span id="resultBadge" class="badge">—</span>
+        <span id="resultCount" class="muted"></span>
+      </div>
+      <ul id="resultList" class="list"></ul>
+      <ul id="warnList" class="warns"></ul>
+    </section>
+
+    <details class="panel">
+      <summary>Sunucu adresi</summary>
+      <input id="apiBase" type="url" spellcheck="false" />
+      <button id="saveApi" class="ghost">Kaydet</button>
+      <p class="muted tiny">
+        Cerberus'unuz farklı bir adreste ise burayı değiştirin. Oturumunuz bu
+        adresteki gerçek çerezinizle gönderilir — ayrı bir token gerekmez.
+      </p>
+    </details>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

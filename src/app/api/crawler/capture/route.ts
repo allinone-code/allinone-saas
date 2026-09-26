@@ -95,14 +95,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Geçersiz gövde." }, { status: 400, headers: cors });
     }
 
-    // Token, oturum çerezinin yerine geçer: bookmarklet perakende sayfasından
-    // çalıştığı için HttpOnly oturum çerezi gönderilemez.
-    const tokenOk = await verifyCaptureToken(user.email, body.captureToken);
-    if (!tokenOk) {
-      return NextResponse.json(
-        { error: "Capture token geçersiz veya eksik. Cerberus → İndirim Takip Masası ekranından yeni token alın." },
-        { status: 401, headers: cors }
-      );
+    // Kimlik doğrulama — İKİ YOL:
+    //
+    //   1. Eklenti (Origin: chrome-extension://…): `host_permissions` sayesinde
+    //      tarayıcı gerçek oturum çerezini gönderir. Token GEREKMEZ; ayrı bir
+    //      sır taşımak gereksiz ve "token kayboldu" derdi üretirdi.
+    //   2. Bookmarklet (Origin: https://www.vitaminshoppe.com …): farklı
+    //      origin'de çalıştığı için HttpOnly oturum çerezi GİTMEZ. Taşınabilir
+    //      bir sır gerekir → capture token zorunlu.
+    //
+    // Neden rastgele bir web sayfası token'sız veri enjekte edemez: oturum
+    // çerezi `SameSite=Lax` ile kurulur, yani çapraz-site POST isteklerinde
+    // TARAYICI TARAFINDAN gönderilmez — istek `fetch`'e rağmen çerezsiz gider.
+    // Extension origin'i bu kurala tabi değildir; onu `host_permissions` ile
+    // açıkça güveniyoruz. Token'sız yol YALNIZCA extension origin'ine açıktır.
+    const isExtensionOrigin = (origin ?? "").startsWith("chrome-extension://");
+    if (!isExtensionOrigin) {
+      const tokenOk = await verifyCaptureToken(user.email, body.captureToken);
+      if (!tokenOk) {
+        return NextResponse.json(
+          { error: "Capture token geçersiz veya eksik. Cerberus → İndirim Takip Masası ekranından yeni token alın." },
+          { status: 401, headers: cors }
+        );
+      }
     }
 
     const storeCode = resolveStoreScope(user, body.storeCode || "HRN");
