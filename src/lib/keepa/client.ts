@@ -418,24 +418,69 @@ async function keepaFetch<T>(path: string, params: Record<string, string>): Prom
  * GTIN/EAN/UPC/ISBN → Amazon ürünü. Keepa'nın `code=` parametresi.
  * Doğrudur: aynı GTIN = aynı fiziksel ürün. Bulunamazsa `null`.
  */
-export async function findAmazonProductByGtin(
-  gtin: string,
-  domain = 1
-): Promise<AmazonProductMatch | null> {
+/**
+ * Keepa `code=` ucu bir ÜRÜN SORGUSU değil, KISMİ ARAMA motoru gibi davranıyor.
+ *
+ * GERÇEK GÖZLEM: `code=0036000291452` (bir vitamin GTIN'i) 56 ürün döndürdü ve
+ * ilk sırada "irtree Jewelry Bracelet Necklace Rack" vardı. İlk sürüm ilk
+ * sonucu `exact` kabul edip `products.asin`e YAZIYORDU — katalog sessizce takı
+ * bileziğine bağlanıyordu.
+ *
+ * Bu yüzden `code=` ham gelir ve `resolveAmazonProduct` içinde ürünün KENDİ
+ * başlığı/markasıyla karşılaştırılarak doğrulanır. GTIN birebir aynı fiziksel
+ * ürünü gösteriyorsa başlıklar da örtüşür; örtüşmüyorsa Keepa gürültüsüdür.
+ */
+async function lookupByGtin(gtin: string, domain: number): Promise<Record<string, unknown>[]> {
   const digits = gtin.replace(/\D/g, "");
-  if (![8, 12, 13, 14].includes(digits.length)) return null;
+  if (![8, 12, 13, 14].includes(digits.length)) return [];
   const data = await keepaFetch<{ products?: Record<string, unknown>[] }>("product", {
     domain: String(domain),
     code: digits,
     stats: "0",
   });
-  const products = data.products ?? [];
-  if (!products.length) return null;
-  const first = products[0];
-  // Keepa bazen eşleşme bulamayınca alakasız ürün döndürür. ASIN biçimini
-  // doğrulayarak sessizce yanlış ürünü kabul etmemeyi tercih ediyoruz.
-  if (!/^[A-Z0-9]{10}$/i.test(String(first.asin ?? ""))) return null;
-  return toMatch(first, domain, "exact", `GTIN ${digits} birebir eşleşti`);
+  // Yalnız geçerli ASIN biçimine sahip sonuçlar anlamlı olabilir.
+  return (data.products ?? []).filter((p) => /^[A-Z0-9]{10}$/i.test(String(p.asin ?? "")));
+}
+
+export async function findAmazonProductByGtin(
+  gtin: string,
+  domain = 1
+): Promise<AmazonProductMatch | null> {
+  const hits = await lookupByGtin(gtin, domain);
+  return hits.length ? toMatch(hits[0], domain, "exact", `GTIN ${gtin} sonuç döndürdü`) : null;
+}
+
+/**
+ * `code=` sonuçları arasından bizim ürünümüze GERÇEKTEN benzeyen olanı seçer.
+ * Gerekçe doğrulama metriklerini içerir ki denetlenebilir olsun.
+ */
+async function findVerifiedGtinMatch(
+  gtin: string,
+  ourTitle: string,
+  ourBrand: string | null | undefined,
+  domain: number
+): Promise<{ match: AmazonProductMatch; similarity: number; brandOk: boolean } | null> {
+  const hits = await lookupByGtin(gtin, domain);
+  if (!hits.length) return null;
+
+  const brand = normalizeBrand(ourBrand);
+  let best: { match: AmazonProductMatch; similarity: number; brandOk: boolean; score: number } | null = null;
+
+  for (const raw of hits) {
+    const candidateTitle = String(raw.title ?? "");
+    if (!candidateTitle) continue;
+    const similarity = titleSimilarity(ourTitle, candidateTitle);
+    const brandOk = Boolean(brand) && normalizeBrand(raw.brand as string) === brand;
+    // Marka tek başına yeterli değil: marka adı yaygın ve Keepa aynı markanın
+    // farklı ürünlerini döndürebilir. Skor = başlık benzerliği + marka bonusu.
+    const score = similarity + (brandOk ? 0.25 : 0);
+    if (!best || score > best.score) {
+      best = { match: toMatch(raw, domain, "exact", ""), similarity, brandOk, score };
+    }
+  }
+
+  if (!best) return null;
+  return { match: best.match, similarity: best.similarity, brandOk: best.brandOk };
 }
 
 /** Keepa metin araması — marka + başlık. */
@@ -464,17 +509,55 @@ export async function resolveAmazonProduct(
   hints: ProductLookupHints,
   domain = 1
 ): Promise<AmazonProductMatch | null> {
-  // 1) GTIN — en güvenilir
-  if (hints.gtin) {
+  const title = (hints.title ?? "").trim();
+  const brand = normalizeBrand(hints.brand);
+
+  // 1) GTIN — EN GÜVENİLİR, ama Keepa `code=` ucu kısmi arama gibi
+  //    davrandığı için sonuç DOĞRULANMALIDIR. Ham ilk sonuca güvenmek katalogu
+  //    sessizce yanlış ürüne bağlar (bkz. findVerifiedGtinMatch yorumu).
+  if (hints.gtin && title) {
     try {
-      const byGtin = await findAmazonProductByGtin(hints.gtin, domain);
-      if (byGtin) return byGtin;
+      const verified = await findVerifiedGtinMatch(hints.gtin, title, hints.brand, domain);
+      if (verified) {
+        const { match, similarity, brandOk } = verified;
+        const pct = Math.round(similarity * 100);
+        const brandNote = brandOk ? "marka tutuyor" : "marka farklı";
+
+        // KADEMELİ GÜVEN — marka tek başına ASLA yeterli değil.
+        // "NOW", "Codeage" gibi yaygın marka adlarında aynı markanın tamamen
+        // farklı ürünü eşleşme sayılırsa katalog bozulur. Marka yalnız başlık
+        // benzerliğine ek kanıttır, onun yerine geçmez.
+        if (similarity >= 0.3) {
+          return {
+            ...match,
+            confidence: "exact",
+            reason: `GTIN ${hints.gtin} eşleşti; başlık benzerliği %${pct}, ${brandNote}`,
+          };
+        }
+        if (similarity >= 0.15 || (brandOk && similarity >= 0.1)) {
+          return {
+            ...match,
+            confidence: "medium",
+            reason:
+              `GTIN ${hints.gtin} sorgusu kısmi eşleşme buldu; başlık benzerliği ` +
+              `%${pct}, ${brandNote}. Otomatik uygulanmadı — doğrulayın.`,
+          };
+        }
+        // Doğrulama BAŞARISIZ. Adayı yine de döndür: sessizce reddetmek de
+        // yanlıştır, belki gerçek eşleşme sonraki sonuçlardadır. Ama
+        // kesinlikle `exact` DEĞİL.
+        return {
+          ...match,
+          confidence: "low",
+          reason:
+            `GTIN ${hints.gtin} sorgusu döndü ama en yakın sonuç ürünle örtüşmüyor ` +
+            `(benzerlik %${pct}, ${brandNote}). Elle doğrulayın.`,
+        };
+      }
     } catch {
       // Kota/hata durumunda sessizce sonraki yönteme düş.
     }
   }
-
-  const brand = normalizeBrand(hints.brand);
 
   // 2) MPN/SKU — Keepa partNumber alanı üretici parça numarasıdır; perakende
   //    SKU'suyla birebir tutar. Aramayı daraltmak için önce markayla birlikte
@@ -497,7 +580,6 @@ export async function resolveAmazonProduct(
   }
 
   // 3) Marka + başlık araması, benzerlik puanlaması
-  const title = (hints.title ?? "").trim();
   if (!title) return null;
   try {
     const candidates = await searchAmazonProducts(

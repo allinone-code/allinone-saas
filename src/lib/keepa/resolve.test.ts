@@ -90,13 +90,74 @@ describe("resolveAmazonProduct", () => {
   };
 
   it("GTIN varsa arama yapmadan doğrudan çözer", async () => {
-    fetchMock.mockResolvedValueOnce(keepaResponse([{ asin: "B0032BH76O", title: "NOW Vitamin D-3" }]));
+    // Keepa `code=` ucu kısmi arama gibi davranır; sonuç ürünün KENDİ
+    // başlığıyla doğrulanır. Doğrulama geçerse tek çağrı yeter.
+    fetchMock.mockResolvedValueOnce(
+      keepaResponse([
+        {
+          asin: "B0032BH76O",
+          title: "NOW Foods Vitamin D-3 5,000 IU High Potency 240 Softgels",
+          brand: "NOW Foods",
+        },
+      ])
+    );
 
     const match = await resolveAmazonProduct(hints);
     expect(match?.asin).toBe("B0032BH76O");
     expect(match?.confidence).toBe("exact");
     // Tek çağrı: GTIN yetmişti, pahalı arama yapılmamalı.
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("KEEP ALDATMASI: `code=` alakasız ürün dönerse ASLA exact demez", async () => {
+    // GERÇEK OLAY: Keepa `code=0036000291452` (vitamin GTIN'i) sorgusunda 56
+    // sonuç döndü ve ilk sırada "irtree Jewelry Bracelet Necklace Rack"
+    // vardı. İlk sürüm bunu `exact` sayıp `products.asin`e yazıyordu — katalog
+    // sessizce takı bileziğine bağlanıyordu.
+    fetchMock.mockResolvedValueOnce(
+      keepaResponse([
+        { asin: "B005C50ZCG", title: "irtree Jewelry Bracelet Necklace Rack Display Holder", brand: "irtree" },
+      ])
+    );
+
+    const match = await resolveAmazonProduct(hints);
+    expect(match?.confidence).not.toBe("exact");
+    expect(match?.confidence).toBe("low");
+    expect(match?.asin).toBe("B005C50ZCG");
+    // Gerekçede neden reddedildiği yazılı olmalı — adayı görüp kullanıcı kendi
+    // gözüyle karar vermeli.
+    expect(match?.reason).toMatch(/örtüşmüyor/);
+  });
+
+  it("`code=` sonuçları arasından gerçek eşleşeni seçer", async () => {
+    // Keepa arama motoru gibi davranıp birden çok sonuç verebilir; doğru olan
+    // ilk sıradaki değil bizim ürünümüze benzeyen olandır.
+    fetchMock.mockResolvedValueOnce(
+      keepaResponse([
+        { asin: "B005C50ZCG", title: "irtree Jewelry Bracelet Necklace Rack", brand: "irtree" },
+        { asin: "B00SELL99", title: "Unrelated Yoga Mat Pro", brand: "Gaiam" },
+        {
+          asin: "B0032BH76O",
+          title: "NOW Foods Vitamin D-3 5,000 IU High Potency 240 Softgels",
+          brand: "NOW Foods",
+        },
+      ])
+    );
+
+    const match = await resolveAmazonProduct(hints);
+    expect(match?.asin).toBe("B0032BH76O");
+    expect(match?.confidence).toBe("exact");
+  });
+
+  it("marka tutuyor ama başlık çakışmıyorsa ASLA exact olmaz", async () => {
+    // Marka adı yaygın ("NOW"); aynı markanın tamamen farklı ürünü `exact`
+    // sayılırsa katalog bozulur. Marka yalnız başlık benzerliğine ek kanıttır.
+    fetchMock.mockResolvedValueOnce(
+      keepaResponse([{ asin: "B0OTHER123", title: "NOW Sports Performance Pre-Workout Powder", brand: "NOW" }])
+    );
+
+    const match = await resolveAmazonProduct(hints);
+    expect(match?.confidence).not.toBe("exact");
   });
 
   it("GTIN bulunamazsa MPN/SKU eşleşmesine düşer", async () => {

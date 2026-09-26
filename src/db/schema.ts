@@ -763,3 +763,70 @@ export const storeAssets = pgTable(
 
 export type RoutineCompletion = typeof routineCompletions.$inferSelect;
 export type StoreAsset = typeof storeAssets.$inferSelect;
+
+/**
+ * 22. PRODUCT_MATCH_CANDIDATES — Amazon eşleşme adayları
+ *
+ * NEDEN AYRI TABLO, `products` üzerinde alan değil:
+ *   Bir GTIN birden çok Amazon ürününe işaret edebilir (varyant, paket, yeniden
+ *   listeleme) ve Keepa araması güven düzeyi düşük adaylar döndürebilir. Bu
+ *   adaylar KALICI olarak saklanmalı, kullanıcı inceleyip onaylamalı veya
+ *   reddetmelidir. Tek kolonla bunu yapamayız — aday geçmişi kaybolur.
+ *
+ * GÜVENLİK KURALI: `exact` ve `high` güvenli adaylar `products.asin`e
+ * YAZILIR (GTIN birebir aynı fiziksel ürünü gösterir). `medium`/`low`
+ * adaylar YAZILMAZ; yalnız burada durur ve kullanıcı onayına bekler.
+ * Çünkü YANLIŞ ürüne bağlamak, bağlamamaktan kötüdür: birincisi sessizce
+ * yanlış mal alma riski, ikincisi yalnızca eksik sonuçtur.
+ */
+export const productMatchCandidates = pgTable(
+  "product_match_candidates",
+  {
+    id: serial("id").primaryKey(),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+
+    /** Önerilen Amazon ASIN. */
+    asin: text("asin").notNull(),
+
+    /** Keepa'dan gelen ürün başlığı — karşılaştırma için saklanır. */
+    title: text("title"),
+    brand: text("brand"),
+
+    /**
+     * `exact`  — GTIN birebir eşleşti (aynı fiziksel ürün)
+     * `high`   — MPN/SKU eşleşti VE marka tutuyor
+     * `medium` — başlık benzerliği yüksek
+     * `low`    — yalnızca zayıf benzerlik; varsayılan olarak UYGULANMAZ
+     */
+    confidence: text("confidence").notNull(),
+
+    /** Kullanıcıya gösterilecek gerekçe: hangi sinyale dayandı. */
+    reason: text("reason").notNull(),
+
+    /** Hangi yolla bulundu: `keepa-gtin` | `keepa-mpn` | `keepa-search`. */
+    source: text("source").notNull(),
+
+    /** `products.asin`e yazıldı mı? */
+    isApplied: boolean("is_applied").notNull().default(false),
+
+    /** Kullanıcı onayı/reddi. */
+    reviewedAt: timestamp("reviewed_at"),
+    reviewedBy: text("reviewed_by"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // Aynı ürün için aynı ASIN tekrar tekrar kaydedilmesin.
+    uniqueIndex("product_match_candidates_product_asin_uq").on(t.productId, t.asin),
+    index("product_match_candidates_product_idx").on(t.productId),
+    index("product_match_candidates_pending_idx").on(t.isApplied),
+    check(
+      "product_match_candidates_confidence_enum",
+      sql`${t.confidence} in ('exact','high','medium','low')`
+    ),
+  ]
+);
+
+export type ProductMatchCandidate = typeof productMatchCandidates.$inferSelect;

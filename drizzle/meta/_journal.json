@@ -99,6 +99,13 @@
       "when": 1790455159427,
       "tag": "0013_youthful_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790463226885,
+      "tag": "0014_yellow_klaw",
+      "breakpoints": true
     }
   ]
 }

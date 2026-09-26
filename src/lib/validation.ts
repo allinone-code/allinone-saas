@@ -453,6 +453,18 @@ export const crawlerImportSchema = z.object({
   storeCode: shortText(32).optional(),
 });
 
+export const productMatchSchema = z.object({
+  // Keepa token başına ücretlidir; 50 ürünlük tavan bir hatanın kotaların
+  // tamamını yemesini engeller. Rota da aynı sınırı uygular.
+  productIds: z.array(z.coerce.number().int().positive()).min(1).max(50),
+  domain: z.coerce.number().int().min(1).max(14).optional(),
+});
+
+export const productMatchReviewSchema = z.object({
+  candidateId: z.coerce.number().int().positive(),
+  decision: z.enum(["apply", "reject"]),
+});
+
 export const keepaAnalyzeSchema = z.object({
   asin: shortText(20).min(10).max(10),
   domain: z.coerce.number().int().min(1).max(11).optional(),
