@@ -6,6 +6,7 @@ import { requireUser, isDenied, resolveStoreScope } from "@/lib/guards";
 import { resolveProduct, normalizeAsin } from "@/db/resolveProduct";
 import { parseBody, importXlsSchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
+import { applyCancelRule, computeCorrectedCost, describeMsku } from "@/domain/sat26Hygiene";
 import {
   partitionRows,
   pgErrorCode,
@@ -97,6 +98,8 @@ export async function POST(req: Request) {
     const insertedOrders: (typeof orders.$inferSelect)[] = [];
     const skippedRows: Array<ImportRowProblem & { reason: string }> = [];
     const createdStores: string[] = [];
+    // Sat26 hijyen sayaçları (R2/R8) — sessiz düzeltmeler raporda görünür olsun.
+    const hygiene = { cancelFilled: 0, mskuCleaned: 0, mskuUnknownPattern: 0 };
 
     // T2.7: Insert'ler tek transaction'da. Kısmi hata ARTIK yalnızca ilgili
     // satırı etkiler (savepoint): hatalı satır atlanır, batch devam eder.
@@ -149,10 +152,33 @@ export async function POST(req: Request) {
             const unitCost = String(normalizeMoney(r.unitCost) ?? 0);
             const sellingPrice = String(normalizeMoney(r.sellingPrice) ?? 0);
             const totalCost = String(normalizeMoney(r.totalCost) ?? 0);
-            const correctedCost = String(
-              normalizeMoney(r.correctedCost) ?? Number(totalCost)
-            );
             const refundAmount = String(normalizeMoney(r.refundAmount) ?? 0);
+
+            // R8: MSKU'daki "\n" / "<br>" kalıntıları temizlenir.
+            const mskuInfo = describeMsku(r.msku);
+            if (mskuInfo.warnings.some((w) => w.code === "MSKU_CLEANED")) hygiene.mskuCleaned++;
+            if (mskuInfo.warnings.some((w) => w.code === "MSKU_PATTERN")) hygiene.mskuUnknownPattern++;
+
+            // R2: İPTAL satırında P1 boşsa tamamlanır ve düzeltilmiş maliyet
+            // yeniden hesaplanır. Aksi hâlde sayfadaki değer olduğu gibi kalır.
+            const cancelRule = applyCancelRule({
+              cargoStatus: String(r.cargoStatus || "").trim() || "Tam Geldi",
+              quantity: Number(r.quantity) || 1,
+              p1CancelQty: Number(r.p1CancelQty) || 0,
+              p2MissingQty: Number(r.p2MissingQty) || 0,
+              p3DefectiveQty: Number(r.p3DefectiveQty) || 0,
+              p4ExpiredQty: Number(r.p4ExpiredQty) || 0,
+            });
+            if (cancelRule.applied) hygiene.cancelFilled++;
+            const correctedCost = String(
+              cancelRule.applied
+                ? computeCorrectedCost({
+                    ...cancelRule.row,
+                    totalCost: Number(totalCost),
+                    refundAmount: Number(refundAmount),
+                  })
+                : normalizeMoney(r.correctedCost) ?? Number(totalCost)
+            );
             const orderDate = normalizeOrderDate(r.orderDate);
 
             const { productId } = await resolveProduct(inner, {
@@ -184,7 +210,7 @@ export async function POST(req: Request) {
                 fulfillmentType: r.fulfillmentType || "FBA",
                 productTitle: r.productTitle || "Amazon Ürünü",
                 asin: rowAsin,
-                msku: (r.msku || "").trim() || `${buyerStore}-${rowAsin}`,
+                msku: mskuInfo.msku || `${buyerStore}-${rowAsin}`,
                 supplierName: r.supplierName || "THE VITAMINSHOPPE",
                 supplierCode: r.supplierCode || "A198",
                 supplierUrl: r.supplierUrl || "",
@@ -200,7 +226,7 @@ export async function POST(req: Request) {
                 // Kargo durumu serbest metin: XLS'teki değer olduğu gibi yazılır
                 cargoStatus: String(r.cargoStatus || "").trim() || "Tam Geldi",
                 shippedToAmazon: Number(r.shippedToAmazon) || 0,
-                p1CancelQty: Number(r.p1CancelQty) || 0,
+                p1CancelQty: cancelRule.row.p1CancelQty,
                 p2MissingQty: Number(r.p2MissingQty) || 0,
                 p3DefectiveQty: Number(r.p3DefectiveQty) || 0,
                 p4ExpiredQty: Number(r.p4ExpiredQty) || 0,
@@ -285,6 +311,12 @@ export async function POST(req: Request) {
     if (skippedCount) {
       message += ` ${skippedCount} hatalı satır atlandı.`;
     }
+    if (hygiene.cancelFilled) {
+      message += ` ${hygiene.cancelFilled} İPTAL satırının iptal adedi (P1) otomatik dolduruldu.`;
+    }
+    if (hygiene.mskuUnknownPattern) {
+      message += ` ${hygiene.mskuUnknownPattern} MSKU bilinen kalıplara uymuyor, kontrol edin.`;
+    }
 
     await db.insert(auditLogs).values({
       actorName,
@@ -302,6 +334,7 @@ export async function POST(req: Request) {
       skippedCount,
       skipped: allSkipped.slice(0, 100),
       createdStores,
+      hygiene,
     });
   } catch (error: unknown) {
     const code = pgErrorCode(error);

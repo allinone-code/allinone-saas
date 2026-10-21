@@ -235,6 +235,44 @@ export const importXlsSchema = z.object({
   defaultStore: shortText(32).optional(),
 });
 
+export const storeFinancialEntriesSchema = z.object({
+  storeCode: shortText(32).min(1),
+  entries: z
+    .array(
+      z
+        .object({
+          month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ay YYYY-AA biçiminde olmalı"),
+          source: z.enum(["AMAZON", "PSH", "INVENTORY_LAB", "BANK"]),
+          category: z.enum(["REVENUE", "COGS", "AMAZON_FEES", "PREP_SHIPPING", "OTHER_EXPENSE", "REPORTED_NET"]),
+          label: shortText(120).default(""),
+          amount: z.coerce.number().min(-10_000_000).max(10_000_000),
+          note: shortText(300).optional(),
+        })
+        // Tutarlar pozitif girilir; yalnız kaynağın raporladığı net kar (zarar) negatif olabilir.
+        .refine((e) => e.category === "REPORTED_NET" || e.amount >= 0, {
+          message: "Bu kalem negatif olamaz (tutarı pozitif girin)",
+          path: ["amount"],
+        })
+    )
+    .min(1, "Kalem gerekli")
+    .max(2000, "Tek seferde en fazla 2.000 kalem"),
+});
+
+export const reconciliationSchema = z.object({
+  kind: z.enum(["AMAZON_RECEIPTS", "INVENTORY_LAB"]),
+  storeCode: shortText(32).default("ALL"),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  tolerance: z.coerce.number().min(0).max(1000).optional(),
+  rows: z.array(z.record(z.string(), z.unknown())).min(1, "Dosyada satır yok").max(20000, "En fazla 20.000 satır"),
+});
+
+export const sat26AuditApplySchema = z.object({
+  storeCode: shortText(32).default("ALL"),
+  /** false/yok = yalnız önizleme (hiçbir şey yazılmaz). true = düzeltmeyi uygula. */
+  apply: z.boolean().default(false),
+});
+
 export const driveUrlSchema = z.object({
   driveUrl: z.string().trim().min(10).max(500),
   defaultStore: shortText(32).optional(),

@@ -18,6 +18,8 @@ import { CrawlerPanel } from "@/features/crawler/CrawlerPanel";
 import { KeepaAnalysisPanel } from "@/features/keepa/KeepaAnalysisPanel";
 import { DecisionSupportDashboard } from "@/features/analytics/DecisionSupportDashboard";
 import { StoreHealthScreen } from "@/features/analytics/StoreHealthScreen";
+import { ReconciliationScreen } from "@/features/analytics/ReconciliationScreen";
+import { StoreProfitScreen } from "@/features/analytics/StoreProfitScreen";
 import { RoutineOperationsScreen } from "@/features/operations/RoutineOperationsScreen";
 
 import { useCerberusData } from "@/features/useCerberusData";
@@ -52,6 +54,14 @@ const PAGE_META: Record<TabId, { title: string; subtitle: string }> = {
   STORE_HEALTH: {
     title: "Haftalık Mağaza/Hesap Sağlığı",
     subtitle: "Bu hafta/geçen hafta kıyası — sipariş yoksa skor uydurulmaz, sessizlik gün sayısıyla raporlanır",
+  },
+  STORE_PROFIT: {
+    title: "Mağaza Karlılığı",
+    subtitle: "Amazon, PSH, Inventory Lab ve banka aylık raporlarından net kâr — ofis gideri satışın %10'u",
+  },
+  RECONCILIATION: {
+    title: "Karşılaştırma",
+    subtitle: "Satış listesi ↔ Amazon kabul / Inventory Lab — ASIN bazında adet, maliyet ve fark",
   },
   ROUTINES: {
     title: "Rutin & Varlık Takibi",
@@ -410,6 +420,10 @@ export default function CerberusApp() {
           )}
 
           {activeTab === "STORE_HEALTH" && <StoreHealthScreen />}
+
+          {activeTab === "RECONCILIATION" && <ReconciliationScreen storeCode={selectedStore} canAudit={Boolean(isAdmin)} />}
+
+          {activeTab === "STORE_PROFIT" && <StoreProfitScreen storeCode={selectedStore} canEdit={Boolean(isAdmin)} />}
 
           {activeTab === "ROUTINES" && <RoutineOperationsScreen />}
 

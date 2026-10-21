@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildPrepShipLoadDataRows, PREPSHIP_LOADDATA_COLUMNS } from "./prepshipExport";
+import {
+  buildPrepShipLoadDataRows,
+  PREPSHIP_LOADDATA_COLUMNS,
+  splitPrepShipExportable,
+  type PrepShipExportOrder,
+} from "./prepshipExport";
 
 describe("buildPrepShipLoadDataRows", () => {
   it("başlık satırı gerçek PrepShip LoadData şablonuyla birebir aynı", () => {
@@ -70,3 +75,54 @@ describe("buildPrepShipLoadDataRows", () => {
     expect(row[21]).toBe(2); // CountPerBundle
   });
 });
+
+describe("İPTAL kuralı (denetim R2)", () => {
+  const order = (over: Partial<PrepShipExportOrder>): PrepShipExportOrder => ({
+    orderNumber: "WO1",
+    orderDate: "2026-09-18",
+    asin: "B0TEST",
+    msku: "HRN-B0TEST",
+    productTitle: "Ürün",
+    supplierCode: "A198",
+    quantity: 4,
+    condition: "New",
+    unitCost: "46.3599999",
+    sellingPrice: "80",
+    isFragile: "NO",
+    isMultiPack: "NO",
+    isBundle: "NO",
+    countPerBundle: null,
+    fulfillmentType: "FBA",
+    description1: null,
+    ...over,
+  });
+
+  it("İPTAL satır dosyaya girmez ve dışlananlarda raporlanır", () => {
+    const orders = [order({ cargoStatus: "İPTAL" }), order({ orderNumber: "WO2", cargoStatus: "Tam Geldi" })];
+    const { included, excluded } = splitPrepShipExportable(orders);
+    expect(included.map((o) => o.orderNumber)).toEqual(["WO2"]);
+    expect(excluded).toEqual([{ orderNumber: "WO1", asin: "B0TEST", reason: "CANCELLED" }]);
+    expect(buildPrepShipLoadDataRows(orders)).toHaveLength(2); // başlık + 1 satır
+  });
+
+  it("kısmi iptalde NumberOfUnits iptal adedi kadar düşer", () => {
+    const [, row] = buildPrepShipLoadDataRows([order({ p1CancelQty: 1 })]);
+    expect(row[14]).toBe(3);
+  });
+
+  it("tamamı P1 ile iptal edilmiş satır (durum iptal değil) NO_UNITS_LEFT olarak dışlanır", () => {
+    const { excluded } = splitPrepShipExportable([order({ p1CancelQty: 4 })]);
+    expect(excluded[0].reason).toBe("NO_UNITS_LEFT");
+  });
+
+  it("Cost ve SalePrice 2 basamağa yuvarlanır (R5)", () => {
+    const [, row] = buildPrepShipLoadDataRows([order({})]);
+    expect(row[16]).toBe(46.36);
+    expect(row[17]).toBe(80);
+  });
+
+  it("cargoStatus verilmeyen eski çağrılar bozulmaz", () => {
+    expect(splitPrepShipExportable([order({})]).included).toHaveLength(1);
+  });
+});
+
