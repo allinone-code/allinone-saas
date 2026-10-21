@@ -253,7 +253,7 @@ Aşırı iddia etmemek için: Cuma'da **paralel çalıştır** (eski + yeni); es
 | Dilim | Durum |
 |---|---|
 | 1 · Sat26 hijyeni (R2, R5, R8) — `src/domain/sat26Hygiene.ts` + `import-xls` bağlantısı, 31 test | ✅ yapıldı |
-| 2 · PSH batch üretici: mevcut `prepship-export` zaten 24 kolonlu LoadData üretiyordu; İPTAL satırlar dışlanır, kısmi iptalde adet düşer, Cost/SalePrice ROUND(2). Mevcut kayıtlar için salt okunur denetim `GET /api/operations/sat26-audit`. 10 yeni test | ✅ yapıldı (düzeltmeyi uygulayan yazma adımı bilinçli olarak YOK) |
+| 2 · PSH batch üretici: mevcut `prepship-export` zaten 24 kolonlu LoadData üretiyordu; İPTAL satırlar dışlanır, kısmi iptalde adet düşer, Cost/SalePrice ROUND(2). Mevcut kayıtlar için salt okunur denetim `GET /api/operations/sat26-audit`. 10 yeni test | ✅ yapıldı. Düzeltme adımı da eklendi: `POST /api/operations/sat26-audit` (varsayılan önizleme, `apply:true` tek transaction + audit_logs; kalıp dışı MSKU'ya dokunmaz) ve Karşılaştırma sekmesinde "Denetle → Düzeltmeyi uygula" paneli |
 | 3 · Kar & dashboard: `store_financials` tablosu (migration 0015), `src/domain/storeProfit.ts` (Ofis %10), `GET/POST /api/analytics/store-profit`, "Mağaza Karlılığı" sekmesi. 10 test | ✅ yapıldı — canlı veritabanında denenmedi; aylık rapor içe aktarma (dosya yükleme) henüz yok, kalemler formdan girilir |
 | R10 · Exp date | ⏸ ertelendi (kullanıcı kararı 2026-10-22: şimdilik kullanılmıyor) |
 | 4a · Karşılaştırma 2 (Amazon kabul) ve 3 (Inventory Lab): `src/domain/salesReconciliation.ts`, `POST /api/reconciliation/compare`, "Karşılaştırma" sekmesi (dosya yükle → ASIN bazında fark, CSV). 13 test; **gerçek veride doğrulandı**: Amazon −1/−3/−1 ve iLab −5,50/−3,50 farkları Den_Rapor ÖzRap ile birebir | ✅ yapıldı |
