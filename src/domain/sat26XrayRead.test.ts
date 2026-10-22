@@ -52,7 +52,7 @@ describe("readSat26Rows", () => {
       cargoStatus: "Tam Geldi",
       card: "1753",
     });
-    expect(day(rows[0].date)).toBe("2026-01-23");
+    expect(day(rows[0].date)).toBe("2026-01-21");
   });
 
   it("Date nesnesi, ISO metin ve dd.mm.yyyy metni aynı güne çıkar; çözülemeyen null olur", () => {

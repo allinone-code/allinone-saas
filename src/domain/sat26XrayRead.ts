@@ -97,29 +97,34 @@ export function readSat26Rows(raw: Record<string, unknown>[]): { rows: XrayRow[]
   const missingHeaders = REQUIRED.filter((h) => !resolve(h));
   if (missingHeaders.length) return { rows: [], missingHeaders: [...missingHeaders] };
 
-  const k = Object.fromEntries([...REQUIRED.map((h) => [h, resolve(h)!]), ...Object.entries(OPTIONAL).map(([id, h]) => [id, resolve(h)])]) as Record<string, string | undefined>;
+  // Zorunlu başlıklar yukarıda doğrulandı; burada kesin olarak vardır.
+  const req = (h: (typeof REQUIRED)[number]): string => resolve(h)!;
+  const kDate = req("Tarih"), kAsin = req("ASIN"), kMsku = req("MSKU"), kOrder = req("Orderno");
+  const kQty = req("Ürün adedi"), kUnit = req("Ürün birim maliyeti"), kTotal = req("Ürün toplam maliyeti");
+  const kStatus = req("Kargo durumu"), kCard = req("Kredi Kartı");
+  const k = Object.fromEntries(Object.entries(OPTIONAL).map(([id, h]) => [id, resolve(h)])) as Record<keyof typeof OPTIONAL, string | undefined>;
   const text = (r: Record<string, unknown>, key: string | undefined): string => (key ? String(r[key] ?? "").trim() : "");
   const qtyOf = (r: Record<string, unknown>, key: string | undefined): number => (key ? money(r[key]) : 0);
 
   const rows = raw.map((r, i): XrayRow => {
-    const qty = money(r[k["Ürün adedi"]]);
-    const asinRaw = String(r[k["ASIN"]] ?? "");
-    const mskuRaw = String(r[k["MSKU"]] ?? "");
+    const qty = money(r[kQty]);
+    const asinRaw = String(r[kAsin] ?? "");
+    const mskuRaw = String(r[kMsku] ?? "");
     return {
       rowNo: i + 2,
       buyer: text(r, k.buyer),
-      date: parseDate(r[k["Tarih"]]),
+      date: parseDate(r[kDate]),
       label: text(r, k.label),
-      orderNo: String(r[k["Orderno"]] ?? "").replace(/\s+/g, ""),
+      orderNo: String(r[kOrder] ?? "").replace(/\s+/g, ""),
       asinRaw,
       asin: asinRaw.replace(/\s+/g, "").toUpperCase(),
       mskuRaw,
       msku: cleanMsku(mskuRaw),
       qty,
-      unitCost: qty > 0 ? money(r[k["Ürün birim maliyeti"]]) : null,
-      totalCost: money(r[k["Ürün toplam maliyeti"]]),
-      cargoStatus: text(r, k["Kargo durumu"]),
-      card: text(r, k["Kredi Kartı"]),
+      unitCost: qty > 0 ? money(r[kUnit]) : null,
+      totalCost: money(r[kTotal]),
+      cargoStatus: text(r, kStatus),
+      card: text(r, kCard),
       shipped: qtyOf(r, k.shipped),
       p1: qtyOf(r, k.p1),
       p2: qtyOf(r, k.p2),
