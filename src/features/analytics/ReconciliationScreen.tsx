@@ -15,7 +15,7 @@ interface AmazonRow {
 interface LabRow {
   asin: string; title: string; salesUnits: number; salesAvgUnitCost: number | null; salesAvgPrice: number | null;
   ilabCostPerUnit: number | null; costDiff: number | null; ilabOnHand: number | null; ilabUnitsSold: number | null;
-  ilabRevenue: number | null; expectedOnHand: number | null; stockDiff: number | null; status: Status;
+  ilabRevenue: number | null; expectedOnHand: number | null; stockDiff: number | null; stockMismatch: boolean; status: Status;
 }
 interface Result {
   kind: Kind; salesOrders: number; summary: Summary; rows: (AmazonRow | LabRow)[]; ignoredEventRows?: number;
@@ -67,6 +67,7 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [onlyProblems, setOnlyProblems] = useState(true);
+  const [showStockDiff, setShowStockDiff] = useState(false);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -119,7 +120,12 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
     URL.revokeObjectURL(a.href);
   }
 
-  const visible = result ? result.rows.filter((r) => !onlyProblems || r.status !== "OK") : [];
+  const stockMismatchCount = result && kind === "INVENTORY_LAB" ? (result.rows as LabRow[]).filter((r) => r.stockMismatch).length : 0;
+  const visible = result
+    ? result.rows.filter(
+        (r) => !onlyProblems || r.status !== "OK" || (showStockDiff && kind === "INVENTORY_LAB" && (r as LabRow).stockMismatch)
+      )
+    : [];
   const inputCls = "rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-xs text-ink";
 
   return (
@@ -221,6 +227,11 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
             <label className="ml-auto flex items-center gap-1">
               <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} /> Yalnız sorunlular
             </label>
+            {kind === "INVENTORY_LAB" && (
+              <label className="flex items-center gap-1" title="Maliyeti uyumlu olup stoğu tutmayan satırlar. Tarih aralığı dışı alımlar farkı şişirir.">
+                <input type="checkbox" checked={showStockDiff} onChange={(e) => setShowStockDiff(e.target.checked)} /> Stok farkı olanlar da ({stockMismatchCount})
+              </label>
+            )}
             <button onClick={download} className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 hover:text-ink">
               <Download className="h-3.5 w-3.5" /> CSV
             </button>
@@ -259,7 +270,7 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
                         <td className="px-3 py-2">{usd(l.ilabCostPerUnit)}</td><td className="px-3 py-2 font-bold">{usd(l.costDiff)}</td>
                         <td className="px-3 py-2">{usd(l.salesAvgPrice)}</td><td className="px-3 py-2">{n(l.ilabUnitsSold)}</td>
                         <td className="px-3 py-2">{n(l.ilabOnHand)}</td><td className="px-3 py-2">{n(l.expectedOnHand)}</td>
-                        <td className="px-3 py-2 font-bold">{n(l.stockDiff)}</td>
+                        <td className={`px-3 py-2 font-bold ${l.stockMismatch ? "text-amber-400" : ""}`}>{n(l.stockDiff)}</td>
                       </>);
                     })()}
                   </tr>

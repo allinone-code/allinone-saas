@@ -250,6 +250,11 @@ export interface InventoryLabCompareRow {
   /** Beklenen eldeki stok = net alınan − iLab satılan + iLab iade. Pencere dışı alımlar farkı şişirir. */
   expectedOnHand: number | null;
   stockDiff: number | null;
+  /**
+   * Stok uyuşmuyor mu (stockDiff ≠ 0)? `status` yalnız maliyete bakar; stok farkı
+   * pencere dışı alımlarla şiştiği için duruma katılmaz, ayrı gösterge olarak verilir.
+   */
+  stockMismatch: boolean;
   status: ReconStatus;
 }
 
@@ -268,7 +273,7 @@ export function compareInventoryLab(
         asin: s.asin, title: s.title, salesUnits: s.units, salesAvgUnitCost: s.avgUnitCost,
         salesAvgPrice: s.avgSellingPrice, ilabCostPerUnit: null, costDiff: null, ilabOnHand: null,
         ilabUnitsSold: null, ilabRevenue: null, ilabProfit: null, expectedOnHand: null, stockDiff: null,
-        status: "DISTA_YOK",
+        stockMismatch: false, status: "DISTA_YOK",
       });
       continue;
     }
@@ -279,6 +284,7 @@ export function compareInventoryLab(
       salesAvgPrice: s.avgSellingPrice, ilabCostPerUnit: l.costPerUnit, costDiff, ilabOnHand: l.onHand,
       ilabUnitsSold: l.unitsSold, ilabRevenue: l.revenue, ilabProfit: l.profit, expectedOnHand,
       stockDiff: l.onHand - expectedOnHand,
+      stockMismatch: l.onHand !== expectedOnHand,
       status: costDiff === null ? "OK" : costDiff > tolerance ? "FAZLA" : costDiff < -tolerance ? "EKSIK" : "OK",
     });
   }
@@ -288,7 +294,7 @@ export function compareInventoryLab(
         asin: l.asin, title: "", salesUnits: 0, salesAvgUnitCost: null, salesAvgPrice: null,
         ilabCostPerUnit: l.costPerUnit, costDiff: null, ilabOnHand: l.onHand, ilabUnitsSold: l.unitsSold,
         ilabRevenue: l.revenue, ilabProfit: l.profit, expectedOnHand: null, stockDiff: null,
-        status: "SATISTA_YOK",
+        stockMismatch: false, status: "SATISTA_YOK",
       });
     }
   }

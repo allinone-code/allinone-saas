@@ -134,4 +134,16 @@ describe("compareInventoryLab (karşılaştırma 3)", () => {
     const { rows } = compareInventoryLab(sales, ilab, 10);
     expect(rows.find((r) => r.asin === "B00R3ZLXZ6")!.status).toBe("OK");
   });
+
+  it("stok tutmayan satır stockMismatch=true olur ama maliyet durumunu değiştirmez", () => {
+    const sales = aggregateSalesByAsin([order({ asin: "B085542GWZ", quantity: 50, totalCost: 1000 })]);
+    const row = compareInventoryLab(sales, ilab).rows.find((r) => r.asin === "B085542GWZ")!;
+    expect(row.stockMismatch).toBe(true);
+    expect(row.status).toBe("OK");
+  });
+  it("iLab'da karşılığı olmayan satırda stockMismatch=false", () => {
+    const sales = aggregateSalesByAsin([order({ asin: "B0NOTINILAB" })]);
+    const row = compareInventoryLab(sales, ilab).rows.find((r) => r.asin === "B0NOTINILAB")!;
+    expect(row.stockMismatch).toBe(false);
+  });
 });
