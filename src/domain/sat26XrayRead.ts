@@ -109,18 +109,26 @@ export function readSat26Rows(raw: Record<string, unknown>[]): { rows: XrayRow[]
   const text = (r: Record<string, unknown>, key: string | undefined): string => (key ? String(r[key] ?? "").trim() : "");
   const qtyOf = (r: Record<string, unknown>, key: string | undefined): number => (key ? money(r[key]) : 0);
 
-  const rows = raw.map((r, i): XrayRow => {
+  const blank = (v: unknown): boolean => String(v ?? "").trim() === "";
+  // Biçimli/formüllü boş satırlar da sheet_to_json'dan gelir; anahtar dört kolonu da boşsa gerçek bir alım değildir.
+  const isEmptyRow = (r: Record<string, unknown>): boolean =>
+    blank(r[kAsin]) && blank(r[kOrder]) && blank(r[kQty]) && blank(r[kTotal]);
+
+  const rows = raw.flatMap((r, i): XrayRow[] => {
+    if (isEmptyRow(r)) return [];
     const qty = money(r[kQty]);
     const asinRaw = String(r[kAsin] ?? "");
     const mskuRaw = String(r[kMsku] ?? "");
-    return {
-      rowNo: i + 2,
+    // `__rowNum__` (0 tabanlı) sheet_to_json'dan gelir ve boş satırlardan sonra da doğru Excel satırını verir.
+    const sheetRow = typeof r.__rowNum__ === "number" ? r.__rowNum__ + 1 : i + 2;
+    return [{
+      rowNo: sheetRow,
       buyer: text(r, k.buyer),
       date: parseDate(r[kDate]),
       label: text(r, k.label),
       orderNo: String(r[kOrder] ?? "").replace(/\s+/g, ""),
       asinRaw,
-      asin: asinRaw.replace(/\s+/g, "").toUpperCase(),
+      asin: asinRaw.replace(/<br\s*\/?>/gi, "").replace(/\s+/g, "").toUpperCase(),
       mskuRaw,
       msku: cleanMsku(mskuRaw),
       qty,
@@ -133,7 +141,7 @@ export function readSat26Rows(raw: Record<string, unknown>[]): { rows: XrayRow[]
       p2: qtyOf(r, k.p2),
       p3: qtyOf(r, k.p3),
       p4: qtyOf(r, k.p4),
-    };
+    }];
   });
   return { rows, missingHeaders: [] };
 }

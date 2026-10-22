@@ -91,3 +91,34 @@ describe("XRAY_HEADERS", () => {
     expect(XRAY_HEADERS).toEqual(expect.arrayContaining([...REQUIRED, "Tarih2", "Amazona göndilen adet"]));
   });
 });
+
+describe("boş satırlar ve satır numarası", () => {
+  const blank = { Tarih: "", ASIN: "", MSKU: "", Orderno: "", "Ürün adedi": "", "Ürün birim maliyeti": "", "Ürün toplam maliyeti": "", "Kargo durumu": "", "Kredi Kartı": "" };
+
+  it("ASIN, order, adet ve toplam maliyeti boş olan satırları atlar", () => {
+    const { rows } = readSat26Rows([sample(), blank, blank]);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("anahtar kolonlardan biri doluysa satırı korur", () => {
+    expect(readSat26Rows([{ ...blank, Orderno: "WO1" }]).rows).toHaveLength(1);
+  });
+
+  it("__rowNum__ varsa rowNo onu kullanır (boşluktan sonra da doğru Excel satırı)", () => {
+    const { rows } = readSat26Rows([{ ...sample(), __rowNum__: 1 }, { ...sample(), __rowNum__: 3 }]);
+    expect(rows.map((r) => r.rowNo)).toEqual([2, 4]);
+  });
+
+  it("atlanan boş satır sonraki satırların numarasını kaydırmaz", () => {
+    const { rows } = readSat26Rows([sample(), blank, sample()]);
+    expect(rows.map((r) => r.rowNo)).toEqual([2, 4]);
+  });
+});
+
+describe("ASIN içindeki <br>", () => {
+  it("<br> temizlenir ve temiz ASIN ile aynı ASIN olur", () => {
+    const { rows } = readSat26Rows([sample({ ASIN: "B00LAK1MGU<br>" })]);
+    expect(rows[0].asin).toBe("B00LAK1MGU");
+    expect(rows[0].asinRaw).toBe("B00LAK1MGU<br>");
+  });
+});

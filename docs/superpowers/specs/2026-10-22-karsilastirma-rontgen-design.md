@@ -124,7 +124,7 @@ Benim kararlarım:
 - **İptal satırlar:** Toplamlara dahil, ayrıca "iptal hariç" değeri de gösterilir. "Eksik teslim" ve "Adet farkı" kontrollerinden hariç tutulur; yalnız "İptal çelişkisi" kuralıyla bakılır.
 - **Etki hesabı:** Her bulgu listede kendi satırında, kendi dolar etkisiyle görünür. Özet kartlarında kategori toplamları ayrı ayrı gösterilir, genel toplam alınmaz (çift sayım olur). Formülü olmayanlar ("MSKU farkı", "olası yazım hatası") etkisiz listelenir; "PSH'ta yok" ve "Alımda yok" için etki satırın adet × birim maliyetidir.
 - **Aynı anahtarın birden çok satırı:** Adet ve maliyet toplanır, birim maliyet ağırlıklı ortalamadır. Aynı order+ASIN'in tekrarı her iki tarafta da "tekrar eden anahtar" bulgusu olarak gösterilir (örnek dosyada alım tarafında 0, PSH tarafında 1).
-- **Boyut:** 10 MB ve 50.000 satırdan büyük dosya reddedilir, mesajda neden yazar.
+- **Boyut:** Şema en fazla 20.000 satıra izin verir; asıl sınır mevcut 2 MB istek gövdesidir. Ekran yalnız gerekli 16 kolonu gönderdiği için pratik tavan yaklaşık 6.000–7.000 dolu satırdır; aşılırsa sunucu 413 ile nedenini söyler. (İlk taslakta 10 MB / 50.000 satır yazmıştım; mevcut sınırı yanlış varsaymışım.)
 - **Sayfa yoksa:** `Sat26` yoksa kullanıcı sayfa seçer; zorunlu başlıklar bulunamazsa hangileri eksik olduğu gösterilir.
 
 ## Builder'a bırakılanlar

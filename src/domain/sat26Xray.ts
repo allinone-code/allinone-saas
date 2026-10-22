@@ -195,7 +195,7 @@ export function findXrayIssues(rows: XrayRow[], opts: XrayOptions = {}): XrayFin
   const hasLabels = rows.some((r) => r.label !== "");
 
   for (const r of rows) {
-    if (r.asinRaw !== r.asin) add(r, "ASIN_DIRTY", `ASIN'de gizli boşluk/satır sonu var: ${JSON.stringify(r.asinRaw)} → ${r.asin}`);
+    if (r.asinRaw !== r.asin) add(r, "ASIN_DIRTY", `ASIN temizlenmeli: ${JSON.stringify(r.asinRaw)} → ${r.asin}`);
     if (!ASIN_SHAPE.test(r.asin)) add(r, "ASIN_INVALID", `ASIN biçimi geçersiz: ${JSON.stringify(r.asin)}`);
     if (r.mskuRaw !== r.msku) add(r, "MSKU_DIRTY", `MSKU temizlenmeli: ${JSON.stringify(r.mskuRaw)} → ${r.msku}`);
 

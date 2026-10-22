@@ -100,6 +100,11 @@ describe("findXrayIssues", () => {
     expect(of(f, "ASIN_INVALID")[0].asin).toBe("XYZ");
   });
 
+  it("küçük harfli ASIN için mesaj gizli boşluk demez", () => {
+    const f = findXrayIssues([row({ asinRaw: "b00lak1mgu", asin: "B00LAK1MGU" })]);
+    expect(of(f, "ASIN_DIRTY")[0].message).not.toMatch(/gizli/);
+  });
+
   it("MSKU_DIRTY ham MSKU temizlenince değişiyorsa", () => {
     const f = findXrayIssues([row({ mskuRaw: "\nFCRB00LAK1MGU", msku: "FCRB00LAK1MGU" })]);
     expect(codes(f)).toContain("MSKU_DIRTY");

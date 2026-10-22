@@ -38,7 +38,11 @@ const usd = (v: number | null) =>
 /** Yalnız röntgenin kullandığı kolonları tutar: istek küçük kalır, kart/e-posta gibi gereksiz veri gitmez. */
 function pickColumns(rows: Record<string, unknown>[]): Record<string, unknown>[] {
   const wanted = new Set(XRAY_HEADERS.map(normalizeHeaderLabel));
-  return rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => wanted.has(normalizeHeaderLabel(k)))));
+  return rows.map((r) => ({
+    ...Object.fromEntries(Object.entries(r).filter(([k]) => wanted.has(normalizeHeaderLabel(k)))),
+    // sheet_to_json bunu numaralandırılamaz alan olarak ekler; satır numarası için açıkça taşınır.
+    __rowNum__: (r as { __rowNum__?: number }).__rowNum__,
+  }));
 }
 
 function GroupTable({ title, groups, keyLabel }: { title: string; groups: XrayGroup[]; keyLabel: string }) {
