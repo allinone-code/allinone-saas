@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sat26AuditPanel } from "./Sat26AuditPanel";
 import { XrayScreen } from "./XrayScreen";
+import { PshCompareScreen } from "./PshCompareScreen";
 import { AlertTriangle, Download, FileSpreadsheet, GitCompareArrows, Loader2 } from "lucide-react";
 
 type Kind = "AMAZON_RECEIPTS" | "INVENTORY_LAB";
@@ -293,13 +294,13 @@ function LegacyReconciliation({ storeCode, canAudit = false }: { storeCode: stri
   );
 }
 
-type Section = "XRAY" | "COMPARE";
+type Section = "XRAY" | "PSH" | "COMPARE";
 
-/** Üstte bölüm seçici: Alım röntgeni (yalnız ADMIN/MANAGER) ve mevcut Amazon & Inventory Lab karşılaştırması. */
+/** Üstte bölüm seçici: Alım röntgeni ve PSH karşılaştırma (yalnız ADMIN/MANAGER) ile mevcut Amazon & Inventory Lab karşılaştırması. */
 export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCode: string; canAudit?: boolean }) {
   const [section, setSection] = useState<Section>(canAudit ? "XRAY" : "COMPARE");
   const sections: [Section, string][] = canAudit
-    ? [["XRAY", "Alım röntgeni"], ["COMPARE", "Amazon & Inventory Lab karşılaştırma"]]
+    ? [["XRAY", "Alım röntgeni"], ["PSH", "PSH karşılaştırma"], ["COMPARE", "Amazon & Inventory Lab karşılaştırma"]]
     : [["COMPARE", "Amazon & Inventory Lab karşılaştırma"]];
   return (
     <div className="space-y-4">
@@ -316,7 +317,7 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
           ))}
         </div>
       )}
-      {section === "XRAY" && canAudit ? <XrayScreen /> : <LegacyReconciliation storeCode={storeCode} canAudit={canAudit} />}
+      {section === "XRAY" && canAudit ? <XrayScreen /> : section === "PSH" && canAudit ? <PshCompareScreen /> : <LegacyReconciliation storeCode={storeCode} canAudit={canAudit} />}
     </div>
   );
 }

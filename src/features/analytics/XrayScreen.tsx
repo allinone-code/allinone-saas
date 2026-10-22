@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, FileSpreadsheet, Loader2, ScanSearch } from "lucide-react";
 import type { XrayFinding, XrayFindingCode, XrayGroup, XrayResult, XraySeverity } from "@/domain/sat26Xray";
 import { XRAY_HEADERS } from "@/domain/sat26XrayRead";
-import { normalizeHeaderLabel } from "@/lib/importFieldSchema";
+import { pickColumns } from "./sheetColumns";
 
 const CODE_LABEL: Record<XrayFindingCode, string> = {
   PRICE_OUTLIER: "Fiyat sapması",
@@ -34,16 +34,6 @@ const SHOWN_FINDINGS = 200;
 const n = (v: number | null) => (v === null ? "—" : v.toLocaleString("tr-TR"));
 const usd = (v: number | null) =>
   v === null ? "—" : `$${v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-/** Yalnız röntgenin kullandığı kolonları tutar: istek küçük kalır, kart/e-posta gibi gereksiz veri gitmez. */
-function pickColumns(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-  const wanted = new Set(XRAY_HEADERS.map(normalizeHeaderLabel));
-  return rows.map((r) => ({
-    ...Object.fromEntries(Object.entries(r).filter(([k]) => wanted.has(normalizeHeaderLabel(k)))),
-    // sheet_to_json bunu numaralandırılamaz alan olarak ekler; satır numarası için açıkça taşınır.
-    __rowNum__: (r as { __rowNum__?: number }).__rowNum__,
-  }));
-}
 
 function GroupTable({ title, groups, keyLabel }: { title: string; groups: XrayGroup[]; keyLabel: string }) {
   return (
@@ -120,7 +110,7 @@ export function XrayScreen() {
       const res = await fetch("/api/reconciliation/xray", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: pickColumns(rows), priceDeviationPct: pct }),
+        body: JSON.stringify({ rows: pickColumns(rows, XRAY_HEADERS), priceDeviationPct: pct }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Röntgen başarısız");
