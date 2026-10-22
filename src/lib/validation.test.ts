@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { parseBody, storeCreateSchema } from "./validation";
+import { parseBody, storeCreateSchema, xraySchema } from "./validation";
 
 const schema = z.object({ name: z.string() });
 
@@ -64,5 +64,21 @@ describe("storeCreateSchema", () => {
 
   it("mağaza e-postasının biçimini doğrular", () => {
     expect(storeCreateSchema.safeParse({ ...base, defaultEmail: "not-an-email" }).success).toBe(false);
+  });
+});
+
+describe("xraySchema", () => {
+  it("boş satır listesini reddeder", () => {
+    expect(xraySchema.safeParse({ rows: [] }).success).toBe(false);
+  });
+
+  it("20.000'den fazla satırı reddeder", () => {
+    expect(xraySchema.safeParse({ rows: Array.from({ length: 20_001 }, () => ({})) }).success).toBe(false);
+  });
+
+  it("satırları ve eşiği kabul eder; eşik 1..500 dışında reddedilir", () => {
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 25 }).success).toBe(true);
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 0 }).success).toBe(false);
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 501 }).success).toBe(false);
   });
 });

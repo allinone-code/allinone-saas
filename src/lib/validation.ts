@@ -273,6 +273,12 @@ export const reconciliationSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).min(1, "Dosyada satır yok").max(20000, "En fazla 20.000 satır"),
 });
 
+/** Alım listesi röntgeni: tarayıcıda okunan Sat26 satırları + isteğe bağlı fiyat sapma eşiği (%). */
+export const xraySchema = z.object({
+  rows: z.array(z.record(z.string(), z.unknown())).min(1, "Dosyada satır yok").max(20000, "En fazla 20.000 satır"),
+  priceDeviationPct: z.coerce.number().min(1).max(500).optional(),
+});
+
 export const sat26AuditApplySchema = z.object({
   storeCode: shortText(32).default("ALL"),
   /** false/yok = yalnız önizleme (hiçbir şey yazılmaz). true = düzeltmeyi uygula. */
