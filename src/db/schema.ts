@@ -830,3 +830,38 @@ export const productMatchCandidates = pgTable(
 );
 
 export type ProductMatchCandidate = typeof productMatchCandidates.$inferSelect;
+
+/**
+ * 17. STORE_FINANCIALS — Amazon / PSH / Inventory Lab / banka aylık finans
+ * kalemleri (karlılık dashboard'unun kaynağı, bkz. src/domain/storeProfit.ts).
+ *
+ * Tutarlar daima POZİTİF girilir; işaretini `category` belirler (gider
+ * sınıfları çıkarılır). Aynı (mağaza, ay, kaynak, sınıf, kalem) tekrar
+ * yüklenirse üzerine yazılır — aylık rapor yeniden alınınca çift kayıt olmaz.
+ */
+export const storeFinancials = pgTable(
+  "store_financials",
+  {
+    id: serial("id").primaryKey(),
+    storeCode: text("store_code").notNull().references(() => stores.storeCode),
+    month: text("month").notNull(), // 'YYYY-MM'
+    source: text("source").notNull(), // 'AMAZON' | 'PSH' | 'INVENTORY_LAB' | 'BANK'
+    category: text("category").notNull(), // bkz. FINANCE_CATEGORIES
+    label: text("label").notNull().default(""), // kaynaktaki kalem adı (ör. "FBA Fulfillment Fees")
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("store_financials_uq").on(t.storeCode, t.month, t.source, t.category, t.label),
+    index("store_financials_store_month_idx").on(t.storeCode, t.month),
+    check("store_financials_month_format", sql`${t.month} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
+    check("store_financials_source_enum", sql`${t.source} in ('AMAZON','PSH','INVENTORY_LAB','BANK')`),
+    check(
+      "store_financials_category_enum",
+      sql`${t.category} in ('REVENUE','COGS','AMAZON_FEES','PREP_SHIPPING','OTHER_EXPENSE','REPORTED_NET')`
+    ),
+  ]
+);

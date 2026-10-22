@@ -1,3 +1,5 @@
+import { isCancelledStatus } from "@/domain/sat26Hygiene";
+
 /**
  * PrepShip "LoadData" toplu yükleme şablonu — GERÇEK ŞABLON.
  *
@@ -65,7 +67,44 @@ export interface PrepShipExportOrder {
   countPerBundle: number | string | null;
   fulfillmentType: string | null;
   description1: string | null;
+  /** İptal kuralı için (R2). Verilmezse satır iptal edilmemiş sayılır. */
+  cargoStatus?: string | null;
+  p1CancelQty?: number | string | null;
 }
+
+export interface ExcludedPrepShipOrder {
+  orderNumber: string;
+  asin: string;
+  reason: "CANCELLED" | "NO_UNITS_LEFT";
+}
+
+/** Denetim bulgusu R2: İPTAL satırlar PrepShip'e gitmemeli. Kısmi iptalde adet düşülür. */
+export function splitPrepShipExportable<T extends PrepShipExportOrder>(
+  batchOrders: T[]
+): { included: (T & { exportUnits: number })[]; excluded: ExcludedPrepShipOrder[] } {
+  const included: (T & { exportUnits: number })[] = [];
+  const excluded: ExcludedPrepShipOrder[] = [];
+  for (const o of batchOrders) {
+    if (isCancelledStatus(o.cargoStatus)) {
+      excluded.push({ orderNumber: o.orderNumber, asin: o.asin, reason: "CANCELLED" });
+      continue;
+    }
+    const units = (Number(o.quantity) || 1) - (Number(o.p1CancelQty) || 0);
+    if (units <= 0) {
+      excluded.push({ orderNumber: o.orderNumber, asin: o.asin, reason: "NO_UNITS_LEFT" });
+      continue;
+    }
+    included.push({ ...o, exportUnits: units });
+  }
+  return { included, excluded };
+}
+
+const round2 = (v: number | string | null): number | string => {
+  if (v === null || v === "") return "";
+  const n = Number(v);
+  // Sayıya çevrilemeyen değer (ör. "N/A") NaN hücre yerine olduğu gibi geçer.
+  return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : String(v);
+};
 
 function toDateOnly(value: Date | string | null): string {
   if (!value) return "";
@@ -75,9 +114,14 @@ function toDateOnly(value: Date | string | null): string {
 }
 
 /** PrepShip'e yüklenecek satır dizisi — .xlsx üretimi için XLSX.utils.aoa_to_sheet'e verilir. */
-export function buildPrepShipLoadDataRows(batchOrders: PrepShipExportOrder[]): (string | number)[][] {
+export function buildPrepShipLoadDataRows(
+  allOrders: PrepShipExportOrder[],
+  /** Önceden ayrıştırılmışsa (route) tekrar hesaplanmaz. */
+  presplit?: (PrepShipExportOrder & { exportUnits: number })[]
+): (string | number)[][] {
   const header = [...PREPSHIP_LOADDATA_COLUMNS];
-  const rows = batchOrders.map((o) => [
+  const included = presplit ?? splitPrepShipExportable(allOrders).included;
+  const rows = included.map((o) => [
     "", // TrackingNumber — henüz kargo bilgisi yok, depo dolduracak
     o.orderNumber,
     "", // OrderNumberSold — yalnızca satılan ürünler için
@@ -92,10 +136,10 @@ export function buildPrepShipLoadDataRows(batchOrders: PrepShipExportOrder[]): (
     o.productTitle,
     o.supplierCode || "",
     "", // ProductGroup
-    Number(o.quantity) || 1,
+    o.exportUnits,
     o.condition || "New",
-    o.unitCost ?? "",
-    o.sellingPrice ?? "",
+    round2(o.unitCost ?? null),
+    round2(o.sellingPrice ?? null),
     (o.isFragile || "NO").toUpperCase(),
     (o.isMultiPack || "NO").toUpperCase(),
     (o.isBundle || "NO").toUpperCase(),

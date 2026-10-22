@@ -5,7 +5,7 @@ import { pshBatches, orders } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser, isDenied, canAccessStore } from "@/lib/guards";
 import { handleRouteError } from "@/lib/apiResponse";
-import { buildPrepShipLoadDataRows } from "@/features/orders/prepshipExport";
+import { buildPrepShipLoadDataRows, splitPrepShipExportable } from "@/features/orders/prepshipExport";
 
 /**
  * PrepShip köprüsü — Adım 3'ün ilk yarısı (denetim raporu §14).
@@ -62,7 +62,14 @@ export async function GET(
       );
     }
 
-    const rows = buildPrepShipLoadDataRows(batchOrders);
+    const { included, excluded } = splitPrepShipExportable(batchOrders);
+    if (!included.length) {
+      return NextResponse.json(
+        { error: "Batch'teki tüm siparişler iptal edilmiş ya da iptalden sonra adedi kalmamış; PrepShip'e yüklenecek satır yok.", excluded },
+        { status: 422 }
+      );
+    }
+    const rows = buildPrepShipLoadDataRows(batchOrders, included);
     const sheet = XLSX.utils.aoa_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, "LoadData");
@@ -74,6 +81,8 @@ export async function GET(
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${batchNumber}-prepship-loaddata.xlsx"`,
+        // İptal nedeniyle dosyaya girmeyen satır sayısı (R2) — arayüz uyarı gösterebilsin.
+        "X-Excluded-Count": String(excluded.length),
       },
     });
   } catch (error: unknown) {

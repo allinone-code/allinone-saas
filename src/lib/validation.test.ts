@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { parseBody, storeCreateSchema } from "./validation";
+import { parseBody, pshCompareSchema, storeCreateSchema, xraySchema } from "./validation";
 
 const schema = z.object({ name: z.string() });
 
@@ -64,5 +64,44 @@ describe("storeCreateSchema", () => {
 
   it("mağaza e-postasının biçimini doğrular", () => {
     expect(storeCreateSchema.safeParse({ ...base, defaultEmail: "not-an-email" }).success).toBe(false);
+  });
+});
+
+describe("xraySchema", () => {
+  it("boş satır listesini reddeder", () => {
+    expect(xraySchema.safeParse({ rows: [] }).success).toBe(false);
+  });
+
+  it("20.000'den fazla satırı reddeder", () => {
+    expect(xraySchema.safeParse({ rows: Array.from({ length: 20_001 }, () => ({})) }).success).toBe(false);
+  });
+
+  it("satırları ve eşiği kabul eder; eşik 1..500 dışında reddedilir", () => {
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 25 }).success).toBe(true);
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 0 }).success).toBe(false);
+    expect(xraySchema.safeParse({ rows: [{ a: 1 }], priceDeviationPct: 501 }).success).toBe(false);
+  });
+});
+
+describe("pshCompareSchema", () => {
+  const row = [{ a: 1 }];
+  it("boş alım veya boş PSH satır listesini ayrı ayrı reddeder", () => {
+    expect(pshCompareSchema.safeParse({ purchaseRows: [], pshRows: row }).success).toBe(false);
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: [] }).success).toBe(false);
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row }).success).toBe(true);
+  });
+
+  it("fiyat eşiği metinden sayıya çevrilir, 1..500 dışı reddedilir", () => {
+    const ok = pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row, priceTolerancePct: "10" });
+    expect(ok.success && ok.data.priceTolerancePct).toBe(10);
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row, priceTolerancePct: 0 }).success).toBe(false);
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row, priceTolerancePct: 501 }).success).toBe(false);
+  });
+
+  it("bekleme penceresi 0..90 tam sayı; verilmezse undefined", () => {
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row, pendingWindowDays: 91 }).success).toBe(false);
+    expect(pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row, pendingWindowDays: -1 }).success).toBe(false);
+    const d = pshCompareSchema.safeParse({ purchaseRows: row, pshRows: row });
+    expect(d.success && d.data.pendingWindowDays).toBeUndefined();
   });
 });

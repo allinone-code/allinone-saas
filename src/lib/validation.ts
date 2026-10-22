@@ -1,3 +1,4 @@
+import { ALLOWED_SOURCES_BY_CATEGORY } from "@/domain/storeProfit";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MAX_JSON_BODY_BYTES } from "@/lib/apiResponse";
@@ -233,6 +234,63 @@ const xlsRowSchema = z.record(z.string(), z.unknown()); // satır alanları rout
 export const importXlsSchema = z.object({
   rows: z.array(xlsRowSchema).min(1, "Satır gerekli").max(5000, "Tek seferde en fazla 5.000 satır"),
   defaultStore: shortText(32).optional(),
+});
+
+export const storeFinancialEntriesSchema = z.object({
+  storeCode: shortText(32).min(1),
+  entries: z
+    .array(
+      z
+        .object({
+          month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Ay YYYY-AA biçiminde olmalı"),
+          source: z.enum(["AMAZON", "PSH", "INVENTORY_LAB", "BANK"]),
+          category: z.enum(["REVENUE", "COGS", "AMAZON_FEES", "PREP_SHIPPING", "OTHER_EXPENSE", "REPORTED_NET"]),
+          label: shortText(120).default(""),
+          amount: z.coerce.number().min(-10_000_000).max(10_000_000),
+          note: shortText(300).optional(),
+        })
+        // Tutarlar pozitif girilir; yalnız kaynağın raporladığı net kar (zarar) negatif olabilir.
+        .refine((e) => e.category === "REPORTED_NET" || e.amount >= 0, {
+          message: "Bu kalem negatif olamaz (tutarı pozitif girin)",
+          path: ["amount"],
+        })
+        // Hesapta hiç sayılmayacak kaynak/sınıf çiftleri kaydedilmez (sessizce yok sayılıp kârı şişirmesin).
+        .refine((e) => ALLOWED_SOURCES_BY_CATEGORY[e.category].includes(e.source), {
+          message: "Bu sınıf için bu kaynak geçerli değil (ör. PREP_SHIPPING yalnız PSH, COGS yalnız AMAZON/INVENTORY_LAB)",
+          path: ["source"],
+        })
+    )
+    .min(1, "Kalem gerekli")
+    .max(2000, "Tek seferde en fazla 2.000 kalem"),
+});
+
+export const reconciliationSchema = z.object({
+  kind: z.enum(["AMAZON_RECEIPTS", "INVENTORY_LAB"]),
+  storeCode: shortText(32).default("ALL"),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  tolerance: z.coerce.number().min(0).max(1000).optional(),
+  rows: z.array(z.record(z.string(), z.unknown())).min(1, "Dosyada satır yok").max(20000, "En fazla 20.000 satır"),
+});
+
+/** Alım listesi röntgeni: tarayıcıda okunan Sat26 satırları + isteğe bağlı fiyat sapma eşiği (%). */
+export const xraySchema = z.object({
+  rows: z.array(z.record(z.string(), z.unknown())).min(1, "Dosyada satır yok").max(20000, "En fazla 20.000 satır"),
+  priceDeviationPct: z.coerce.number().min(1).max(500).optional(),
+});
+
+/** PSH karşılaştırması: tarayıcıda okunan alım (Sat26) ve PSH satırları + isteğe bağlı eşikler. */
+export const pshCompareSchema = z.object({
+  purchaseRows: z.array(z.record(z.string(), z.unknown())).min(1, "Alım dosyasında satır yok").max(20000, "En fazla 20.000 satır"),
+  pshRows: z.array(z.record(z.string(), z.unknown())).min(1, "PSH dosyasında satır yok").max(20000, "En fazla 20.000 satır"),
+  priceTolerancePct: z.coerce.number().min(1).max(500).optional(),
+  pendingWindowDays: z.coerce.number().int().min(0).max(90).optional(),
+});
+
+export const sat26AuditApplySchema = z.object({
+  storeCode: shortText(32).default("ALL"),
+  /** false/yok = yalnız önizleme (hiçbir şey yazılmaz). true = düzeltmeyi uygula. */
+  apply: z.boolean().default(false),
 });
 
 export const driveUrlSchema = z.object({

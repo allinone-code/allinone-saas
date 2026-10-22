@@ -6,6 +6,7 @@ import {
   Building2,
   ChevronLeft,
   FileSpreadsheet,
+  GitCompareArrows,
   LogOut,
   Globe,
   BarChart3,
@@ -18,6 +19,7 @@ import {
   Sun,
   TrendingUp,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -74,6 +76,18 @@ export function buildNavGroups(counts: {
           label: "Mağaza Sağlığı",
           hint: "Haftalık hesap sağlığı — canlı hesap, uydurma skor yok",
           icon: HeartPulse,
+        },
+        {
+          id: "STORE_PROFIT",
+          label: "Mağaza Karlılığı",
+          hint: "Amazon, PSH, Inventory Lab ve banka aylık raporlarından net kâr",
+          icon: Wallet,
+        },
+        {
+          id: "RECONCILIATION",
+          label: "Karşılaştırma",
+          hint: "Satış listesi ↔ Amazon kabul ve Inventory Lab",
+          icon: GitCompareArrows,
         },
       ],
     },
