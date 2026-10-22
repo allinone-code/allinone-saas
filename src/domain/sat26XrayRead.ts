@@ -56,6 +56,9 @@ const OPTIONAL = {
   p4: "Tarihi geçmiş adet-P4",
 } as const;
 
+/** Okuyucunun kullandığı tüm başlıklar; ekran yalnız bu kolonları sunucuya gönderir. */
+export const XRAY_HEADERS: readonly string[] = [...REQUIRED, ...Object.values(OPTIONAL)];
+
 const EXCEL_EPOCH_OFFSET_DAYS = 25569;
 const DAY_MS = 86_400_000;
 

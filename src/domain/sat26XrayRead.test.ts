@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readSat26Rows } from "./sat26XrayRead";
+import { readSat26Rows, XRAY_HEADERS } from "./sat26XrayRead";
 
 const REQUIRED = [
   "Tarih",
@@ -82,5 +82,12 @@ describe("readSat26Rows", () => {
   it("isteğe bağlı kolonlar yoksa 0 ve boş metin olur", () => {
     const { rows } = readSat26Rows([sample()]);
     expect(rows[0]).toMatchObject({ shipped: 0, p1: 0, p2: 0, p3: 0, p4: 0, label: "" });
+  });
+});
+
+describe("XRAY_HEADERS", () => {
+  it("zorunlu 9 + isteğe bağlı 7 başlığı verir (ekran yalnız bunları gönderir)", () => {
+    expect(XRAY_HEADERS).toHaveLength(16);
+    expect(XRAY_HEADERS).toEqual(expect.arrayContaining([...REQUIRED, "Tarih2", "Amazona göndilen adet"]));
   });
 });

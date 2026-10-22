@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Sat26AuditPanel } from "./Sat26AuditPanel";
+import { XrayScreen } from "./XrayScreen";
 import { AlertTriangle, Download, FileSpreadsheet, GitCompareArrows, Loader2 } from "lucide-react";
 
 type Kind = "AMAZON_RECEIPTS" | "INVENTORY_LAB";
@@ -55,7 +56,7 @@ function toCsv(kind: Kind, rows: (AmazonRow | LabRow)[]): string {
   return `﻿${header.join(",")}\r\n${lines.join("\r\n")}`;
 }
 
-export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCode: string; canAudit?: boolean }) {
+function LegacyReconciliation({ storeCode, canAudit = false }: { storeCode: string; canAudit?: boolean }) {
   const [kind, setKind] = useState<Kind>("AMAZON_RECEIPTS");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -288,6 +289,34 @@ export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCod
           )}
         </>
       )}
+    </div>
+  );
+}
+
+type Section = "XRAY" | "COMPARE";
+
+/** Üstte bölüm seçici: Alım röntgeni (yalnız ADMIN/MANAGER) ve mevcut Amazon & Inventory Lab karşılaştırması. */
+export function ReconciliationScreen({ storeCode, canAudit = false }: { storeCode: string; canAudit?: boolean }) {
+  const [section, setSection] = useState<Section>(canAudit ? "XRAY" : "COMPARE");
+  const sections: [Section, string][] = canAudit
+    ? [["XRAY", "Alım röntgeni"], ["COMPARE", "Amazon & Inventory Lab karşılaştırma"]]
+    : [["COMPARE", "Amazon & Inventory Lab karşılaştırma"]];
+  return (
+    <div className="space-y-4">
+      {sections.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {sections.map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setSection(id)}
+              className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${section === id ? "border-brand bg-brand/10 text-brand-soft" : "border-line text-ink-muted"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {section === "XRAY" && canAudit ? <XrayScreen /> : <LegacyReconciliation storeCode={storeCode} canAudit={canAudit} />}
     </div>
   );
 }

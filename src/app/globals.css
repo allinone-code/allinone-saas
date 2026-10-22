@@ -42,6 +42,23 @@
   --topbar-h: 60px;
 }
 
+/* Alım röntgeni ekranının yerel teması (arduvaz + camgöbeği). Tokenlar yalnız bu
+   kapsayıcının içinde yeniden tanımlanır; projenin geri kalanı etkilenmez.
+   surface-2/3, line-strong ve ink-faint tasarım belgesinde yok, türetilmiştir. */
+.xray-theme {
+  --color-surface-base: #0f1517;
+  --color-surface-1: #151d20;
+  --color-surface-2: #1a2427;
+  --color-surface-3: #202c30;
+  --color-line: #243035;
+  --color-line-strong: #314247;
+  --color-ink: #e8f0f2;
+  --color-ink-muted: #84979d;
+  --color-ink-faint: #5f7278;
+  --color-brand: #06b6d4;
+  --color-brand-soft: #22d3ee;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
