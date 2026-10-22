@@ -65,11 +65,11 @@ export async function GET(
     const { included, excluded } = splitPrepShipExportable(batchOrders);
     if (!included.length) {
       return NextResponse.json(
-        { error: "Batch'teki tüm siparişler iptal; PrepShip'e yüklenecek satır yok.", excluded },
+        { error: "Batch'teki tüm siparişler iptal edilmiş ya da iptalden sonra adedi kalmamış; PrepShip'e yüklenecek satır yok.", excluded },
         { status: 422 }
       );
     }
-    const rows = buildPrepShipLoadDataRows(batchOrders);
+    const rows = buildPrepShipLoadDataRows(batchOrders, included);
     const sheet = XLSX.utils.aoa_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, "LoadData");

@@ -99,8 +99,12 @@ export function splitPrepShipExportable<T extends PrepShipExportOrder>(
   return { included, excluded };
 }
 
-const round2 = (v: number | string | null): number | string =>
-  v === null || v === "" ? "" : Math.round((Number(v) + Number.EPSILON) * 100) / 100;
+const round2 = (v: number | string | null): number | string => {
+  if (v === null || v === "") return "";
+  const n = Number(v);
+  // Sayıya çevrilemeyen değer (ör. "N/A") NaN hücre yerine olduğu gibi geçer.
+  return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : String(v);
+};
 
 function toDateOnly(value: Date | string | null): string {
   if (!value) return "";
@@ -110,9 +114,13 @@ function toDateOnly(value: Date | string | null): string {
 }
 
 /** PrepShip'e yüklenecek satır dizisi — .xlsx üretimi için XLSX.utils.aoa_to_sheet'e verilir. */
-export function buildPrepShipLoadDataRows(allOrders: PrepShipExportOrder[]): (string | number)[][] {
+export function buildPrepShipLoadDataRows(
+  allOrders: PrepShipExportOrder[],
+  /** Önceden ayrıştırılmışsa (route) tekrar hesaplanmaz. */
+  presplit?: (PrepShipExportOrder & { exportUnits: number })[]
+): (string | number)[][] {
   const header = [...PREPSHIP_LOADDATA_COLUMNS];
-  const { included } = splitPrepShipExportable(allOrders);
+  const included = presplit ?? splitPrepShipExportable(allOrders).included;
   const rows = included.map((o) => [
     "", // TrackingNumber — henüz kargo bilgisi yok, depo dolduracak
     o.orderNumber,

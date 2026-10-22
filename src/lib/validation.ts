@@ -1,3 +1,4 @@
+import { ALLOWED_SOURCES_BY_CATEGORY } from "@/domain/storeProfit";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MAX_JSON_BODY_BYTES } from "@/lib/apiResponse";
@@ -252,6 +253,11 @@ export const storeFinancialEntriesSchema = z.object({
         .refine((e) => e.category === "REPORTED_NET" || e.amount >= 0, {
           message: "Bu kalem negatif olamaz (tutarı pozitif girin)",
           path: ["amount"],
+        })
+        // Hesapta hiç sayılmayacak kaynak/sınıf çiftleri kaydedilmez (sessizce yok sayılıp kârı şişirmesin).
+        .refine((e) => ALLOWED_SOURCES_BY_CATEGORY[e.category].includes(e.source), {
+          message: "Bu sınıf için bu kaynak geçerli değil (ör. PREP_SHIPPING yalnız PSH, COGS yalnız AMAZON/INVENTORY_LAB)",
+          path: ["source"],
         })
     )
     .min(1, "Kalem gerekli")

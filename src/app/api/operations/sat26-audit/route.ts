@@ -7,6 +7,12 @@ import { parseBody, sat26AuditApplySchema } from "@/lib/validation";
 import { handleRouteError } from "@/lib/apiResponse";
 import { auditSat26Orders, type AuditOrderRow } from "@/domain/sat26Audit";
 
+/** "ALL" (tüm mağazalar) yalnız ADMIN veya kapsamı ALL olan kullanıcıya açık; tek mağaza için canAccessStore. */
+function canAuditScope(user: Parameters<typeof canAccessStore>[0], storeCode: string): boolean {
+  if (storeCode === "ALL") return user.role === "ADMIN" || user.storeCode === "ALL";
+  return canAccessStore(user, storeCode);
+}
+
 async function loadAuditRows(storeCode: string | null): Promise<AuditOrderRow[]> {
   const base = db.select().from(orders);
   const rows = await (storeCode && storeCode !== "ALL" ? base.where(eq(orders.buyerStore, storeCode)) : base);
@@ -40,7 +46,10 @@ export async function GET(req: Request) {
     const gate = await requireRole("ADMIN", "MANAGER");
     if (isDenied(gate)) return gate.response;
 
-    const storeCode = new URL(req.url).searchParams.get("storeCode");
+    const storeCode = new URL(req.url).searchParams.get("storeCode") || "ALL";
+    if (!canAuditScope(gate.user, storeCode)) {
+      return NextResponse.json({ error: "Bu mağaza kapsamınızda değil." }, { status: 403 });
+    }
     const report = auditSat26Orders(await loadAuditRows(storeCode));
     return NextResponse.json({ ...report, findings: report.findings.slice(0, 500), truncated: report.findings.length > 500 });
   } catch (error: unknown) {
@@ -68,7 +77,7 @@ export async function POST(req: Request) {
     if ("response" in parsed) return parsed.response;
     const { storeCode, apply } = parsed.data;
 
-    if (storeCode !== "ALL" && !canAccessStore(gate.user, storeCode)) {
+    if (!canAuditScope(gate.user, storeCode)) {
       return NextResponse.json({ error: "Bu mağaza kapsamınızda değil." }, { status: 403 });
     }
 
@@ -88,12 +97,13 @@ export async function POST(req: Request) {
         const before = byId.get(f.orderId);
         if (!before || !f.proposed) continue;
 
-        if (f.code === "CANCEL_P1_EMPTY" && f.proposed.p1CancelQty !== undefined && f.proposed.correctedCost !== undefined) {
+        if (f.code === "CANCEL_P1_EMPTY" && f.proposed.p1CancelQty !== undefined) {
           const updated = await tx
             .update(orders)
             .set({
               p1CancelQty: f.proposed.p1CancelQty,
-              correctedCost: f.proposed.correctedCost.toFixed(2),
+              // Elle girilmiş düzeltilmiş maliyet (correctedCost önerilmemiş) ezilmez.
+              ...(f.proposed.correctedCost !== undefined ? { correctedCost: f.proposed.correctedCost.toFixed(2) } : {}),
               updatedAt: new Date(),
             })
             // Satır denetimden beri değiştiyse (P1 doldurulmuş / durum değişmiş) dokunma.
@@ -114,12 +124,12 @@ export async function POST(req: Request) {
 
       await tx.insert(auditLogs).values({
         actorName: gate.user.name,
-        storeCode: storeCode === "ALL" ? "HRN" : storeCode,
+        storeCode,
         actionType: "SAT26_HYGIENE_FIX",
         targetEntity: `Siparişler (${storeCode})`,
         beforeState: `İPTAL/P1 boş: ${report.counts.CANCEL_P1_EMPTY}, kirli MSKU: ${report.counts.MSKU_DIRTY}`,
         afterState: `P1 tamamlanan: ${cancelFixed}, MSKU temizlenen: ${mskuFixed}, atlanan: ${skippedChanged}`,
-        details: `Fazla gösterilen maliyet düzeltildi: $${report.overstatedCost}. Kalıp dışı MSKU (elle kontrol): ${report.counts.MSKU_UNKNOWN_PATTERN}.`,
+        details: `Fazla gösterilen maliyet düzeltildi: $${report.overstatedCost}. Elle girilmiş maliyeti korunan İPTAL satır: ${report.manualCostKept}. Kalıp dışı MSKU (elle kontrol): ${report.counts.MSKU_UNKNOWN_PATTERN}.`,
       });
     });
 

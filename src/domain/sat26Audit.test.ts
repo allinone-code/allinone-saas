@@ -57,3 +57,19 @@ describe("auditSat26Orders", () => {
     expect(r.overstatedCost).toBe(391.02);
   });
 });
+
+describe("elle girilmiş düzeltilmiş maliyet", () => {
+  it("formülden farklı correctedCost ezilmez; yalnız P1 önerilir", () => {
+    const o: AuditOrderRow = { ...base, cargoStatus: "İPTAL", correctedCost: 120 };
+    const r = auditSat26Orders([o]);
+    expect(r.findings[0].proposed).toEqual({ p1CancelQty: 4 });
+    expect(r.manualCostKept).toBe(1);
+    expect(r.overstatedCost).toBe(0);
+  });
+  it("formül değerindeki correctedCost otomatik düzeltilir", () => {
+    const o: AuditOrderRow = { ...base, cargoStatus: "İPTAL" };
+    const r = auditSat26Orders([o]);
+    expect(r.findings[0].proposed?.correctedCost).toBe(0);
+    expect(r.manualCostKept).toBe(0);
+  });
+});

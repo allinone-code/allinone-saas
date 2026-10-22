@@ -21,11 +21,10 @@ const CANCEL_STATUSES = new Set(["İPTAL", "IPTAL", "CANCELLED", "CANCELED"]);
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
-/** Boşluk, satır sonu ve `<br>` kalıntılarını temizler (R8). Harf büyüklüğüne dokunmaz. */
+/** `<br>` kalıntılarını ve baş/son boşluk-satır sonunu temizler (R8). İç boşluğa ve harf büyüklüğüne dokunmaz. */
 export function cleanMsku(raw: unknown): string {
   return String(raw ?? "")
     .replace(/<br\s*\/?>/gi, "")
-    .replace(/\s+/g, "")
     .trim();
 }
 

@@ -126,3 +126,15 @@ describe("İPTAL kuralı (denetim R2)", () => {
   });
 });
 
+
+describe("sayı olmayan maliyet", () => {
+  it("NaN hücre üretmez, değeri olduğu gibi geçirir", () => {
+    const rows = buildPrepShipLoadDataRows([
+      { orderNumber: "O1", orderDate: null, asin: "B0", msku: "M", productTitle: "t", supplierCode: null, quantity: 1,
+        condition: null, unitCost: "N/A", sellingPrice: 12.345, isFragile: null, isMultiPack: null, isBundle: null,
+        countPerBundle: null, fulfillmentType: null, description1: null },
+    ]);
+    expect(rows[1][16]).toBe("N/A");
+    expect(rows[1][17]).toBe(12.35);
+  });
+});

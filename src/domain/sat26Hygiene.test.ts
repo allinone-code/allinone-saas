@@ -104,3 +104,9 @@ describe("computeCorrectedCost", () => {
     expect(computeCorrectedCost({ ...z, totalCost: 50, quantity: 0 })).toBe(50);
   });
 });
+
+describe("cleanMsku iç boşluk", () => {
+  it("iç boşluğu silmez, yalnız baş/son boşluğu temizler", () => {
+    expect(cleanMsku("  HRN B0ABC12345\n")).toBe("HRN B0ABC12345");
+  });
+});

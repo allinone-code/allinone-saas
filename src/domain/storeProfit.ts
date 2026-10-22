@@ -40,7 +40,19 @@ export interface FinanceEntry {
   source: FinanceSource;
   category: FinanceCategory;
   amount: number;
+  /** Verilirse kaynak önceliği (Amazon → iLab) mağaza bazında uygulanır; ALL görünümünde mağazalar karışmaz. */
+  storeCode?: string;
 }
+
+/** Her kategorinin hesapta SAYILAN kaynakları. Dışındaki kombinasyon sessizce yok sayılırdı; kayıt aşamasında reddedilir. */
+export const ALLOWED_SOURCES_BY_CATEGORY: Record<FinanceCategory, readonly FinanceSource[]> = {
+  REVENUE: ["AMAZON", "INVENTORY_LAB"],
+  COGS: ["AMAZON", "INVENTORY_LAB"],
+  AMAZON_FEES: ["AMAZON", "INVENTORY_LAB"],
+  PREP_SHIPPING: ["PSH"],
+  OTHER_EXPENSE: FINANCE_SOURCES,
+  REPORTED_NET: FINANCE_SOURCES,
+};
 
 export interface MonthlyProfit {
   month: string;
@@ -88,13 +100,27 @@ export function computeMonthlyProfit(entries: FinanceEntry[], months: string[]):
   let cumulative = 0;
   return [...months].sort().map((month) => {
     const m = entries.filter((e) => e.month === month);
-    const revenue = pickRevenue(m);
 
-    // Her sınıf için ilgili kaynağın değerini al; COGS iLab'dan, PSH yalnız PSH'dan.
-    const cogs = pickCategory(m.filter((e) => e.source !== "PSH" && e.source !== "BANK"), "COGS");
-    const amazonFees = pickCategory(m.filter((e) => e.source === "AMAZON" || e.source === "INVENTORY_LAB"), "AMAZON_FEES");
-    const prepShipping = m.filter((e) => e.source === "PSH" && e.category === "PREP_SHIPPING").reduce((s, e) => s + e.amount, 0);
-    const otherExpense = m.filter((e) => e.category === "OTHER_EXPENSE").reduce((s, e) => s + e.amount, 0);
+    // Kaynak önceliği her mağaza için ayrı uygulanır, sonra toplanır.
+    const byStore = new Map<string, FinanceEntry[]>();
+    for (const e of m) {
+      const key = e.storeCode ?? "";
+      byStore.set(key, [...(byStore.get(key) ?? []), e]);
+    }
+    let revenue: number | null = null;
+    let cogs = 0;
+    let amazonFees = 0;
+    let prepShipping = 0;
+    let otherExpense = 0;
+    for (const s of byStore.values()) {
+      const rev = pickRevenue(s);
+      if (rev !== null) revenue = (revenue ?? 0) + rev;
+      // Her sınıf için ilgili kaynağın değerini al; COGS iLab'dan, PSH yalnız PSH'dan.
+      cogs += pickCategory(s.filter((e) => e.source !== "PSH" && e.source !== "BANK"), "COGS");
+      amazonFees += pickCategory(s.filter((e) => e.source === "AMAZON" || e.source === "INVENTORY_LAB"), "AMAZON_FEES");
+      prepShipping += s.filter((e) => e.source === "PSH" && e.category === "PREP_SHIPPING").reduce((t, e) => t + e.amount, 0);
+      otherExpense += s.filter((e) => e.category === "OTHER_EXPENSE").reduce((t, e) => t + e.amount, 0);
+    }
     const officeExpense = revenue === null ? 0 : round2(revenue * OFFICE_EXPENSE_RATE);
 
     const netProfit =

@@ -91,3 +91,22 @@ describe("monthRange", () => {
     expect(monthRange([])).toEqual([]);
   });
 });
+
+describe("mağaza bazlı kaynak önceliği", () => {
+  it("ALL görünümünde bir mağazanın Amazon geliri diğerinin iLab gelirini düşürmez", () => {
+    const rows: FinanceEntry[] = [
+      { ...e("2026-09", "AMAZON", "REVENUE", 10000), storeCode: "A" },
+      { ...e("2026-09", "INVENTORY_LAB", "REVENUE", 8000), storeCode: "B" },
+    ];
+    const [m] = computeMonthlyProfit(rows, ["2026-09"]);
+    expect(m.revenue).toBe(18000);
+  });
+});
+
+describe("ALLOWED_SOURCES_BY_CATEGORY", () => {
+  it("PREP_SHIPPING yalnız PSH, COGS yalnız AMAZON/INVENTORY_LAB", async () => {
+    const { ALLOWED_SOURCES_BY_CATEGORY } = await import("./storeProfit");
+    expect(ALLOWED_SOURCES_BY_CATEGORY.PREP_SHIPPING).toEqual(["PSH"]);
+    expect(ALLOWED_SOURCES_BY_CATEGORY.COGS).not.toContain("BANK");
+  });
+});

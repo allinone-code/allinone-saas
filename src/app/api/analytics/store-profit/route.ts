@@ -43,6 +43,7 @@ export async function GET(req: Request) {
     const rows = await (conditions.length ? base.where(and(...conditions)) : base);
 
     const entries: FinanceEntry[] = rows.map((r) => ({
+      storeCode: r.storeCode,
       month: r.month,
       source: r.source as FinanceEntry["source"],
       category: r.category as FinanceEntry["category"],
@@ -95,10 +96,15 @@ export async function POST(req: Request) {
     const [store] = await db.select().from(stores).where(eq(stores.storeCode, storeCode)).limit(1);
     if (!store) return NextResponse.json({ error: `Mağaza bulunamadı: ${storeCode}` }, { status: 404 });
 
+    // Aynı anahtar bir istekte iki kez gelirse Postgres ON CONFLICT hata verir; sonuncusu geçerli olur.
+    const unique = new Map<string, (typeof entries)[number]>();
+    for (const e of entries) unique.set(JSON.stringify([e.month, e.source, e.category, e.label]), e);
+    const deduped = [...unique.values()];
+
     await db
       .insert(storeFinancials)
       .values(
-        entries.map((e) => ({
+        deduped.map((e) => ({
           storeCode,
           month: e.month,
           source: e.source,
@@ -120,7 +126,7 @@ export async function POST(req: Request) {
         set: { amount: sql`excluded.amount`, note: sql`excluded.note`, updatedAt: sql`now()` },
       });
 
-    return NextResponse.json({ saved: entries.length });
+    return NextResponse.json({ saved: deduped.length, merged: entries.length - deduped.length });
   } catch (error: unknown) {
     return handleRouteError("POST /api/analytics/store-profit", error);
   }

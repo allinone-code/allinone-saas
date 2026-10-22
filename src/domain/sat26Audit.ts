@@ -48,6 +48,8 @@ export interface Sat26AuditReport {
   counts: Record<AuditFindingCode, number>;
   /** İPTAL satırlarda düzeltilmiş maliyetin fazla gösterdiği toplam tutar ($). */
   overstatedCost: number;
+  /** Düzeltilmiş maliyeti elle girilmiş (formülden farklı) İPTAL satır sayısı; maliyetlerine dokunulmaz. */
+  manualCostKept: number;
 }
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -60,13 +62,19 @@ export function auditSat26Orders(rows: AuditOrderRow[]): Sat26AuditReport {
     MSKU_UNKNOWN_PATTERN: 0,
   };
   let overstatedCost = 0;
+  let manualCostKept = 0;
 
   for (const o of rows) {
     if (isCancelledStatus(o.cargoStatus)) {
       const rule = applyCancelRule(o);
       if (rule.applied) {
         const proposedCost = computeCorrectedCost({ ...rule.row, ...o, p1CancelQty: rule.row.p1CancelQty });
-        overstatedCost += Math.max(0, o.correctedCost - proposedCost);
+        // Mevcut değer 0 (hesaplanmamış) ya da P1 boşken formülün verdiği değerse otomatiktir;
+        // başka bir değer elle girilmiştir ve ezilmez.
+        const autoCost = computeCorrectedCost({ ...o, p1CancelQty: 0 });
+        const isAuto = o.correctedCost === 0 || Math.abs(o.correctedCost - autoCost) < 0.01;
+        if (isAuto) overstatedCost += Math.max(0, o.correctedCost - proposedCost);
+        else manualCostKept++;
         counts.CANCEL_P1_EMPTY++;
         findings.push({
           orderId: o.id,
@@ -74,7 +82,9 @@ export function auditSat26Orders(rows: AuditOrderRow[]): Sat26AuditReport {
           asin: o.asin,
           code: "CANCEL_P1_EMPTY",
           message: `İPTAL ama iptal adedi (P1) boş; ${rule.row.p1CancelQty}/${o.quantity} adet iptal sayılmalı.`,
-          proposed: { p1CancelQty: rule.row.p1CancelQty, correctedCost: proposedCost },
+          proposed: isAuto
+            ? { p1CancelQty: rule.row.p1CancelQty, correctedCost: proposedCost }
+            : { p1CancelQty: rule.row.p1CancelQty },
         });
       }
     }
@@ -94,5 +104,5 @@ export function auditSat26Orders(rows: AuditOrderRow[]): Sat26AuditReport {
     }
   }
 
-  return { scanned: rows.length, findings, counts, overstatedCost: round2(overstatedCost) };
+  return { scanned: rows.length, findings, counts, overstatedCost: round2(overstatedCost), manualCostKept };
 }
