@@ -68,7 +68,7 @@ function money(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function parseDate(v: unknown): Date | null {
+export function parseSheetDate(v: unknown): Date | null {
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
   if (typeof v === "number") {
     // Makul Excel seri aralığı (1954–2119); dışı tarih değil, rastgele sayıdır.
@@ -124,7 +124,7 @@ export function readSat26Rows(raw: Record<string, unknown>[]): { rows: XrayRow[]
     return [{
       rowNo: sheetRow,
       buyer: text(r, k.buyer),
-      date: parseDate(r[kDate]),
+      date: parseSheetDate(r[kDate]),
       label: text(r, k.label),
       orderNo: String(r[kOrder] ?? "").replace(/\s+/g, ""),
       asinRaw,
