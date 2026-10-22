@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { XrayRow } from "./sat26XrayRead";
-import { summarizeXray } from "./sat26Xray";
+import { buildXray, findXrayIssues, summarizeXray, type XrayFinding } from "./sat26Xray";
 
 let n = 1;
 const row = (over: Partial<XrayRow> = {}): XrayRow => ({
@@ -70,5 +70,120 @@ describe("summarizeXray", () => {
     const e = summarizeXray([]);
     expect(e.cards).toMatchObject({ rows: 0, orders: 0, asins: 0, units: 0, cost: 0, avgUnitCost: null, cancelledRate: 0 });
     expect(e.byAsin).toEqual([]);
+  });
+});
+
+const codes = (f: XrayFinding[]) => f.map((x) => x.code);
+const of = (f: XrayFinding[], code: XrayFinding["code"]) => f.filter((x) => x.code === code);
+
+describe("findXrayIssues", () => {
+  it("PRICE_OUTLIER: medyandan %25 fazla sapan satırı etkisiyle işaretler; 3'ten az satırlı ASIN'de işaretlemez", () => {
+    const mk = (unit: number, qty = 2) => row({ qty, unitCost: unit, totalCost: unit * qty });
+    const f = findXrayIssues([mk(20), mk(20), mk(20), mk(30, 3)]);
+    const hits = of(f, "PRICE_OUTLIER");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({ severity: "high", impactUsd: 30 }); // (30-20) x 3
+    expect(of(findXrayIssues([mk(20), mk(30)]), "PRICE_OUTLIER")).toHaveLength(0);
+  });
+
+  it("PRICE_OUTLIER eşiği ayarlanabilir", () => {
+    const mk = (unit: number) => row({ qty: 1, unitCost: unit, totalCost: unit });
+    const rows = [mk(20), mk(20), mk(20), mk(24)];
+    expect(of(findXrayIssues(rows), "PRICE_OUTLIER")).toHaveLength(0);
+    expect(of(findXrayIssues(rows, { priceDeviationPct: 10 }), "PRICE_OUTLIER")).toHaveLength(1);
+  });
+
+  it("ASIN_DIRTY ham ASIN temizlenince değişiyorsa; ASIN_INVALID biçim bozuksa", () => {
+    const f = findXrayIssues([row({ asinRaw: "\nB00LAK1MGU", asin: "B00LAK1MGU" }), row({ asinRaw: "XYZ", asin: "XYZ" })]);
+    expect(of(f, "ASIN_DIRTY")).toHaveLength(1);
+    expect(of(f, "ASIN_INVALID")).toHaveLength(1);
+    expect(of(f, "ASIN_INVALID")[0].asin).toBe("XYZ");
+  });
+
+  it("MSKU_DIRTY ham MSKU temizlenince değişiyorsa", () => {
+    const f = findXrayIssues([row({ mskuRaw: "\nFCRB00LAK1MGU", msku: "FCRB00LAK1MGU" })]);
+    expect(codes(f)).toContain("MSKU_DIRTY");
+  });
+
+  it("TOTAL_MISMATCH: adet x birim toplamla tutmuyorsa fark etkisiyle; adet 0 ise üretmez", () => {
+    const f = findXrayIssues([row({ qty: 4, unitCost: 10, totalCost: 50 }), row({ qty: 0, unitCost: null, totalCost: 0 })]);
+    const hits = of(f, "TOTAL_MISMATCH");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].impactUsd).toBe(10);
+  });
+
+  it("QTY_OVERFLOW: gönderilen + fire adedi aşarsa", () => {
+    const f = findXrayIssues([row({ qty: 4, shipped: 3, p2: 2 })]);
+    expect(codes(f)).toContain("QTY_OVERFLOW");
+    expect(codes(findXrayIssues([row({ qty: 4, shipped: 3, p2: 1 })]))).not.toContain("QTY_OVERFLOW");
+  });
+
+  it("STATUS_EMPTY, CARD_EMPTY ve CARD_RARE", () => {
+    const f = findXrayIssues([
+      row({ cargoStatus: "" }),
+      row({ card: "" }),
+      row({ card: "4550" }),
+      row({ card: "1753" }),
+      row({ card: "1753" }),
+    ]);
+    expect(of(f, "STATUS_EMPTY")).toHaveLength(1);
+    expect(of(f, "CARD_EMPTY")).toHaveLength(1);
+    expect(of(f, "CARD_RARE")).toHaveLength(1);
+  });
+
+  it("DATE_OUTLIER: en sık yıldan farklı yıl", () => {
+    const old = row({ date: new Date("2025-03-12T00:00:00.000Z") });
+    const f = findXrayIssues([row(), row(), row(), old]);
+    expect(of(f, "DATE_OUTLIER").map((x) => x.rowNo)).toEqual([old.rowNo]);
+  });
+
+  it("LABEL_EMPTY ve LABEL_YEAR_MISMATCH (etiket yılı tarih yılıyla uyuşmuyorsa)", () => {
+    const f = findXrayIssues([row({ label: "" }), row({ label: "T27" }), row({ label: "T26" })]);
+    expect(of(f, "LABEL_EMPTY")).toHaveLength(1);
+    expect(of(f, "LABEL_YEAR_MISMATCH")).toHaveLength(1);
+  });
+
+  it("hiçbir satırda etiket yoksa (Tarih2 kolonu yok) LABEL_EMPTY üretmez", () => {
+    expect(of(findXrayIssues([row({ label: "" }), row({ label: "" })]), "LABEL_EMPTY")).toHaveLength(0);
+  });
+
+  it("DUPLICATE_KEY: aynı order+ASIN tekrar eden her satır için", () => {
+    const f = findXrayIssues([row({ orderNo: "WO9" }), row({ orderNo: "WO9" }), row({ orderNo: "WO8" })]);
+    expect(of(f, "DUPLICATE_KEY")).toHaveLength(2);
+  });
+
+  it("sıralama: büyük dolar etkisi üstte, etkisizler sonda (önem sırasıyla)", () => {
+    const big = row({ qty: 10, unitCost: 10, totalCost: 200 }); // +100
+    const small = row({ qty: 1, unitCost: 10, totalCost: 12 }); // +2
+    const f = findXrayIssues([small, big, row({ cargoStatus: "" })]);
+    expect(f[0].rowNo).toBe(big.rowNo);
+    expect(f[1].rowNo).toBe(small.rowNo);
+    expect(f[f.length - 1].impactUsd).toBeNull();
+  });
+
+  it("iptal satırda PRICE_OUTLIER üretmez", () => {
+    const mk = (unit: number, st = "Tam Geldi") => row({ qty: 1, unitCost: unit, totalCost: unit, cargoStatus: st });
+    expect(of(findXrayIssues([mk(20), mk(20), mk(20), mk(40, "İPTAL")]), "PRICE_OUTLIER")).toHaveLength(0);
+  });
+});
+
+describe("buildXray", () => {
+  it("boş girdi: 9 zorunlu başlık eksik, bulgu yok, kartlar 0", () => {
+    const r = buildXray([]);
+    expect(r.missingHeaders).toHaveLength(9);
+    expect(r.findings).toEqual([]);
+    expect(r.summary.cards.rows).toBe(0);
+    expect(r.scanned).toBe(0);
+  });
+
+  it("ham satırlardan özet ve bulgu üretir", () => {
+    const raw = [
+      { Tarih: 46043, ASIN: "\nB00LAK1MGU", MSKU: "HRN-B00LAK1MGU", Orderno: "WO1", "Ürün adedi": 2, "Ürün birim maliyeti": 10, "Ürün toplam maliyeti": 20, "Kargo durumu": "", "Kredi Kartı": 1753 },
+    ];
+    const r = buildXray(raw);
+    expect(r.missingHeaders).toEqual([]);
+    expect(r.scanned).toBe(1);
+    expect(r.summary.cards.asins).toBe(1);
+    expect(r.findings.map((f) => f.code).sort()).toEqual(["ASIN_DIRTY", "CARD_RARE", "STATUS_EMPTY"]);
   });
 });
