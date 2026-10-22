@@ -279,6 +279,14 @@ export const xraySchema = z.object({
   priceDeviationPct: z.coerce.number().min(1).max(500).optional(),
 });
 
+/** PSH karşılaştırması: tarayıcıda okunan alım (Sat26) ve PSH satırları + isteğe bağlı eşikler. */
+export const pshCompareSchema = z.object({
+  purchaseRows: z.array(z.record(z.string(), z.unknown())).min(1, "Alım dosyasında satır yok").max(20000, "En fazla 20.000 satır"),
+  pshRows: z.array(z.record(z.string(), z.unknown())).min(1, "PSH dosyasında satır yok").max(20000, "En fazla 20.000 satır"),
+  priceTolerancePct: z.coerce.number().min(1).max(500).optional(),
+  pendingWindowDays: z.coerce.number().int().min(0).max(90).optional(),
+});
+
 export const sat26AuditApplySchema = z.object({
   storeCode: shortText(32).default("ALL"),
   /** false/yok = yalnız önizleme (hiçbir şey yazılmaz). true = düzeltmeyi uygula. */
