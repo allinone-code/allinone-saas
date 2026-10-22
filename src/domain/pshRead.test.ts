@@ -68,4 +68,13 @@ describe("readPshRows", () => {
     expect(PSH_HEADERS).toContain("Order Number");
     expect(PSH_HEADERS).toContain("Purchase Date");
   });
+
+  it("durum yazımı farklılıkları bilinen duruma çevrilir; bilinmeyen olduğu gibi kalır", () => {
+    const st = (v: string) => one({ Status: v }).rows[0].status;
+    expect(st(" In Transit ")).toBe("intransit");
+    expect(st("Partially Delivered")).toBe("partially_delivered");
+    expect(st("partially-delivered")).toBe("partially_delivered");
+    expect(st("FULFILLED")).toBe("fulfilled");
+    expect(st("Shipped Out")).toBe("shipped out");
+  });
 });

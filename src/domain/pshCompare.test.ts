@@ -93,12 +93,14 @@ describe("comparePsh: iptal", () => {
     expect(r.findings[0].impactUsd).toBe(20);
   });
 
-  it("alımda iptal ama PSH hâlâ yolda: Bekleniyor'da kalır ve iptal işaretiyle görünür (sessizce atlanmaz)", () => {
+  it("alımda iptal ama PSH hâlâ yolda: Bekleniyor'a gömülmez, kendi bulgusu olur", () => {
     const r = comparePsh([cancelled()], [psh({ qty: 3, received: 0, status: "intransit" })]);
-    expect(r.findings).toEqual([]);
-    expect(r.waitingItems).toHaveLength(1);
-    expect(r.waitingItems[0]).toMatchObject({ kind: "INTRANSIT", missingQty: 3, valueUsd: 30, cancelledInPurchase: true });
-    expect(comparePsh([buy()], [psh({ received: 0, status: "intransit" })]).waitingItems[0].cancelledInPurchase).toBe(false);
+    expect(codes(r.findings)).toEqual(["CANCEL_IN_TRANSIT"]);
+    expect(r.findings[0]).toMatchObject({ severity: "high", impactUsd: 30 });
+    expect(r.waitingItems).toEqual([]);
+    expect(r.waiting.INTRANSIT.keys).toBe(0);
+    expect(r.totals.CANCEL_IN_TRANSIT).toEqual({ count: 1, impactUsd: 30 });
+    expect(comparePsh([buy()], [psh({ received: 0, status: "intransit" })]).waitingItems).toHaveLength(1);
   });
 
   it("iptal alım PSH'ta yoksa sessiz geçilir", () => {
@@ -128,7 +130,9 @@ describe("comparePsh: fiyat ve MSKU", () => {
 
 describe("comparePsh: eşleşmeyenler ve Bekleniyor", () => {
   const anchor = psh({ orderNo: "WO1" }); // en yeni PSH tarihi 2026-06-19 -> sınır 2026-06-05
-  const run = (extra: XrayRow[], pshRows: PshRow[] = [anchor]) => comparePsh([buy(), ...extra], pshRows);
+  const early = psh({ orderNo: "WOE", date: new Date("2026-05-01T00:00:00.000Z") }); // aralık başlangıcı 05-01 -> 04-17'den eski kapsam dışı
+  const run = (extra: XrayRow[], pshRows?: PshRow[]) =>
+    pshRows ? comparePsh([buy(), ...extra], pshRows) : comparePsh([buy(), buy({ orderNo: "WOE" }), ...extra], [anchor, early]);
 
   it("sınırdan sonraki tarih Bekleniyor; sınır günü ve öncesi PSH'ta yok bulgusu (etki adet x birim)", () => {
     const r = run([
@@ -162,6 +166,29 @@ describe("comparePsh: eşleşmeyenler ve Bekleniyor", () => {
     const r = comparePsh([buy({ orderNo: "WO110085599" })], [psh({ orderNo: "W0110085599" })]);
     expect(codes(r.findings)).toEqual(["TYPO_SUSPECT"]);
     expect(r.cards.matched).toBe(0);
+  });
+});
+
+describe("comparePsh: kapsam ve durum", () => {
+  it("PSH tarih aralığından (başlangıç − pencere) eski alım satırı PSH'ta yok sayılmaz, kapsam dışı sayılır", () => {
+    const dated = (d: string, extra: Partial<PshRow> = {}) => psh({ date: new Date(d), ...extra });
+    const pshRows = [dated("2026-06-01T00:00:00.000Z", { orderNo: "WO1" }), dated("2026-06-19T00:00:00.000Z", { orderNo: "WO1", asin: "B00LAK1MGU" })];
+    const r = comparePsh(
+      [buy(), buy({ orderNo: "WO2", date: new Date("2026-03-10T00:00:00.000Z") }), buy({ orderNo: "WO3", date: new Date("2026-05-18T00:00:00.000Z") })],
+      pshRows,
+    );
+    // başlangıç 06-01 − 14 gün = 05-18: tam sınır içeridedir, bulgu olur; 03-10 kapsam dışıdır
+    expect(of(r.findings, "NOT_IN_PSH").map((f) => f.orderNo)).toEqual(["WO3"]);
+    expect(r.cards.outOfRange).toBe(1);
+  });
+
+  it("bilinmeyen veya boş PSH durumu STATUS_UNKNOWN olur (sessizce kaybolmaz); iptal alımda üretilmez", () => {
+    for (const status of ["", "cancelled", "weird"]) {
+      const r = comparePsh([buy()], [psh({ status })]);
+      expect(of(r.findings, "STATUS_UNKNOWN")).toHaveLength(1);
+    }
+    expect(of(comparePsh([buy({ cargoStatus: "İPTAL" })], [psh({ status: "" })]).findings, "STATUS_UNKNOWN")).toHaveLength(0);
+    expect(of(comparePsh([buy()], [psh()]).findings, "STATUS_UNKNOWN")).toHaveLength(0);
   });
 });
 

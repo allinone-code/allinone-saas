@@ -49,6 +49,19 @@ function money(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+const KNOWN_STATUS: Record<string, string> = {
+  fulfilled: "fulfilled",
+  delivered: "delivered",
+  intransit: "intransit",
+  partiallydelivered: "partially_delivered",
+};
+
+/** "In Transit", "partially-delivered" gibi yazım farklarını bilinen duruma çevirir; bilinmeyen olduğu gibi (küçük harf) kalır. */
+function normalizeStatus(v: unknown): string {
+  const lower = String(v ?? "").trim().toLowerCase();
+  return KNOWN_STATUS[lower.replace(/[\s_-]+/g, "")] ?? lower;
+}
+
 function parsePshDate(v: unknown): Date | null {
   const m = typeof v === "string" ? /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/.exec(v) : null;
   if (!m) return parseSheetDate(v);
@@ -90,7 +103,7 @@ export function readPshRows(raw: Record<string, unknown>[]): { rows: PshRow[]; m
       received: money(r[kRec]),
       damaged: money(r[kDmg]),
       shipped: kShipped ? money(r[kShipped]) : 0,
-      status: String(r[kStatus] ?? "").trim().toLowerCase(),
+      status: normalizeStatus(r[kStatus]),
       cost: money(r[kCost]),
       date: parsePshDate(r[kDate]),
       supplier: kSupplier ? String(r[kSupplier] ?? "").trim() : "",

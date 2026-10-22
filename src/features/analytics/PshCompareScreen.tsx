@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle, FileSpreadsheet, GitCompareArrows, Loader2 } from "lucide-react";
 import type { PshCompareResult, PshFindingCode, WaitingKind } from "@/domain/pshCompare";
 import { XRAY_HEADERS } from "@/domain/sat26XrayRead";
@@ -22,9 +22,11 @@ const CODE_LABEL: Record<PshFindingCode, string> = {
   NOT_IN_PURCHASE: "Alımda yok",
   TYPO_SUSPECT: "Olası yazım hatası",
   DUPLICATE_KEY: "Tekrar eden anahtar",
+  CANCEL_IN_TRANSIT: "Alımda iptal, PSH yolda",
+  STATUS_UNKNOWN: "PSH durumu tanınmadı",
 };
 const MUTED_LABEL: Partial<Record<PshFindingCode, string>> = { PRICE_DIFF: "küçük fark", MSKU_DIFF: "önek farkı" };
-const SUMMARY_CODES: PshFindingCode[] = ["MISSING_DELIVERY", "DAMAGED", "QTY_DIFF", "PRICE_DIFF", "CANCEL_CONFLICT", "NOT_IN_PSH", "NOT_IN_PURCHASE"];
+const SUMMARY_CODES: PshFindingCode[] = ["MISSING_DELIVERY", "DAMAGED", "QTY_DIFF", "PRICE_DIFF", "CANCEL_CONFLICT", "CANCEL_IN_TRANSIT", "NOT_IN_PSH", "NOT_IN_PURCHASE"];
 const WAITING_LABEL: Record<WaitingKind, string> = { INTRANSIT: "Yolda", PARTIAL: "Kısmi teslim", NOT_YET_IN_PSH: "PSH'a henüz girmemiş" };
 const SEVERITY_TONE = {
   high: "text-danger border-danger/30 bg-danger/10",
@@ -98,12 +100,15 @@ export function PshCompareScreen() {
   const [filter, setFilter] = useState<PshFindingCode | null>(null);
 
   // Girdi değişince eski sonuç ekranda kalmasın.
-  const reset = () => { setResult(null); setError(null); setFilter(null); };
+  // Yanıt gelmeden girdi değişirse eski yanıt yeni dosya adlarının yanında görünmesin.
+  const runId = useRef(0);
+  const reset = () => { runId.current++; setRunning(false); setResult(null); setError(null); setFilter(null); };
 
   async function run() {
     if (!buy || !psh) return;
-    setRunning(true);
     reset();
+    const id = runId.current;
+    setRunning(true);
     try {
       const [purchaseRows, pshRows] = await Promise.all([sheetRows(buy), sheetRows(psh)]);
       const res = await fetch("/api/reconciliation/psh-compare", {
@@ -119,11 +124,11 @@ export function PshCompareScreen() {
       if (res.status === 413) throw new Error("Dosyalar çok büyük (istek sınırı 2 MB). Satır sayısını azaltın.");
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Karşılaştırma başarısız");
-      setResult(j as Result);
+      if (id === runId.current) setResult(j as Result);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (id === runId.current) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setRunning(false);
+      if (id === runId.current) setRunning(false);
     }
   }
 
@@ -187,6 +192,7 @@ export function PshCompareScreen() {
             {[
               ["Eşleşen order+ASIN", n(result.cards.matched), `${n(result.cards.purchaseKeys)} alım · ${n(result.cards.pshKeys)} PSH`],
               ["PSH en yeni tarih", day(result.cards.pshNewestDate), `Bekleme sınırı: ${day(result.cards.cutoffDate)}`],
+              ["Kapsam dışı alım", n(result.cards.outOfRange), "PSH tarih aralığından eski, karşılaştırılamadı"],
               ...SUMMARY_CODES.map((c): [string, string, string] => [CODE_LABEL[c], n(result.totals[c].count), usd(result.totals[c].impactUsd)]),
             ].map(([label, value, sub]) => (
               <div key={label} className="rounded-xl border border-line bg-surface-1 p-3">
@@ -264,7 +270,7 @@ export function PshCompareScreen() {
                   <tbody>
                     {result.waitingItems.slice(0, SHOWN).map((w, i) => (
                       <tr key={`${w.kind}-${w.orderNo}-${w.asin}-${i}`} className="border-b border-line/50 tabular">
-                        <td className="px-3 py-1.5 font-bold">{WAITING_LABEL[w.kind]}{w.cancelledInPurchase && <span className="ml-1 font-normal text-caution">(alımda iptal!)</span>}</td>
+                        <td className="px-3 py-1.5 font-bold">{WAITING_LABEL[w.kind]}</td>
                         <td className="px-3 py-1.5 font-mono-tech">{w.orderNo}</td>
                         <td className="px-3 py-1.5 font-mono-tech">{w.asin}</td>
                         <td className="px-3 py-1.5">{n(w.missingQty)} / {n(w.qty)}</td>

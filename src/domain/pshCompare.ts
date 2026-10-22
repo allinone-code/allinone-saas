@@ -20,7 +20,9 @@ export type PshFindingCode =
   | "NOT_IN_PSH"
   | "NOT_IN_PURCHASE"
   | "TYPO_SUSPECT"
-  | "DUPLICATE_KEY";
+  | "DUPLICATE_KEY"
+  | "CANCEL_IN_TRANSIT"
+  | "STATUS_UNKNOWN";
 
 export interface PshFinding {
   code: PshFindingCode;
@@ -48,8 +50,6 @@ export interface WaitingItem {
   /** missingQty × alım birim maliyeti (yoksa PSH maliyeti). */
   valueUsd: number;
   purchaseDate: Date | null;
-  /** Alımda İPTAL ama PSH hâlâ yolda/kısmi teslim gösteriyor: gelirse sorun olur, bu yüzden atlanmaz. */
-  cancelledInPurchase: boolean;
   purchaseRows: number[];
   pshRows: number[];
 }
@@ -67,6 +67,8 @@ export interface PshCompareResult {
     pshKeys: number;
     matched: number;
     cancelledSkipped: number;
+    /** Alım tarihi PSH dosyasının kapsadığı aralığın (başlangıç − pencere) öncesinde: karşılaştırılamaz, bulgu değil. */
+    outOfRange: number;
     pshNewestDate: Date | null;
     cutoffDate: Date | null;
   };
@@ -79,9 +81,11 @@ export interface PshCompareResult {
 
 const DAY_MS = 86_400_000;
 const FINAL_STATUSES = new Set(["fulfilled", "delivered"]);
+const KNOWN_STATUSES = new Set(["fulfilled", "delivered", "intransit", "partially_delivered"]);
 const ALL_CODES: PshFindingCode[] = [
   "MISSING_DELIVERY", "DAMAGED", "QTY_DIFF", "CANCEL_CONFLICT", "PRICE_DIFF",
   "MSKU_DIFF", "NOT_IN_PSH", "NOT_IN_PURCHASE", "TYPO_SUSPECT", "DUPLICATE_KEY",
+  "CANCEL_IN_TRANSIT", "STATUS_UNKNOWN",
 ];
 const SEVERITY_RANK = { high: 0, medium: 1, low: 2 } as const;
 
@@ -167,12 +171,15 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
   const S = groupPsh(psh);
 
   const pshNewestDate = newest(psh.map((r) => r.date));
+  const pshOldestDate = psh.reduce<Date | null>((a, r) => (r.date && (!a || r.date < a) ? r.date : a), null);
+  const rangeStart = pshOldestDate ? new Date(pshOldestDate.getTime() - windowDays * DAY_MS) : null;
   const cutoffDate = pshNewestDate ? new Date(pshNewestDate.getTime() - windowDays * DAY_MS) : null;
 
   const findings: PshFinding[] = [];
   const waitingItems: WaitingItem[] = [];
   let matched = 0;
   let cancelledSkipped = 0;
+  let outOfRange = 0;
 
   const add = (f: Omit<PshFinding, "muted"> & { muted?: boolean }) => findings.push({ muted: false, ...f });
 
@@ -214,10 +221,22 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
       add({ ...ids, code: "MSKU_DIFF", severity: prefixOnly ? "low" : "medium", muted: prefixOnly, impactUsd: null,
         message: `MSKU alımda ${b.msku}, PSH'ta ${s.msku}` });
     }
+    if (!b.cancelledAll && !KNOWN_STATUSES.has(s.status)) {
+      add({ ...ids, code: "STATUS_UNKNOWN", severity: "medium", impactUsd: null,
+        message: `PSH durumu tanınmadı: "${s.status || "boş"}"; eksik/bekleyen kontrolü yapılamadı` });
+    }
     if (s.status === "intransit" || s.status === "partially_delivered") {
       const missingQty = Math.max(0, missing);
-      waitingItems.push({ kind: s.status === "intransit" ? "INTRANSIT" : "PARTIAL", orderNo: b.orderNo, asin: b.asin, qty: s.qty,
-        missingQty, valueUsd: round2(missingQty * unit), purchaseDate: b.date, cancelledInPurchase: b.cancelledAll, purchaseRows: b.rows, pshRows: s.rows });
+      if (b.cancelledAll) {
+        // Alımda iptal ama PSH hâlâ yolda: gelirse stok/ödeme sorunu olur; Bekleniyor'a gömülmez.
+        if (missingQty > 0) {
+          add({ ...ids, code: "CANCEL_IN_TRANSIT", severity: "high", impactUsd: round2(missingQty * (b.cancelUnit ?? s.cost)),
+            message: `Alımda İPTAL ama PSH ${s.status === "intransit" ? "yolda" : "kısmi teslim"} gösteriyor (${missingQty} adet bekleniyor)` });
+        }
+      } else {
+        waitingItems.push({ kind: s.status === "intransit" ? "INTRANSIT" : "PARTIAL", orderNo: b.orderNo, asin: b.asin, qty: s.qty,
+          missingQty, valueUsd: round2(missingQty * unit), purchaseDate: b.date, purchaseRows: b.rows, pshRows: s.rows });
+      }
     }
   }
 
@@ -247,12 +266,16 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
 
   for (const [k, b] of unmatchedBuy) {
     if (typoOfBuy.has(k)) continue;
+    if (rangeStart && b.date && b.date < rangeStart) {
+      outOfRange++;
+      continue;
+    }
     if (cutoffDate && b.date && b.date > cutoffDate) {
       waitingItems.push({ kind: "NOT_YET_IN_PSH", orderNo: b.orderNo, asin: b.asin, qty: b.qty, missingQty: b.qty,
-        valueUsd: round2(b.total), purchaseDate: b.date, cancelledInPurchase: false, purchaseRows: b.rows, pshRows: [] });
+        valueUsd: round2(b.total), purchaseDate: b.date, purchaseRows: b.rows, pshRows: [] });
     } else {
       add({ code: "NOT_IN_PSH", severity: "high", orderNo: b.orderNo, asin: b.asin, impactUsd: round2(b.total), purchaseRows: b.rows, pshRows: [],
-        message: b.date ? "PSH'ta yok (alım tarihi bekleme sınırından önce)" : "PSH'ta yok (alım tarihi yok, bekleniyor mu belli değil)" });
+        message: b.date && cutoffDate ? "PSH'ta yok (alım tarihi bekleme sınırından önce)" : b.date ? "PSH'ta yok (PSH dosyasında tarih yok, bekleme sınırı hesaplanamadı)" : "PSH'ta yok (alım tarihi yok, bekleniyor mu belli değil)" });
     }
   }
   for (const [k, s] of unmatchedPsh) {
@@ -286,7 +309,7 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
   }
 
   return {
-    cards: { purchaseKeys: B.size, pshKeys: S.size, matched, cancelledSkipped, pshNewestDate, cutoffDate },
+    cards: { purchaseKeys: B.size, pshKeys: S.size, matched, cancelledSkipped, outOfRange, pshNewestDate, cutoffDate },
     totals,
     waiting,
     findings,
