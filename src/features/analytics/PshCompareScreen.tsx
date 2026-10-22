@@ -264,7 +264,7 @@ export function PshCompareScreen() {
                   <tbody>
                     {result.waitingItems.slice(0, SHOWN).map((w, i) => (
                       <tr key={`${w.kind}-${w.orderNo}-${w.asin}-${i}`} className="border-b border-line/50 tabular">
-                        <td className="px-3 py-1.5 font-bold">{WAITING_LABEL[w.kind]}</td>
+                        <td className="px-3 py-1.5 font-bold">{WAITING_LABEL[w.kind]}{w.cancelledInPurchase && <span className="ml-1 font-normal text-caution">(alımda iptal!)</span>}</td>
                         <td className="px-3 py-1.5 font-mono-tech">{w.orderNo}</td>
                         <td className="px-3 py-1.5 font-mono-tech">{w.asin}</td>
                         <td className="px-3 py-1.5">{n(w.missingQty)} / {n(w.qty)}</td>

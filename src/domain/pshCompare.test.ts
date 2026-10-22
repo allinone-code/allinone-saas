@@ -93,6 +93,14 @@ describe("comparePsh: iptal", () => {
     expect(r.findings[0].impactUsd).toBe(20);
   });
 
+  it("alımda iptal ama PSH hâlâ yolda: Bekleniyor'da kalır ve iptal işaretiyle görünür (sessizce atlanmaz)", () => {
+    const r = comparePsh([cancelled()], [psh({ qty: 3, received: 0, status: "intransit" })]);
+    expect(r.findings).toEqual([]);
+    expect(r.waitingItems).toHaveLength(1);
+    expect(r.waitingItems[0]).toMatchObject({ kind: "INTRANSIT", missingQty: 3, valueUsd: 30, cancelledInPurchase: true });
+    expect(comparePsh([buy()], [psh({ received: 0, status: "intransit" })]).waitingItems[0].cancelledInPurchase).toBe(false);
+  });
+
   it("iptal alım PSH'ta yoksa sessiz geçilir", () => {
     const r = comparePsh([cancelled()], [psh({ orderNo: "WO9" })]);
     expect(of(r.findings, "NOT_IN_PSH")).toHaveLength(0);

@@ -48,6 +48,8 @@ export interface WaitingItem {
   /** missingQty × alım birim maliyeti (yoksa PSH maliyeti). */
   valueUsd: number;
   purchaseDate: Date | null;
+  /** Alımda İPTAL ama PSH hâlâ yolda/kısmi teslim gösteriyor: gelirse sorun olur, bu yüzden atlanmaz. */
+  cancelledInPurchase: boolean;
   purchaseRows: number[];
   pshRows: number[];
 }
@@ -212,10 +214,10 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
       add({ ...ids, code: "MSKU_DIFF", severity: prefixOnly ? "low" : "medium", muted: prefixOnly, impactUsd: null,
         message: `MSKU alımda ${b.msku}, PSH'ta ${s.msku}` });
     }
-    if (!b.cancelledAll && (s.status === "intransit" || s.status === "partially_delivered")) {
+    if (s.status === "intransit" || s.status === "partially_delivered") {
       const missingQty = Math.max(0, missing);
       waitingItems.push({ kind: s.status === "intransit" ? "INTRANSIT" : "PARTIAL", orderNo: b.orderNo, asin: b.asin, qty: s.qty,
-        missingQty, valueUsd: round2(missingQty * unit), purchaseDate: b.date, purchaseRows: b.rows, pshRows: s.rows });
+        missingQty, valueUsd: round2(missingQty * unit), purchaseDate: b.date, cancelledInPurchase: b.cancelledAll, purchaseRows: b.rows, pshRows: s.rows });
     }
   }
 
@@ -247,7 +249,7 @@ export function comparePsh(purchase: XrayRow[], psh: PshRow[], opts: PshCompareO
     if (typoOfBuy.has(k)) continue;
     if (cutoffDate && b.date && b.date > cutoffDate) {
       waitingItems.push({ kind: "NOT_YET_IN_PSH", orderNo: b.orderNo, asin: b.asin, qty: b.qty, missingQty: b.qty,
-        valueUsd: round2(b.total), purchaseDate: b.date, purchaseRows: b.rows, pshRows: [] });
+        valueUsd: round2(b.total), purchaseDate: b.date, cancelledInPurchase: false, purchaseRows: b.rows, pshRows: [] });
     } else {
       add({ code: "NOT_IN_PSH", severity: "high", orderNo: b.orderNo, asin: b.asin, impactUsd: round2(b.total), purchaseRows: b.rows, pshRows: [],
         message: b.date ? "PSH'ta yok (alım tarihi bekleme sınırından önce)" : "PSH'ta yok (alım tarihi yok, bekleniyor mu belli değil)" });
